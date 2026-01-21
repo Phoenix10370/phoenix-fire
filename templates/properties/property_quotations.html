@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{% block content %}
+
+{% include "properties/property_tabs_header.html" %}
+
+<div class="card shadow-sm">
+  <div class="card-header fw-semibold">Quotations</div>
+  <div class="card-body">
+
+    {% if quotations %}
+      <div class="list-group">
+        {% for q in quotations %}
+          <a class="list-group-item list-group-item-action d-flex justify-content-between align-items-center"
+             href="{% url 'quotations:detail' q.pk %}">
+            <span>
+              {% if q.reference %}{{ q.reference }}{% else %}Quotation #{{ q.pk }}{% endif %}
+            </span>
+            <span class="badge bg-secondary">Open</span>
+          </a>
+        {% endfor %}
+      </div>
+    {% else %}
+      <p class="text-muted mb-0">No quotations for this property.</p>
+    {% endif %}
+
+  </div>
+</div>
+{% endblock %}

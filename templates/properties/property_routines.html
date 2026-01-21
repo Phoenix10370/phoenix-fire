@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{% block content %}
+
+{% include "properties/property_tabs_header.html" %}
+
+<div class="card shadow-sm">
+  <div class="card-header fw-semibold">Routines</div>
+  <div class="card-body">
+
+    {% if routines %}
+      <div class="list-group">
+        {% for r in routines %}
+          <a class="list-group-item list-group-item-action d-flex justify-content-between align-items-center"
+             href="{% url 'routines:detail' r.pk %}">
+            <span>
+              {% if r.name %}{{ r.name }}{% else %}Routine #{{ r.pk }}{% endif %}
+            </span>
+            <span class="badge bg-secondary">Open</span>
+          </a>
+        {% endfor %}
+      </div>
+    {% else %}
+      <p class="text-muted mb-0">No routines for this property.</p>
+    {% endif %}
+
+  </div>
+</div>
+{% endblock %}
