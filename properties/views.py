@@ -63,7 +63,7 @@ class PropertyQuotationsView(DetailView):
         # Prefer property_id filtering (safe + fast)
         try:
             context["quotations"] = (
-                Quotation.objects.filter(property_id=self.object.pk).order_by("-id")
+                Quotation.objects.filter(site_id=self.object.pk).order_by("-id")
             )
         except Exception:
             # If FK isn't named "property", avoid crashing
