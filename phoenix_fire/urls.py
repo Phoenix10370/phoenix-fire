@@ -32,8 +32,8 @@ urlpatterns = [
     path("email-templates/", include("email_templates.urls")),
 ]
 
-# Serve uploaded media:
-# - locally (DEBUG)
-# - on Render (RENDER=true) using persistent disk
-if settings.DEBUG or os.environ.get("RENDER", "").lower() == "true":
+from pathlib import Path
+
+# Serve uploaded media locally OR when Render disk exists
+if settings.DEBUG or Path("/var/data").exists():
     urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
