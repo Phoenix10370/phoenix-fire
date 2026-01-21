@@ -6,12 +6,11 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 SECRET_KEY = os.environ.get("SECRET_KEY", "dev-only")
 DEBUG = True
 
-ALLOWED_HOSTS = [
-    "phoenix-fire-1.onrender.com",
-    "192.168.50.91",
-    "localhost",
-    "127.0.0.1",
-]
+ALLOWED_HOSTS = os.environ.get(
+    "ALLOWED_HOSTS",
+    "127.0.0.1,localhost,192.168.50.91"
+).split(",")
+
 
 
 LOGIN_URL = "/admin/login/"
