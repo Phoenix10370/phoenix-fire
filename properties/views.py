@@ -14,7 +14,7 @@ from .forms import PropertyForm
 # These imports assume your models are named like this.
 # If your model names differ, tell me and I'll adjust.
 from quotations.models import Quotation
-from routines.models import Routine
+from routines.models import ServiceRoutine
 
 
 class PropertyListView(ListView):
@@ -72,7 +72,7 @@ class PropertyRoutinesView(DetailView):
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         context["tab"] = "routines"
-        context["routines"] = Routine.objects.filter(property=self.object).order_by("-id")
+        context["routines"] = ServiceRoutine.objects.filter(site=self.object).order_by("-id")
         return context
 
 
