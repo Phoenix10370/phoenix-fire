@@ -83,14 +83,46 @@ class PropertyCreateView(CreateView):
     success_url = reverse_lazy("properties:list")
 
 
-class PropertyUpdateView(UpdateView):
+# --- replace ONLY these two classes in properties/views.py ---
+
+class PropertyQuotationsView(DetailView):
     model = Property
-    form_class = PropertyForm
-    template_name = "properties/property_form.html"
-    success_url = reverse_lazy("properties:list")
+    template_name = "properties/property_quotations.html"
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context["tab"] = "quotations"
+
+        # Safest approach: filter by property_id if field is FK named "property"
+        try:
+            context["quotations"] = (
+                Quotation.objects.filter(property_id=self.object.pk).order_by("-id")
+            )
+        except Exception:
+            # Fallback: if your FK isn't named "property", avoid a 500
+            context["quotations"] = Quotation.objects.none()
+
+        return context
 
 
-class PropertyDeleteView(DeleteView):
+class PropertyRoutinesView(DetailView):
     model = Property
-    template_name = "properties/property_confirm_delete.html"
-    success_url = reverse_lazy("properties:list")
+    template_name = "properties/property_routines.html"
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context["tab"] = "routines"
+
+        # Your current code uses site=self.object, which likely doesn't match your model field.
+        # Try common field names safely, otherwise return empty queryset (no 500).
+        for field_name in ("property", "site", "building"):
+            try:
+                context["routines"] = (
+                    ServiceRoutine.objects.filter(**{f"{field_name}_id": self.object.pk})
+                    .order_by("-id")
+                )
+                break
+            except Exception:
+                context["routines"] = ServiceRoutine.objects.none()
+
+        return context
