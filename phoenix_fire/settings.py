@@ -110,16 +110,15 @@ STORAGES = {
 MEDIA_URL = "/media/"
 
 from pathlib import Path
-import os
 
 MEDIA_URL = "/media/"
 
-# If /var/data exists (Render disk mount), always use it.
-# Works even if you didn't set RENDER=true.
+# Use Render persistent disk automatically if present
 if Path("/var/data").exists():
     MEDIA_ROOT = Path("/var/data/media")
 else:
     MEDIA_ROOT = BASE_DIR / "media"
+
 
 
 # -----------------------------------------------------------------------------
