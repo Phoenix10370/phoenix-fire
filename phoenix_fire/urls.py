@@ -2,7 +2,6 @@ from django.contrib import admin
 from django.urls import path, include
 from django.conf import settings
 from django.conf.urls.static import static
-from pathlib import Path
 
 from .views import dashboard
 
@@ -26,6 +25,5 @@ urlpatterns = [
     path("email-templates/", include("email_templates.urls")),
 ]
 
-# 🔴 THIS IS THE CRITICAL PART 🔴
-# Serve media on Render AND locally
+# ✅ IMPORTANT: Render needs Django to serve /media/ unless using S3/Cloudinary
 urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
