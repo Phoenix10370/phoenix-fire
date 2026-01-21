@@ -8,8 +8,9 @@ DEBUG = True
 
 ALLOWED_HOSTS = os.environ.get(
     "ALLOWED_HOSTS",
-    "127.0.0.1,localhost,192.168.50.91"
+    "127.0.0.1,localhost,192.168.50.91,phoenix-fire-1.onrender.com"
 ).split(",")
+ALLOWED_HOSTS = [h.strip() for h in ALLOWED_HOSTS if h.strip()]
 
 
 
