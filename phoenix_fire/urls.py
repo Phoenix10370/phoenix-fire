@@ -25,5 +25,8 @@ urlpatterns = [
     path("email-templates/", include("email_templates.urls")),
 ]
 
-# ✅ IMPORTANT: Render needs Django to serve /media/ unless using S3/Cloudinary
-urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
+# 🔥 FORCE media serving (Render + gunicorn need this)
+urlpatterns = urlpatterns + static(
+    settings.MEDIA_URL,
+    document_root=settings.MEDIA_ROOT
+)
