@@ -11,6 +11,9 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 SECRET_KEY = os.environ.get("SECRET_KEY", "dev-only")
 DEBUG = os.environ.get("DEBUG", "1") == "1"
 
+# Render: set env var RENDER=true
+IS_RENDER = os.environ.get("RENDER", "").lower() == "true"
+
 ALLOWED_HOSTS = os.environ.get(
     "ALLOWED_HOSTS",
     "127.0.0.1,localhost,192.168.50.91,phoenix-fire-1.onrender.com"
@@ -20,26 +23,24 @@ ALLOWED_HOSTS = [h.strip() for h in ALLOWED_HOSTS if h.strip()]
 LOGIN_URL = "/admin/login/"
 
 # -----------------------------------------------------------------------------
-# Static
+# Applications
 # -----------------------------------------------------------------------------
-STATIC_URL = "/static/"
-STATIC_ROOT = BASE_DIR / "staticfiles"
+INSTALLED_APPS = [
+    "django.contrib.admin",
+    "django.contrib.auth",
+    "django.contrib.contenttypes",
+    "django.contrib.sessions",
+    "django.contrib.messages",
+    "django.contrib.staticfiles",
+    "codes",
+    "customers",
+    "properties",
+    "quotations",
+    "company",
+    "email_templates",
+    "routines",
+]
 
-# -----------------------------------------------------------------------------
-# Media (uploads)
-# -----------------------------------------------------------------------------
-MEDIA_URL = "/media/"
-
-# Render persistent disk mount path: /var/data
-# Set env var on Render: RENDER=true
-if os.environ.get("RENDER", "").lower() == "true":
-    MEDIA_ROOT = Path("/var/data/media")
-else:
-    MEDIA_ROOT = BASE_DIR / "media"
-
-# -----------------------------------------------------------------------------
-# Middleware / Templates
-# -----------------------------------------------------------------------------
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
     "whitenoise.middleware.WhiteNoiseMiddleware",
@@ -69,12 +70,17 @@ TEMPLATES = [
     },
 ]
 
+# Add your company context processor
+TEMPLATES[0]["OPTIONS"]["context_processors"] += [
+    "company.context_processors.client_profile",
+]
+
 WSGI_APPLICATION = "phoenix_fire.wsgi.application"
 
 # -----------------------------------------------------------------------------
 # Database
 # -----------------------------------------------------------------------------
-# Render provides DATABASE_URL. Locally you fall back to SQLite.
+# Render provides DATABASE_URL. Locally falls back to SQLite.
 DATABASES = {
     "default": dj_database_url.config(
         default=f"sqlite:///{BASE_DIR / 'db.sqlite3'}",
@@ -83,28 +89,38 @@ DATABASES = {
 }
 
 # -----------------------------------------------------------------------------
-# Apps
+# Static files
 # -----------------------------------------------------------------------------
-INSTALLED_APPS = [
-    "django.contrib.admin",
-    "django.contrib.auth",
-    "django.contrib.contenttypes",
-    "django.contrib.sessions",
-    "django.contrib.messages",
-    "django.contrib.staticfiles",
-    "codes",
-    "customers",
-    "properties",
-    "quotations",
-    "company",
-    "email_templates",
-    "routines",
-]
+STATIC_URL = "/static/"
+STATIC_ROOT = BASE_DIR / "staticfiles"
 
-# Add your company context processor
-TEMPLATES[0]["OPTIONS"]["context_processors"] += [
-    "company.context_processors.client_profile",
-]
+# Optional: WhiteNoise compressed storage
+STORAGES = {
+    "staticfiles": {
+        "BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage",
+    }
+}
+
+# -----------------------------------------------------------------------------
+# Media (uploads)
+# -----------------------------------------------------------------------------
+MEDIA_URL = "/media/"
+
+# Render persistent disk mount path: /var/data
+# On Render, add disk mounted at /var/data and set env var RENDER=true
+if IS_RENDER:
+    MEDIA_ROOT = Path("/var/data/media")
+else:
+    MEDIA_ROOT = BASE_DIR / "media"
+
+# -----------------------------------------------------------------------------
+# Security tweaks for production
+# -----------------------------------------------------------------------------
+if IS_RENDER and not DEBUG:
+    SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
+    SECURE_SSL_REDIRECT = True
+    SESSION_COOKIE_SECURE = True
+    CSRF_COOKIE_SECURE = True
 
 # -----------------------------------------------------------------------------
 # Email / Microsoft Graph
