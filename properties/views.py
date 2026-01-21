@@ -59,16 +59,7 @@ class PropertyQuotationsView(DetailView):
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         context["tab"] = "quotations"
-
-        # Prefer property_id filtering (safe + fast)
-        try:
-            context["quotations"] = (
-                Quotation.objects.filter(site_id=self.object.pk).order_by("-id")
-            )
-        except Exception:
-            # If FK isn't named "property", avoid crashing
-            context["quotations"] = Quotation.objects.none()
-
+        context["quotations"] = Quotation.objects.filter(site_id=self.object.pk).order_by("-id")
         return context
 
 
@@ -79,20 +70,9 @@ class PropertyRoutinesView(DetailView):
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         context["tab"] = "routines"
-
-        # Try common FK names safely; never crash into a 500
-        routines_qs = ServiceRoutine.objects.none()
-        for field_name in ("property", "site", "building"):
-            try:
-                routines_qs = ServiceRoutine.objects.filter(
-                    **{f"{field_name}_id": self.object.pk}
-                ).order_by("-id")
-                break
-            except Exception:
-                continue
-
-        context["routines"] = routines_qs
+        context["routines"] = ServiceRoutine.objects.filter(site_id=self.object.pk).order_by("-id")
         return context
+
 
 
 class PropertyCreateView(CreateView):
