@@ -18,8 +18,8 @@ urlpatterns = [
     # Root path: serve dashboard (200 OK)
     path("", healthcheck, name="home"),
 
-    # Keep your existing dashboard routes
-    path("dashboard/", dashboard, name="dashboard_alt"),
+    path("", dashboard, name="dashboard"),
+    path("dashboard/", dashboard, name="dashboard"),
 
     path("codes/", include("codes.urls")),
     path("customers/", include("customers.urls")),
