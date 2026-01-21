@@ -1,15 +1,12 @@
-import os
-
 from django.contrib import admin
 from django.urls import path, include
 from django.conf import settings
 from django.conf.urls.static import static
+from pathlib import Path
 
 from .views import dashboard
 
 
-# Render health checks often hit "/" with a non-browser user agent.
-# Always return 200 OK by serving the dashboard.
 def healthcheck(request):
     return dashboard(request)
 
@@ -17,10 +14,7 @@ def healthcheck(request):
 urlpatterns = [
     path("admin/", admin.site.urls),
 
-    # Root path (healthcheck + homepage)
     path("", healthcheck, name="dashboard"),
-
-    # Explicit dashboard URL
     path("dashboard/", dashboard, name="dashboard"),
 
     path("codes/", include("codes.urls")),
@@ -32,8 +26,6 @@ urlpatterns = [
     path("email-templates/", include("email_templates.urls")),
 ]
 
-from pathlib import Path
-
-# Serve uploaded media locally OR when Render disk exists
-if settings.DEBUG or Path("/var/data").exists():
-    urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
+# 🔴 THIS IS THE CRITICAL PART 🔴
+# Serve media on Render AND locally
+urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

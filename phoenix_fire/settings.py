@@ -5,26 +5,28 @@ import dj_database_url
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-# -----------------------------------------------------------------------------
+# =============================================================================
 # Core
-# -----------------------------------------------------------------------------
+# =============================================================================
 SECRET_KEY = os.environ.get("SECRET_KEY", "dev-only")
+
+# Local default = DEBUG on, Render default = DEBUG off (unless you set DEBUG=1)
 DEBUG = os.environ.get("DEBUG", "1") == "1"
 
-# Render: set env var RENDER=true
-IS_RENDER = os.environ.get("RENDER", "").lower() == "true"
+# Render sets RENDER="true" automatically in many setups, but we also detect disk
+IS_RENDER = os.environ.get("RENDER", "").lower() == "true" or Path("/var/data").exists()
 
 ALLOWED_HOSTS = os.environ.get(
     "ALLOWED_HOSTS",
-    "127.0.0.1,localhost,192.168.50.91,phoenix-fire-1.onrender.com"
+    "127.0.0.1,localhost,192.168.50.91,phoenix-fire-1.onrender.com",
 ).split(",")
 ALLOWED_HOSTS = [h.strip() for h in ALLOWED_HOSTS if h.strip()]
 
 LOGIN_URL = "/admin/login/"
 
-# -----------------------------------------------------------------------------
+# =============================================================================
 # Applications
-# -----------------------------------------------------------------------------
+# =============================================================================
 INSTALLED_APPS = [
     "django.contrib.admin",
     "django.contrib.auth",
@@ -32,6 +34,7 @@ INSTALLED_APPS = [
     "django.contrib.sessions",
     "django.contrib.messages",
     "django.contrib.staticfiles",
+    # project apps
     "codes",
     "customers",
     "properties",
@@ -65,21 +68,18 @@ TEMPLATES = [
                 "django.template.context_processors.request",
                 "django.contrib.auth.context_processors.auth",
                 "django.contrib.messages.context_processors.messages",
+                # your company context processor
+                "company.context_processors.client_profile",
             ],
         },
     },
 ]
 
-# Add your company context processor
-TEMPLATES[0]["OPTIONS"]["context_processors"] += [
-    "company.context_processors.client_profile",
-]
-
 WSGI_APPLICATION = "phoenix_fire.wsgi.application"
 
-# -----------------------------------------------------------------------------
+# =============================================================================
 # Database
-# -----------------------------------------------------------------------------
+# =============================================================================
 # Render provides DATABASE_URL. Locally falls back to SQLite.
 DATABASES = {
     "default": dj_database_url.config(
@@ -88,29 +88,15 @@ DATABASES = {
     )
 }
 
-# -----------------------------------------------------------------------------
+# =============================================================================
 # Static files
-# -----------------------------------------------------------------------------
+# =============================================================================
 STATIC_URL = "/static/"
 STATIC_ROOT = BASE_DIR / "staticfiles"
 
-# Optional: WhiteNoise compressed storage
-STORAGES = {
-    "default": {
-        "BACKEND": "django.core.files.storage.FileSystemStorage",
-    },
-    "staticfiles": {
-        "BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage",
-    },
-}
-
-# -----------------------------------------------------------------------------
+# =============================================================================
 # Media (uploads)
-# -----------------------------------------------------------------------------
-MEDIA_URL = "/media/"
-
-from pathlib import Path
-
+# =============================================================================
 MEDIA_URL = "/media/"
 
 # Use Render persistent disk automatically if present
@@ -119,20 +105,32 @@ if Path("/var/data").exists():
 else:
     MEDIA_ROOT = BASE_DIR / "media"
 
+# =============================================================================
+# Storage (Django 4.2+)
+# =============================================================================
+STORAGES = {
+    # Uploaded files
+    "default": {
+        "BACKEND": "django.core.files.storage.FileSystemStorage",
+    },
+    # Static files with WhiteNoise
+    "staticfiles": {
+        "BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage",
+    },
+}
 
-
-# -----------------------------------------------------------------------------
-# Security tweaks for production
-# -----------------------------------------------------------------------------
+# =============================================================================
+# Security (production)
+# =============================================================================
 if IS_RENDER and not DEBUG:
     SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
     SECURE_SSL_REDIRECT = True
     SESSION_COOKIE_SECURE = True
     CSRF_COOKIE_SECURE = True
 
-# -----------------------------------------------------------------------------
+# =============================================================================
 # Email / Microsoft Graph
-# -----------------------------------------------------------------------------
+# =============================================================================
 DEFAULT_FROM_EMAIL = os.environ.get("DEFAULT_FROM_EMAIL", "joe@phoenixfire.com.au")
 
 MS_TENANT_ID = os.environ.get("MS_TENANT_ID", "")
