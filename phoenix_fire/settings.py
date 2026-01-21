@@ -1,10 +1,15 @@
 import os
 from pathlib import Path
 
+import dj_database_url
+
 BASE_DIR = Path(__file__).resolve().parent.parent
 
+# -----------------------------------------------------------------------------
+# Core
+# -----------------------------------------------------------------------------
 SECRET_KEY = os.environ.get("SECRET_KEY", "dev-only")
-DEBUG = True
+DEBUG = os.environ.get("DEBUG", "1") == "1"
 
 ALLOWED_HOSTS = os.environ.get(
     "ALLOWED_HOSTS",
@@ -12,15 +17,29 @@ ALLOWED_HOSTS = os.environ.get(
 ).split(",")
 ALLOWED_HOSTS = [h.strip() for h in ALLOWED_HOSTS if h.strip()]
 
-
-
 LOGIN_URL = "/admin/login/"
 
-
-
+# -----------------------------------------------------------------------------
+# Static
+# -----------------------------------------------------------------------------
 STATIC_URL = "/static/"
 STATIC_ROOT = BASE_DIR / "staticfiles"
 
+# -----------------------------------------------------------------------------
+# Media (uploads)
+# -----------------------------------------------------------------------------
+MEDIA_URL = "/media/"
+
+# Render persistent disk mount path: /var/data
+# Set env var on Render: RENDER=true
+if os.environ.get("RENDER", "").lower() == "true":
+    MEDIA_ROOT = Path("/var/data/media")
+else:
+    MEDIA_ROOT = BASE_DIR / "media"
+
+# -----------------------------------------------------------------------------
+# Middleware / Templates
+# -----------------------------------------------------------------------------
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
     "whitenoise.middleware.WhiteNoiseMiddleware",
@@ -52,34 +71,20 @@ TEMPLATES = [
 
 WSGI_APPLICATION = "phoenix_fire.wsgi.application"
 
-MEDIA_URL = "/media/"
-MEDIA_ROOT = BASE_DIR / "media"
-
-# LOCAL = SQLite (easy)
-# ONLINE (Render) = Postgres (when DB_HOST exists)
-if os.environ.get("DB_HOST"):
-    DATABASES = {
-        "default": {
-            "ENGINE": "django.db.backends.postgresql",
-            "NAME": os.environ.get("DB_NAME"),
-            "USER": os.environ.get("DB_USER"),
-            "PASSWORD": os.environ.get("DB_PASSWORD"),
-            "HOST": os.environ.get("DB_HOST"),
-            "PORT": os.environ.get("DB_PORT", "5432"),
-        }
-    }
-else:
- import dj_database_url
-
+# -----------------------------------------------------------------------------
+# Database
+# -----------------------------------------------------------------------------
+# Render provides DATABASE_URL. Locally you fall back to SQLite.
 DATABASES = {
     "default": dj_database_url.config(
         default=f"sqlite:///{BASE_DIR / 'db.sqlite3'}",
         conn_max_age=600,
-        ssl_require=True,
     )
 }
 
-
+# -----------------------------------------------------------------------------
+# Apps
+# -----------------------------------------------------------------------------
 INSTALLED_APPS = [
     "django.contrib.admin",
     "django.contrib.auth",
@@ -96,35 +101,19 @@ INSTALLED_APPS = [
     "routines",
 ]
 
+# Add your company context processor
 TEMPLATES[0]["OPTIONS"]["context_processors"] += [
     "company.context_processors.client_profile",
 ]
 
-# =========================
-# Email sending choice
-# =========================
-# If you're using Microsoft Graph (Option C), you DO NOT need SMTP here.
-# Keep DEFAULT_FROM_EMAIL only for display purposes inside templates/logs.
-
+# -----------------------------------------------------------------------------
+# Email / Microsoft Graph
+# -----------------------------------------------------------------------------
 DEFAULT_FROM_EMAIL = os.environ.get("DEFAULT_FROM_EMAIL", "joe@phoenixfire.com.au")
 
-# =========================
-# Microsoft Graph (Delegated) - Option C
-# =========================
-# Microsoft Graph (Delegated login)
-
-# =========================
-# Microsoft Graph (Delegated) - Option C
-# =========================
-# IMPORTANT:
-# - MS_TENANT_ID = Directory (tenant) ID
-# - MS_CLIENT_ID = Application (client) ID
-
-DEFAULT_FROM_EMAIL = os.environ.get("DEFAULT_FROM_EMAIL", "joe@phoenixfire.com.au")
-
-MS_TENANT_ID = os.environ.get("MS_TENANT_ID", "377b68ca-5483-4948-82be-8fcacc7536b9")
-MS_CLIENT_ID = os.environ.get("MS_CLIENT_ID", "bd12e908-173c-4991-a3da-d8ff5334ae82")
-MS_CLIENT_SECRET = os.environ.get("MS_CLIENT_SECRET")
+MS_TENANT_ID = os.environ.get("MS_TENANT_ID", "")
+MS_CLIENT_ID = os.environ.get("MS_CLIENT_ID", "")
+MS_CLIENT_SECRET = os.environ.get("MS_CLIENT_SECRET", "")
 
 MS_AUTHORITY = f"https://login.microsoftonline.com/{MS_TENANT_ID}"
 
@@ -135,5 +124,3 @@ MS_REDIRECT_URI = os.environ.get(
 )
 
 MS_GRAPH_SCOPES = ["User.Read", "Mail.Send"]
-
-
