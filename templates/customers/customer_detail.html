@@ -65,26 +65,32 @@
     <div class="card shadow-sm mb-3">
       <div class="card-header d-flex justify-content-between align-items-center">
         <span class="fw-semibold">Sites</span>
+        {# Keep your existing Add Site button if you already use customer sites #}
         <a class="btn btn-sm btn-primary" href="{% url 'customers:site_create' item.pk %}">Add Site</a>
       </div>
-      <div class="card-body">
-        <ul class="list-group">
-          {% for s in item.sites.all %}
-            <li class="list-group-item d-flex justify-content-between align-items-start">
-              <div>
-                <div class="fw-semibold">{{ s.site_name }}</div>
-                <div class="text-muted small">{{ s.address|linebreaksbr }}</div>
+
+      {# Properties related to this customer #}
+      <div class="card-body p-0">
+  {% with sites=item.properties.all %}
+    {% if sites %}
+      <div class="list-group list-group-flush">
+        {% for p in sites %}
+          <a class="list-group-item list-group-item-action d-flex justify-content-between align-items-start"
+             href="{% url 'properties:detail' p.pk %}">
+            <div>
+              <div class="fw-semibold">{{ p.building_name|default:"(No building name)" }}</div>
+              <div class="text-muted small">
+                {{ p.site_id }} — {{ p.street|default:"" }}{% if p.city %}, {{ p.city }}{% endif %}
               </div>
-              <div class="d-flex gap-2">
-                <a class="btn btn-sm btn-outline-secondary" href="{% url 'customers:site_update' item.pk s.pk %}">Edit</a>
-                <a class="btn btn-sm btn-outline-danger" href="{% url 'customers:site_delete' item.pk s.pk %}">Delete</a>
-              </div>
-            </li>
-          {% empty %}
-            <li class="list-group-item text-muted">No sites yet.</li>
-          {% endfor %}
-        </ul>
+            </div>
+          </a>
+        {% endfor %}
       </div>
+    {% else %}
+      <div class="p-3 text-muted">No sites yet.</div>
+    {% endif %}
+  {% endwith %}
+</div>
     </div>
 
     <div class="card shadow-sm">
