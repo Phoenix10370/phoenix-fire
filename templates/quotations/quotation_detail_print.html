@@ -1,0 +1,400 @@
+{% extends "base.html" %}
+
+{% block content %}
+<style>
+  /* ---------- Print + Page ---------- */
+  @media print {
+    @page { size: A4; margin: 12mm; }
+    .no-print { display: none !important; }
+    .print-card { box-shadow: none !important; border: 1px solid #ddd !important; }
+    body { background: #fff !important; }
+  }
+
+  /* ---------- Typography + Layout ---------- */
+  .print-wrap { max-width: 900px; margin: 0 auto; }
+  .print-card { background: #fff; border: 1px solid #e6e6e6; border-radius: 10px; padding: 18px; }
+  .muted { color: #6c757d; }
+  .small { font-size: 0.92rem; }
+  .tiny { font-size: 0.85rem; }
+  .hr { height: 1px; background: #e9ecef; margin: 12px 0; }
+  .h-title { font-size: 1.35rem; font-weight: 700; margin: 0; }
+  .h-sub { font-size: 0.95rem; margin: 0; }
+  .right { text-align: right; }
+  .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; }
+
+  /* ---------- Header ---------- */
+  .header {
+    display: grid;
+    grid-template-columns: 1.2fr 0.8fr;
+    gap: 16px;
+    align-items: start;
+  }
+  .brand {
+    display: flex;
+    gap: 14px;
+    align-items: center;
+  }
+  .logo {
+    width: 54px; height: 54px;
+    border: 1px solid #e6e6e6;
+    border-radius: 10px;
+    display: grid;
+    place-items: center;
+    font-weight: 800;
+    letter-spacing: 0.5px;
+  }
+  .doc-meta {
+    border: 1px solid #e9ecef;
+    border-radius: 10px;
+    padding: 12px;
+  }
+  .doc-meta .row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+  }
+  .kv { display: grid; grid-template-columns: 120px 1fr; gap: 10px; }
+  .kv .k { color: #6c757d; }
+  .kv .v { font-weight: 600; }
+
+  /* ---------- Blocks ---------- */
+  .two-col {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 14px;
+  }
+  .box {
+    border: 1px solid #e9ecef;
+    border-radius: 10px;
+    padding: 12px;
+  }
+  .box h3 {
+    font-size: 0.95rem;
+    margin: 0 0 8px 0;
+    font-weight: 700;
+  }
+
+  /* ---------- Tables ---------- */
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.95rem;
+  }
+  th, td {
+    border-bottom: 1px solid #e9ecef;
+    padding: 9px 8px;
+    vertical-align: top;
+  }
+  th {
+    text-align: left;
+    color: #495057;
+    font-weight: 700;
+    background: #f8f9fa;
+  }
+  .t-right { text-align: right; }
+  .t-center { text-align: center; }
+  .totals {
+    width: 360px;
+    margin-left: auto;
+    border: 1px solid #e9ecef;
+    border-radius: 10px;
+    overflow: hidden;
+  }
+  .totals .line {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    padding: 10px 12px;
+    border-bottom: 1px solid #e9ecef;
+  }
+  .totals .line:last-child { border-bottom: none; }
+  .totals .label { color: #6c757d; }
+  .totals .value { text-align: right; font-weight: 700; }
+
+  /* ---------- Footer + Sign ---------- */
+  .signature-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 14px;
+  }
+  .sig-line {
+    border-bottom: 1px solid #adb5bd;
+    height: 22px;
+    margin-top: 20px;
+  }
+</style>
+
+<div class="print-wrap">
+  <div class="no-print mb-3 d-flex justify-content-end gap-2">
+    <button class="btn btn-outline-secondary" type="button" onclick="window.print()">Print</button>
+    <a class="btn btn-outline-secondary" href="{% url 'quotations:detail' item.pk %}">Back</a>
+  </div>
+
+  <div class="print-card">
+    <!-- Header -->
+    <div class="header">
+      <div class="brand">
+        <div class="logo">PF</div>
+        <div>
+          <p class="h-title">Service Quotation</p>
+          <p class="h-sub muted small">Phoenix Fire — Fire Safety Services</p>
+          <div class="tiny muted">
+            <!-- Put your company info here -->
+            ABN: ____________ • Phone: ____________ • Email: ____________
+          </div>
+        </div>
+      </div>
+
+      <div class="doc-meta">
+        <div class="kv small">
+          <div class="k">Quotation No.</div>
+          <div class="v mono">{{ item.number }}</div>
+        </div>
+        <div class="kv small">
+          <div class="k">Date Issued</div>
+          <div class="v">{{ item.created_at|date:"d M Y" }}</div>
+        </div>
+        <div class="kv small">
+          <div class="k">Status</div>
+          <div class="v">{{ item.get_status_display }}</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="hr"></div>
+
+    <!-- Customer + Property -->
+    <div class="two-col">
+      <div class="box">
+        <h3>Client</h3>
+        <div class="kv small">
+          <div class="k">Customer</div>
+          <div class="v">
+            {% if item.customer %}{{ item.customer.customer_name }}{% else %}<span class="muted">—</span>{% endif %}
+          </div>
+        </div>
+        <div class="kv small">
+          <div class="k">Attention</div>
+          <div class="v">
+            {% if item.site.fire_coordinator %}{{ item.site.fire_coordinator }}{% else %}<span class="muted">—</span>{% endif %}
+          </div>
+        </div>
+        <div class="kv small">
+          <div class="k">Email</div>
+          <div class="v">
+            {% if item.site.fire_coordinator_email %}
+              {{ item.site.fire_coordinator_email }}
+            {% else %}
+              <span class="muted">—</span>
+            {% endif %}
+          </div>
+        </div>
+        <div class="kv small">
+          <div class="k">Phone</div>
+          <div class="v">
+            {% if item.site.fire_coordinator_phone %}
+              {{ item.site.fire_coordinator_phone }}
+            {% else %}
+              <span class="muted">—</span>
+            {% endif %}
+          </div>
+        </div>
+      </div>
+
+      <div class="box">
+        <h3>Property</h3>
+        <div class="kv small">
+          <div class="k">Site ID</div>
+          <div class="v mono">{{ item.site.site_id }}</div>
+        </div>
+        <div class="kv small">
+          <div class="k">Building</div>
+          <div class="v">{{ item.site.building_name }}</div>
+        </div>
+        <div class="kv small">
+          <div class="k">Address</div>
+          <div class="v">
+            {{ item.site.street }}, {{ item.site.city }}
+            {% if item.site.state %}, {{ item.site.state }}{% endif %}
+            {% if item.site.post_code %} {{ item.site.post_code }}{% endif %}
+          </div>
+        </div>
+        <div class="kv small">
+          <div class="k">AFSS Due</div>
+          <div class="v">
+            {% if item.site.afss_due_date %}{{ item.site.afss_due_date|date:"d M Y" }}{% else %}<span class="muted">—</span>{% endif %}
+          </div>
+        </div>
+      </div>
+    </div>
+
+    {% if item.notes %}
+      <div class="hr"></div>
+      <div class="box">
+        <h3>Notes</h3>
+        <div class="small">{{ item.notes|linebreaksbr }}</div>
+      </div>
+    {% endif %}
+
+    <div class="hr"></div>
+
+    <!-- Service Calculations (print view placeholders) -->
+    <div class="box">
+      <h3>Service Calculations</h3>
+      <div class="tiny muted mb-2">
+        (If you want these values printed automatically, save them on the quotation model — right now this is a layout section.)
+      </div>
+
+      <table>
+        <thead>
+          <tr>
+            <th>Line</th>
+            <th class="t-right">Total Men</th>
+            <th class="t-right">Total Hours</th>
+            <th class="t-right">Price / Hour</th>
+            <th class="t-right">Visits</th>
+            <th class="t-right">Total Cost</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><strong>Annual</strong></td>
+            <td class="t-right">—</td>
+            <td class="t-right">—</td>
+            <td class="t-right">—</td>
+            <td class="t-right">1</td>
+            <td class="t-right">—</td>
+          </tr>
+          <tr>
+            <td><strong>Half Yearly</strong></td>
+            <td class="t-right">—</td>
+            <td class="t-right">—</td>
+            <td class="t-right">—</td>
+            <td class="t-right">1</td>
+            <td class="t-right">—</td>
+          </tr>
+          <tr>
+            <td><strong>Monthly</strong></td>
+            <td class="t-right">—</td>
+            <td class="t-right">—</td>
+            <td class="t-right">—</td>
+            <td class="t-right">12</td>
+            <td class="t-right">—</td>
+          </tr>
+          <tr>
+            <td><strong>AFSS Charge</strong></td>
+            <td colspan="4"></td>
+            <td class="t-right">—</td>
+          </tr>
+          <tr>
+            <td><strong>Total Annual Service Cost</strong></td>
+            <td colspan="4"></td>
+            <td class="t-right"><strong>—</strong></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="hr"></div>
+
+    <!-- EFSM Line Items -->
+    <div class="box">
+      <h3>EFSM Line Items</h3>
+      <table>
+        <thead>
+          <tr>
+            <th style="width: 18%;">EFSM Code</th>
+            <th>Description</th>
+            <th class="t-right" style="width: 10%;">Qty</th>
+            <th class="t-right" style="width: 16%;">Unit Price</th>
+            <th class="t-right" style="width: 16%;">Line Total</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for li in item.items.all %}
+            <tr>
+              <td class="mono">{{ li.efsm_code.code }}</td>
+              <td>{{ li.efsm_code.fire_safety_measure }}</td>
+              <td class="t-right">{{ li.quantity }}</td>
+              <td class="t-right">${{ li.unit_price }}</td>
+              <td class="t-right">${{ li.line_total }}</td>
+            </tr>
+          {% empty %}
+            <tr>
+              <td colspan="5" class="muted">No line items.</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+
+      <div class="hr"></div>
+
+      <!-- Totals (print) -->
+      <div class="totals">
+        <div class="line">
+          <div class="label">Subtotal</div>
+          <div class="value">$__________</div>
+        </div>
+        <div class="line">
+          <div class="label">GST (10%)</div>
+          <div class="value">$__________</div>
+        </div>
+        <div class="line">
+          <div class="label"><strong>Total</strong></div>
+          <div class="value"><strong>$__________</strong></div>
+        </div>
+      </div>
+
+      <div class="tiny muted mt-2">
+        Pricing shown above is for the listed scope only. Additional works may be quoted separately.
+      </div>
+    </div>
+
+    <div class="hr"></div>
+
+    <!-- Terms + Acceptance -->
+    <div class="two-col">
+      <div class="box">
+        <h3>Terms</h3>
+        <ul class="small mb-0">
+          <li>Quotation validity: 30 days from issue date.</li>
+          <li>Payment terms: 7 days from invoice date (adjust as needed).</li>
+          <li>Access: client to provide safe access to all service areas.</li>
+          <li>Work conducted in accordance with relevant standards and site requirements.</li>
+        </ul>
+      </div>
+
+      <div class="box">
+        <h3>Acceptance</h3>
+        <div class="small muted">
+          By signing below, you accept this quotation and authorize works to proceed.
+        </div>
+
+        <div class="signature-grid">
+          <div>
+            <div class="sig-line"></div>
+            <div class="tiny muted">Authorized Signature</div>
+          </div>
+          <div>
+            <div class="sig-line"></div>
+            <div class="tiny muted">Print Name / Position</div>
+          </div>
+          <div>
+            <div class="sig-line"></div>
+            <div class="tiny muted">Date</div>
+          </div>
+          <div>
+            <div class="sig-line"></div>
+            <div class="tiny muted">Purchase Order (if applicable)</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="hr"></div>
+
+    <div class="tiny muted">
+      Thank you for the opportunity to quote. Please contact us if you have any questions.
+    </div>
+  </div>
+</div>
+{% endblock %}

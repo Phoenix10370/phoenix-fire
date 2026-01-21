@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <h1 class="h3 mb-0">Accept Quotation {{ item.number }}</h1>
+  <a href="{{ cancel_url }}" class="btn btn-outline-secondary">Cancel</a>
+</div>
+
+<div class="card shadow-sm">
+  <div class="card-header bg-light fw-semibold">Acceptance Details</div>
+  <div class="card-body">
+    <form method="post" novalidate>
+      {% csrf_token %}
+
+      <div class="row g-3">
+        <div class="col-md-4">
+          <label class="form-label">Accepted Date</label>
+          <input type="date"
+                 name="accepted_date"
+                 class="form-control"
+                 value="{{ accepted_date_value }}"
+                 required>
+        </div>
+
+        <div class="col-md-4">
+          <label class="form-label">Accepted By</label>
+          <input type="text"
+                 name="accepted_by_name"
+                 class="form-control"
+                 value="{{ accepted_by_value }}"
+                 placeholder="Name">
+        </div>
+
+        <div class="col-md-4">
+          <label class="form-label">Work Order Number</label>
+          <input type="text"
+                 name="work_order_number"
+                 class="form-control"
+                 value="{{ work_order_value }}"
+                 placeholder="e.g. WO-000123">
+        </div>
+      </div>
+
+      <hr class="my-4">
+
+      <div class="d-flex gap-2">
+        <button type="submit" class="btn btn-success">
+          <i class="bi bi-check2-circle me-1"></i> Confirm Accept
+        </button>
+        <a href="{{ cancel_url }}" class="btn btn-outline-secondary">Back</a>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}

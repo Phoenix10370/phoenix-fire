@@ -1,0 +1,83 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <h1 class="h3 mb-0">{% if object %}Edit Customer{% else %}Add Customer{% endif %}</h1>
+  <a class="btn btn-outline-secondary" href="{% url 'customers:list' %}">Back</a>
+</div>
+
+<div class="card shadow-sm">
+  <div class="card-body">
+    <form method="post" novalidate>
+      {% csrf_token %}
+
+      <div class="row g-3">
+        <div class="col-md-8">
+          <label class="form-label">Customer Name</label>
+          {{ form.customer_name }}
+          {% for e in form.customer_name.errors %}<div class="text-danger small">{{ e }}</div>{% endfor %}
+        </div>
+
+        <div class="col-md-4">
+          <label class="form-label">Customer Type</label>
+          {{ form.customer_type }}
+          {% for e in form.customer_type.errors %}<div class="text-danger small">{{ e }}</div>{% endfor %}
+        </div>
+
+        <div class="col-12">
+          <label class="form-label">Customer Address</label>
+          {{ form.customer_address }}
+          {% for e in form.customer_address.errors %}<div class="text-danger small">{{ e }}</div>{% endfor %}
+        </div>
+
+        <div class="col-md-6">
+          <label class="form-label">Contact Name</label>
+          {{ form.customer_contact_name }}
+        </div>
+
+        <div class="col-md-6">
+          <label class="form-label">Main Phone</label>
+          {{ form.customer_main_phone }}
+        </div>
+
+        <div class="col-md-6">
+          <label class="form-label">Billing Email</label>
+          {{ form.billing_email }}
+        </div>
+
+        <div class="col-md-6">
+          <label class="form-label">Additional Email</label>
+          {{ form.add_email }}
+        </div>
+
+        <div class="col-md-6">
+          <label class="form-label">Additional Phone</label>
+          {{ form.add_phone }}
+        </div>
+
+        <div class="col-md-6">
+          <label class="form-label">ABN/ACN</label>
+          {{ form.customer_abn_acn }}
+        </div>
+
+        <div class="col-12">
+          <div class="form-check">
+            {{ form.is_active }}
+            <label class="form-check-label">Active</label>
+          </div>
+        </div>
+
+        <div class="col-12">
+          <label class="form-label">Notes</label>
+          {{ form.notes }}
+        </div>
+      </div>
+
+      <div class="d-flex gap-2 mt-3">
+        <button class="btn btn-primary" type="submit">Save</button>
+        <a class="btn btn-outline-secondary" href="{% url 'customers:list' %}">Cancel</a>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,112 @@
+# codes/views_import.py
+import csv
+from io import TextIOWrapper
+
+from django.contrib import messages
+from django.shortcuts import redirect, render
+from django.urls import reverse
+from django.views import View
+
+from .models import Code
+
+
+class EFSMCodeImportView(View):
+    """
+    Upload a CSV and import EFSM Codes.
+    Required headers: code, fire_safety_measure, visits_per_year
+    """
+
+    template_name = "codes/efsm_import.html"
+
+    def get(self, request):
+        return render(
+            request,
+            self.template_name,
+            {
+                "title": "Import EFSM Codes",
+                "cancel_url": reverse("codes:efsm_list"),
+            },
+        )
+
+    def post(self, request):
+        file = request.FILES.get("file")
+        update_existing = request.POST.get("update_existing") == "on"
+
+        if not file:
+            messages.error(request, "Please choose a CSV file to upload.")
+            return redirect("codes:efsm_import")
+
+        name = (file.name or "").lower()
+        if not name.endswith(".csv"):
+            messages.error(request, "Only .csv files are supported.")
+            return redirect("codes:efsm_import")
+
+        created = 0
+        updated = 0
+        skipped = 0
+        errors = []
+
+        try:
+            wrapper = TextIOWrapper(file.file, encoding="utf-8-sig")
+            reader = csv.DictReader(wrapper)
+
+            required = {"code", "fire_safety_measure", "visits_per_year"}
+            fieldnames = set(reader.fieldnames or [])
+
+            if not required.issubset(fieldnames):
+                messages.error(
+                    request,
+                    f"CSV must include headers: code, fire_safety_measure, visits_per_year. "
+                    f"Found: {reader.fieldnames}"
+                )
+                return redirect("codes:efsm_import")
+
+            for line_num, row in enumerate(reader, start=2):
+                code_val = (row.get("code") or "").strip()
+                fsm = (row.get("fire_safety_measure") or "").strip()
+                vpy_raw = (row.get("visits_per_year") or "").strip()
+
+                if not code_val or not fsm:
+                    skipped += 1
+                    errors.append(f"Row {line_num}: missing code or fire_safety_measure")
+                    continue
+
+                try:
+                    vpy = int(vpy_raw) if vpy_raw else 1
+                except ValueError:
+                    skipped += 1
+                    errors.append(f"Row {line_num}: invalid visits_per_year '{vpy_raw}'")
+                    continue
+
+                obj = Code.objects.filter(code=code_val).first()
+                if obj:
+                    if update_existing:
+                        obj.fire_safety_measure = fsm
+                        obj.visits_per_year = vpy
+                        obj.save()
+                        updated += 1
+                    else:
+                        skipped += 1
+                else:
+                    Code.objects.create(
+                        code=code_val,
+                        fire_safety_measure=fsm,
+                        visits_per_year=vpy,
+                    )
+                    created += 1
+
+        except Exception as e:
+            messages.error(request, f"Import failed: {e}")
+            return redirect("codes:efsm_import")
+
+        messages.success(
+            request,
+            f"Import complete — created: {created}, updated: {updated}, skipped: {skipped}"
+        )
+
+        for msg in errors[:10]:
+            messages.warning(request, msg)
+        if len(errors) > 10:
+            messages.warning(request, f"...and {len(errors) - 10} more row issues.")
+
+        return redirect("codes:efsm_list")

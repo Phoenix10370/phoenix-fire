@@ -1,0 +1,231 @@
+{% extends "base.html" %}
+
+{% block content %}
+
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <h1 class="h3 mb-0">Customers</h1>
+
+  <a href="{% url 'customers:create' %}" class="btn btn-primary">
+    <i class="bi bi-plus-lg me-1"></i>
+    Add Customer
+  </a>
+</div>
+
+<!-- SEARCH BAR (¼ WIDTH + LIVE) -->
+<div class="row mb-3">
+  <div class="col-md-3">
+    <input
+      id="customer-search"
+      class="form-control"
+      type="search"
+      name="q"
+      value="{{ q }}"
+      placeholder="Search customers…"
+      autocomplete="off"
+      aria-label="Search customers"
+    >
+  </div>
+</div>
+
+<div class="card shadow-sm">
+  <div class="table-responsive">
+    <table class="table table-hover align-middle mb-0">
+      <thead class="table-light">
+        <tr>
+          <th style="width:500px;">Customer</th>
+          <th style="width:180px;">Type</th>
+          <th style="width:250px;">Primary Contact</th>
+          <th style="width:120px;">Status</th>
+          <th class="text-end" style="width:300px;">Actions</th>
+        </tr>
+      </thead>
+
+      <tbody id="customer-table-body">
+        {% for item in items %}
+        <tr
+          class="customer-row"
+          tabindex="0"
+          data-view-url="{% url 'customers:detail' item.pk %}"
+          data-edit-url="{% url 'customers:update' item.pk %}"
+          data-delete-url="{% url 'customers:delete' item.pk %}"
+          aria-label="Customer row {{ item.customer_name }}"
+        >
+          <td class="fw-semibold">
+            {{ item.customer_name }}
+            {% if item.customer_address %}
+              <div class="text-muted small fw-normal">{{ item.customer_address }}</div>
+            {% endif %}
+          </td>
+
+          <td>
+            {% if item.customer_type %}
+              {% if item.customer_type == "Strata" %}
+                <span class="badge text-bg-info">Strata</span>
+              {% elif item.customer_type == "Government" %}
+                <span class="badge text-bg-primary">Government</span>
+              {% elif item.customer_type == "Housing" %}
+                <span class="badge text-bg-warning">Housing</span>
+              {% else %}
+                <span class="badge text-bg-secondary">{{ item.customer_type }}</span>
+              {% endif %}
+            {% else %}
+              <span class="text-muted">—</span>
+            {% endif %}
+          </td>
+
+          <td>
+            {{ item.customer_contact_name|default:"—" }}
+          </td>
+
+          <td>
+            {% if item.is_active %}
+              <span class="badge bg-success">Active</span>
+            {% else %}
+              <span class="badge bg-secondary">Inactive</span>
+            {% endif %}
+          </td>
+
+          <td class="text-end">
+
+            <!-- VIEW -->
+            <a
+              class="btn btn-outline-primary btn-sm"
+              href="{% url 'customers:detail' item.pk %}"
+              data-bs-toggle="tooltip"
+              title="View customer details (V)"
+              aria-label="View customer details"
+            >
+              <i class="bi bi-eye"></i>
+            </a>
+
+            <!-- EDIT -->
+            <a
+              class="btn btn-outline-warning btn-sm"
+              href="{% url 'customers:update' item.pk %}"
+              data-bs-toggle="tooltip"
+              title="Edit customer (E)"
+              aria-label="Edit customer"
+            >
+              <i class="bi bi-pencil"></i>
+            </a>
+
+            <!-- DELETE -->
+            <a
+              class="btn btn-outline-danger btn-sm"
+              href="{% url 'customers:delete' item.pk %}"
+              data-bs-toggle="tooltip"
+              title="Delete customer (Delete)"
+              aria-label="Delete customer"
+            >
+              <i class="bi bi-trash"></i>
+            </a>
+
+          </td>
+        </tr>
+        {% empty %}
+        <tr>
+          <td colspan="5" class="text-center text-muted py-4">
+            No customers found.
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+
+    </table>
+  </div>
+</div>
+
+<script>
+  document.addEventListener("DOMContentLoaded", () => {
+    if (typeof bootstrap === "undefined") {
+      console.error("Bootstrap JS not loaded. Tooltips cannot run.");
+      return;
+    }
+
+    const searchInput = document.getElementById("customer-search");
+    const tableBody = document.getElementById("customer-table-body");
+
+    let selectedRow = null;
+
+    function initTooltips() {
+      document.querySelectorAll('[data-bs-toggle="tooltip"]').forEach(el => {
+        const inst = bootstrap.Tooltip.getInstance(el);
+        if (inst) inst.dispose();
+
+        new bootstrap.Tooltip(el, {
+          trigger: "hover focus",
+          delay: { show: 250, hide: 100 }
+        });
+      });
+    }
+
+    function initRowSelection() {
+      document.querySelectorAll("tr.customer-row").forEach(row => {
+        row.addEventListener("click", (e) => {
+          if (e.target.closest("a, button")) return;
+          selectRow(row);
+        });
+        row.addEventListener("focus", () => selectRow(row));
+      });
+    }
+
+    function selectRow(row) {
+      if (selectedRow && selectedRow !== row) selectedRow.classList.remove("table-active");
+      selectedRow = row;
+      selectedRow.classList.add("table-active");
+    }
+
+    // Keyboard shortcuts: V=view, E=edit, Delete=delete (selected row)
+    document.addEventListener("keydown", (e) => {
+      const tag = (e.target && e.target.tagName) ? e.target.tagName.toLowerCase() : "";
+      if (tag === "input" || tag === "textarea" || e.target.isContentEditable) return;
+      if (!selectedRow) return;
+
+      const viewUrl = selectedRow.getAttribute("data-view-url");
+      const editUrl = selectedRow.getAttribute("data-edit-url");
+      const deleteUrl = selectedRow.getAttribute("data-delete-url");
+
+      if (e.key === "v" || e.key === "V") {
+        e.preventDefault();
+        window.location.href = viewUrl;
+      } else if (e.key === "e" || e.key === "E") {
+        e.preventDefault();
+        window.location.href = editUrl;
+      } else if (e.key === "Delete") {
+        e.preventDefault();
+        window.location.href = deleteUrl;
+      }
+    });
+
+    function initAllUI() {
+      initTooltips();
+      initRowSelection();
+    }
+
+    // Live search (AJAX)
+    let debounceTimer = null;
+    searchInput.addEventListener("input", function () {
+      clearTimeout(debounceTimer);
+
+      debounceTimer = setTimeout(() => {
+        fetch(`{% url 'customers:list' %}?q=${encodeURIComponent(searchInput.value)}`, {
+          headers: { "X-Requested-With": "XMLHttpRequest" }
+        })
+          .then(r => r.text())
+          .then(html => {
+            const doc = new DOMParser().parseFromString(html, "text/html");
+            const newBody = doc.querySelector("#customer-table-body");
+            if (newBody) {
+              tableBody.innerHTML = newBody.innerHTML;
+              selectedRow = null;
+              initAllUI();
+            }
+          });
+      }, 250);
+    });
+
+    initAllUI();
+  });
+</script>
+
+{% endblock %}

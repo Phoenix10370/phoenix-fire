@@ -1,0 +1,118 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <h1 class="h3 mb-0">{{ title }}</h1>
+</div>
+
+<div class="card shadow-sm">
+  <div class="card-body">
+    <form method="post" novalidate>
+      {% csrf_token %}
+
+      {% if form.non_field_errors %}
+        <div class="alert alert-danger">{{ form.non_field_errors }}</div>
+      {% endif %}
+
+      <div class="row g-3">
+        <div class="col-md-6">
+          <label class="form-label">Category</label>
+          {{ form.category }}
+          {% if form.category.errors %}
+            <div class="text-danger small">{{ form.category.errors }}</div>
+          {% endif %}
+        </div>
+
+        <div class="col-md-6">
+          <label class="form-label">Equipment</label>
+          {{ form.equipment }}
+          {% if form.equipment.errors %}
+            <div class="text-danger small">{{ form.equipment.errors }}</div>
+          {% endif %}
+        </div>
+
+        <div class="col-md-6">
+          <label class="form-label">Frequency</label>
+          {{ form.frequency }}
+          <div class="form-text">Times per year</div>
+          {% if form.frequency.errors %}
+            <div class="text-danger small">{{ form.frequency.errors }}</div>
+          {% endif %}
+        </div>
+
+        <div class="col-md-6 d-flex align-items-end">
+          <div class="form-check">
+            {{ form.is_active }}
+            <label class="form-check-label" for="id_is_active">Active</label>
+          </div>
+        </div>
+      </div>
+
+      <div class="mt-4 d-flex gap-2">
+        <button type="submit" class="btn btn-primary">Save</button>
+        <a href="{{ cancel_url }}" class="btn btn-outline-secondary">Cancel</a>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+  (function () {
+    const categoryEl = document.getElementById("id_category");
+    const equipmentEl = document.getElementById("id_equipment");
+
+    if (!categoryEl || !equipmentEl) return;
+
+    function setEquipmentDisabled(disabled) {
+      equipmentEl.disabled = disabled;
+    }
+
+    function clearEquipment() {
+      equipmentEl.innerHTML = "";
+      const opt = document.createElement("option");
+      opt.value = "";
+      opt.textContent = "---------";
+      equipmentEl.appendChild(opt);
+    }
+
+    async function loadEquipment(categoryId, selectedEquipmentId) {
+      clearEquipment();
+
+      if (!categoryId) {
+        setEquipmentDisabled(true);
+        return;
+      }
+
+      setEquipmentDisabled(true);
+
+      const url = `{% url 'codes:asset_equipment_options' %}?category_id=${encodeURIComponent(categoryId)}`;
+      const res = await fetch(url, { headers: { "X-Requested-With": "XMLHttpRequest" } });
+      const data = await res.json();
+
+      for (const row of data.results) {
+        const opt = document.createElement("option");
+        opt.value = row.id;
+        opt.textContent = row.label;
+        if (selectedEquipmentId && String(row.id) === String(selectedEquipmentId)) {
+          opt.selected = true;
+        }
+        equipmentEl.appendChild(opt);
+      }
+
+      setEquipmentDisabled(false);
+    }
+
+    // On initial load:
+    // - If editing, equipment is already populated by the form queryset
+    // - If creating, equipment is empty until category selected
+    if (!equipmentEl.value) {
+      setEquipmentDisabled(true);
+    }
+
+    categoryEl.addEventListener("change", function () {
+      loadEquipment(categoryEl.value, null);
+    });
+
+  })();
+</script>
+{% endblock %}

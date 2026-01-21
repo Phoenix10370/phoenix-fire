@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <div>
+    <h1 class="h3 mb-0">EFSM Codes</h1>
+    <div class="text-muted small">Settings → Codes → EFSM Codes</div>
+  </div>
+
+  <div class="d-flex gap-2">
+    <a class="btn btn-outline-secondary" href="{% url 'defects_list' %}">Defect Codes</a>
+    <a class="btn btn-primary" href="{% url 'efsm_add' %}">Add EFSM Code</a>
+  </div>
+</div>
+
+<div class="card shadow-sm">
+  <div class="table-responsive">
+    <table class="table table-striped table-hover mb-0 align-middle">
+      <thead class="table-light">
+        <tr>
+          <th style="width: 160px;">Code</th>
+          <th>Fire Safety Measure</th>
+          <th style="width: 180px;">Visits / year</th>
+          <th class="text-end" style="width: 220px;">Action</th>
+        </tr>
+      </thead>
+
+      <tbody>
+        {% for c in codes %}
+        <tr>
+          <td class="fw-semibold">{{ c.code }}</td>
+          <td>{{ c.fire_safety_measure|default:"—" }}</td>
+          <td>{{ c.visits_per_year|default:"—" }}</td>
+          <td class="text-end">
+            <a class="btn btn-sm btn-outline-primary" href="{% url 'efsm_edit' c.id %}">Edit</a>
+            <a class="btn btn-sm btn-outline-danger" href="{% url 'efsm_delete' c.id %}">Delete</a>
+          </td>
+        </tr>
+
+        {% empty %}
+        <tr>
+          <td colspan="4" class="text-muted p-3">No EFSM codes yet.</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+
+    </table>
+  </div>
+</div>
+{% endblock %}

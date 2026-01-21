@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <h1 class="h3 mb-0">Email Templates</h1>
+
+  <a href="{% url 'email_templates:create' %}" class="btn btn-primary">
+    <i class="bi bi-plus-lg me-1"></i>
+    New Template
+  </a>
+</div>
+
+<div class="card shadow-sm">
+  <div class="table-responsive">
+    <table class="table table-hover align-middle mb-0">
+      <thead class="table-light">
+        <tr>
+          <th>Name</th>
+          <th style="width: 160px;">Type</th>
+          <th style="width: 120px;">Active</th>
+          <th style="width: 180px;">Updated</th>
+          <th class="text-end" style="width: 220px;">Actions</th>
+        </tr>
+      </thead>
+
+      <tbody>
+        {% for t in items %}
+          <tr>
+            <td class="fw-semibold">{{ t.name }}</td>
+            <td>{{ t.get_template_type_display }}</td>
+            <td>
+              {% if t.is_active %}
+                <span class="badge bg-success">Yes</span>
+              {% else %}
+                <span class="badge bg-secondary">No</span>
+              {% endif %}
+            </td>
+            <td class="text-muted">{{ t.updated_at|date:"d M Y, h:i A" }}</td>
+            <td class="text-end">
+              <a href="{% url 'email_templates:update' t.pk %}" class="btn btn-sm btn-outline-primary">
+                Edit
+              </a>
+              <a href="{% url 'email_templates:delete' t.pk %}" class="btn btn-sm btn-outline-danger">
+                Delete
+              </a>
+            </td>
+          </tr>
+        {% empty %}
+          <tr>
+            <td colspan="5" class="text-center text-muted py-4">
+              No email templates yet.
+            </td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

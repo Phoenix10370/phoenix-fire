@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <h1 class="h3 mb-0">
+    {% if object %}Edit Dropdown Option{% else %}Add Dropdown Option{% endif %}
+  </h1>
+
+  <a class="btn btn-outline-secondary" href="javascript:history.back()">Cancel</a>
+</div>
+
+<div class="card shadow-sm">
+  <div class="card-body">
+    <form method="post" novalidate>
+      {% csrf_token %}
+
+      {% if form.non_field_errors %}
+        <div class="alert alert-danger">{{ form.non_field_errors }}</div>
+      {% endif %}
+
+      {% for field in form %}
+        <div class="mb-3">
+          <label class="form-label" for="{{ field.id_for_label }}">{{ field.label }}</label>
+          {{ field }}
+
+          {% if field.help_text %}
+            <div class="form-text">{{ field.help_text }}</div>
+          {% endif %}
+
+          {% if field.errors %}
+            <div class="text-danger small mt-1">{{ field.errors|striptags }}</div>
+          {% endif %}
+        </div>
+      {% endfor %}
+
+      <div class="d-flex gap-2">
+        <button type="submit" class="btn btn-primary">
+          {% if object %}Save Changes{% else %}Create{% endif %}
+        </button>
+        <a class="btn btn-outline-secondary" href="javascript:history.back()">Cancel</a>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}

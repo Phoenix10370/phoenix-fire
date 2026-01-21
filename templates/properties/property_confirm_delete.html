@@ -1,0 +1,63 @@
+{% extends "base.html" %}
+
+{% block content %}
+
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <div>
+    <h1 class="h4 mb-1">Delete Property</h1>
+    <p class="text-muted mb-0">This action cannot be undone.</p>
+  </div>
+
+  <a href="{% url 'properties:detail' object.pk %}" class="btn btn-outline-secondary">
+    <i class="bi bi-arrow-left me-1"></i>
+    Back
+  </a>
+</div>
+
+<div class="card shadow-sm">
+  <div class="card-body">
+
+    <div class="alert alert-warning d-flex align-items-start gap-2" role="alert">
+      <i class="bi bi-exclamation-triangle mt-1"></i>
+      <div>
+        <div class="fw-semibold">Confirm delete</div>
+        <div class="small">You are about to permanently delete this property.</div>
+      </div>
+    </div>
+
+    <div class="border rounded p-3 bg-light mb-3">
+      <div class="fw-semibold">{{ object.site_id }} — {{ object.building_name }}</div>
+      <div class="text-muted small">
+        {{ object.street }}, {{ object.city }}
+        {% if object.state %}, {{ object.state }}{% endif %}
+        {% if object.post_code %} {{ object.post_code }}{% endif %}
+      </div>
+
+      <div class="mt-2">
+        {% if object.customer %}
+          <span class="text-muted small">Customer:</span>
+          <span class="fw-semibold">{{ object.customer.customer_name }}</span>
+        {% else %}
+          <span class="text-muted small">Customer:</span>
+          <span class="text-muted">—</span>
+        {% endif %}
+      </div>
+    </div>
+
+    <form method="post" class="d-flex gap-2">
+      {% csrf_token %}
+
+      <a class="btn btn-outline-secondary" href="{% url 'properties:list' %}">
+        Cancel
+      </a>
+
+      <button type="submit" class="btn btn-danger">
+        <i class="bi bi-trash me-1"></i>
+        Yes, delete
+      </button>
+    </form>
+
+  </div>
+</div>
+
+{% endblock %}

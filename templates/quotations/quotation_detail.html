@@ -1,0 +1,358 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <h1 class="h3 mb-0">Quotation {{ item.number }}</h1>
+
+  <div class="d-flex gap-2">
+    <a href="{% url 'quotations:update' item.pk %}" class="btn btn-outline-secondary">
+      Edit
+    </a>
+
+    <a href="{% url 'quotations:print_pdf' item.pk %}"
+       class="btn btn-primary"
+       target="_blank">
+      <i class="bi bi-filetype-pdf me-1"></i>
+      Print PDF
+    </a>
+
+    <a href="{% url 'quotations:send_email' item.pk %}" class="btn btn-success">
+      <i class="bi bi-envelope me-1"></i>
+      Email PDF
+    </a>
+
+    <button type="button" class="btn btn-outline-primary" onclick="window.print()">
+      <i class="bi bi-printer me-1"></i>
+      Print Page
+    </button>
+
+    <a href="{% url 'quotations:delete' item.pk %}" class="btn btn-outline-danger">
+      Delete
+    </a>
+  </div>
+</div>
+
+<!-- PROPERTY CONTEXT -->
+<div class="card mb-3 shadow-sm">
+  <div class="card-body">
+    <h6 class="text-muted mb-1">Property</h6>
+
+    <div class="fw-semibold">{{ item.site.building_name }}</div>
+
+    <div class="text-muted small">
+      {{ item.site.site_id }} — {{ item.site.street }}, {{ item.site.city }}
+    </div>
+
+    {% if item.site.customer %}
+      <div class="mt-1">
+        <span class="text-muted small">Customer:</span>
+        {{ item.site.customer.customer_name }}
+      </div>
+    {% endif %}
+
+    {% if item.site.fire_coordinator_email %}
+      <div class="mt-1">
+        <span class="text-muted small">Fire Coordinator Email:</span>
+        <a href="mailto:{{ item.site.fire_coordinator_email }}">
+          {{ item.site.fire_coordinator_email }}
+        </a>
+      </div>
+    {% endif %}
+  </div>
+</div>
+
+<!-- ACCEPT / DECLINE -->
+<div class="card mb-3 shadow-sm">
+  <div class="card-header bg-light fw-semibold d-flex justify-content-between align-items-center">
+    <span>Approval</span>
+
+    {% if item.status == "accepted" %}
+      <span class="badge bg-success">Accepted</span>
+    {% elif item.status == "rejected" %}
+      <span class="badge bg-danger">Declined</span>
+    {% elif item.status == "sent" %}
+      <span class="badge bg-primary">Sent</span>
+    {% else %}
+      <span class="badge bg-secondary">Draft</span>
+    {% endif %}
+  </div>
+
+  <div class="card-body">
+    {% if item.status != "accepted" and item.status != "rejected" %}
+      <div class="row g-2">
+        <div class="col-12 col-md-6 d-grid">
+          <a href="{% url 'quotations:accept' item.pk %}" class="btn btn-success">
+            <i class="bi bi-check2-circle me-1"></i>
+            Accept
+          </a>
+        </div>
+
+        <div class="col-12 col-md-6 d-grid">
+          <form method="post" action="{% url 'quotations:reject' item.pk %}">
+            {% csrf_token %}
+            <button type="submit" class="btn btn-outline-danger">
+              <i class="bi bi-x-circle me-1"></i>
+              Decline
+            </button>
+          </form>
+        </div>
+      </div>
+
+      <div class="text-muted small mt-3">
+        Accepting or declining will lock the quotation status.
+      </div>
+    {% endif %}
+
+    {% if item.status == "accepted" %}
+      <div class="row g-3">
+        <div class="col-md-4">
+          <div class="text-muted small">Accepted By</div>
+          <div class="fw-semibold">
+            {% if item.accepted_by_name %}
+              {{ item.accepted_by_name }}
+            {% elif item.accepted_by %}
+              {{ item.accepted_by }}
+            {% else %}
+              <span class="text-muted">—</span>
+            {% endif %}
+          </div>
+        </div>
+
+        <div class="col-md-4">
+          <div class="text-muted small">Accepted Date</div>
+          <div class="fw-semibold">
+            {% if item.accepted_date %}
+              {{ item.accepted_date|date:"d M Y" }}
+            {% elif item.accepted_at %}
+              {{ item.accepted_at|date:"d M Y" }}
+            {% else %}
+              <span class="text-muted">—</span>
+            {% endif %}
+          </div>
+        </div>
+
+        <div class="col-md-4">
+          <div class="text-muted small">Work Order Number</div>
+          <div class="fw-semibold">
+            {% if item.work_order_number %}
+              {{ item.work_order_number }}
+            {% else %}
+              <span class="text-muted">—</span>
+            {% endif %}
+          </div>
+        </div>
+      </div>
+    {% endif %}
+  </div>
+</div>
+
+<!-- ✅ SERVICE ROUTINES -->
+{% if item.status == "accepted" %}
+  <div class="card mb-3 shadow-sm">
+    <div class="card-header bg-light fw-semibold d-flex justify-content-between align-items-center">
+      <span>Service Routines</span>
+      {% if item.service_routines.all %}
+        <span class="text-muted small">({{ item.service_routines.count }})</span>
+      {% endif %}
+    </div>
+
+    <div class="card-body">
+      {% if item.service_routines.all %}
+        <div class="list-group">
+          {% for r in item.service_routines.all %}
+            <a class="list-group-item list-group-item-action d-flex justify-content-between align-items-center"
+               href="{% url 'routines:detail' r.pk %}">
+              <div>
+                <div class="fw-semibold">{{ r.name }}</div>
+                <div class="text-muted small">Month Due: {{ r.get_month_due_display }}</div>
+              </div>
+              <span class="badge bg-secondary">{{ r.items.count }} items</span>
+            </a>
+          {% endfor %}
+        </div>
+      {% else %}
+        <a href="{% url 'routines:create_from_quotation' item.pk %}" class="btn btn-primary">
+          Create Service Routines
+        </a>
+
+        <div class="text-muted small mt-2">
+          You will be asked to select the Annual Due Month.
+        </div>
+      {% endif %}
+    </div>
+  </div>
+{% endif %}
+
+<!-- ✅ HISTORY LOG (Collapsible) -->
+<div class="accordion mb-3 shadow-sm" id="quoteLogAccordion">
+  <div class="accordion-item">
+    <h2 class="accordion-header" id="quoteLogHeading">
+      <button class="accordion-button collapsed fw-semibold" type="button"
+              data-bs-toggle="collapse" data-bs-target="#quoteLogCollapse"
+              aria-expanded="false" aria-controls="quoteLogCollapse">
+        History Log
+        <span class="ms-2 text-muted small">
+          {% if item.logs.all %}({{ item.logs.count }}){% endif %}
+        </span>
+      </button>
+    </h2>
+
+    <div id="quoteLogCollapse" class="accordion-collapse collapse"
+         aria-labelledby="quoteLogHeading" data-bs-parent="#quoteLogAccordion">
+      <div class="accordion-body p-0">
+
+        <div class="table-responsive">
+          <table class="table table-sm table-hover mb-0 align-middle">
+            <thead class="table-light">
+              <tr>
+                <th style="width: 190px;">Date / Time</th>
+                <th style="width: 160px;">User</th>
+                <th style="width: 140px;">Action</th>
+                <th>Details</th>
+              </tr>
+            </thead>
+
+            <tbody>
+              {% for log in item.logs.all %}
+                <tr>
+                  <td class="text-muted">
+                    {{ log.created_at|date:"d M Y, h:i A" }}
+                  </td>
+
+                  <td>
+                    {% if log.actor %}
+                      {{ log.actor }}
+                    {% else %}
+                      <span class="text-muted">System</span>
+                    {% endif %}
+                  </td>
+
+                  <td>
+                    <span class="badge bg-secondary">{{ log.get_action_display }}</span>
+                  </td>
+
+                  <td>
+                    {% if log.message %}
+                      {{ log.message }}
+                    {% else %}
+                      <span class="text-muted">—</span>
+                    {% endif %}
+                  </td>
+                </tr>
+              {% empty %}
+                <tr>
+                  <td colspan="4" class="text-center text-muted py-3">
+                    No history yet.
+                  </td>
+                </tr>
+              {% endfor %}
+            </tbody>
+
+          </table>
+        </div>
+
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- QUOTATION DETAILS -->
+<div class="card mb-4 shadow-sm">
+  <div class="card-header bg-light fw-semibold">
+    Quotation Details
+  </div>
+
+  <div class="card-body">
+    <div class="row g-3">
+      <div class="col-md-4">
+        <div class="text-muted small">Status</div>
+        <div class="fw-semibold">{{ item.get_status_display }}</div>
+      </div>
+
+      <div class="col-md-4">
+        <div class="text-muted small">Created</div>
+        <div class="fw-semibold">{{ item.created_at|date:"d M Y" }}</div>
+      </div>
+
+      <div class="col-md-12">
+        <div class="text-muted small">Notes</div>
+        <div>
+          {% if item.notes %}
+            {{ item.notes|linebreaksbr }}
+          {% else %}
+            <span class="text-muted">—</span>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- EFSM LINE ITEMS -->
+<div class="card shadow-sm mb-4">
+  <div class="card-header bg-light fw-semibold">
+    EFSM Line Items
+  </div>
+
+  <div class="table-responsive">
+    <table class="table table-hover align-middle mb-0">
+      <thead class="table-light">
+        <tr>
+          <th style="width: 140px;">EFSM Code</th>
+          <th>Description</th>
+          <th class="text-end" style="width: 120px;">Qty</th>
+          <th class="text-end" style="width: 160px;">Unit Price</th>
+          <th class="text-end" style="width: 160px;">Line Total</th>
+        </tr>
+      </thead>
+
+      <tbody>
+        {% for li in item.items.all %}
+          <tr>
+            <td class="fw-semibold">{{ li.efsm_code.code }}</td>
+            <td>{{ li.efsm_code.fire_safety_measure }}</td>
+            <td class="text-end">{{ li.quantity }}</td>
+            <td class="text-end">${{ li.unit_price|floatformat:2 }}</td>
+            <td class="text-end">${{ li.line_total|floatformat:2 }}</td>
+          </tr>
+        {% empty %}
+          <tr>
+            <td colspan="5" class="text-center text-muted py-3">
+              No EFSM line items.
+            </td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  <div class="card-footer bg-white">
+    <div class="row justify-content-end">
+      <div class="col-12 col-md-5 col-lg-4">
+        <div class="d-flex justify-content-between py-1">
+          <span class="text-muted">Subtotal</span>
+          <strong>${{ subtotal|floatformat:2 }}</strong>
+        </div>
+
+        <div class="d-flex justify-content-between py-1">
+          <span class="text-muted">GST (10%)</span>
+          <strong>${{ gst|floatformat:2 }}</strong>
+        </div>
+
+        <hr class="my-2">
+
+        <div class="d-flex justify-content-between py-1">
+          <span class="text-muted">Total</span>
+          <strong>${{ total|floatformat:2 }}</strong>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="d-flex justify-content-end gap-2">
+  <a href="{% url 'quotations:list' %}" class="btn btn-outline-secondary">
+    Back to Quotations
+  </a>
+</div>
+{% endblock %}

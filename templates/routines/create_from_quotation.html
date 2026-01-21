@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <h1 class="h3 mb-0">Create Service Routines</h1>
+
+  <a href="{% url 'quotations:detail' quotation.pk %}" class="btn btn-outline-secondary">
+    Back to Quotation
+  </a>
+</div>
+
+<div class="card shadow-sm">
+  <div class="card-header bg-light fw-semibold">
+    Select Annual Due Month
+  </div>
+
+  <div class="card-body">
+    <p class="text-muted mb-3">
+      The selected month becomes the due month for the <strong>Annual Service Routine</strong>.
+      A <strong>Bi-Annual Service Routine</strong> will be created 6 months later (if needed),
+      and monthly routines will be created for the remaining months (if needed).
+    </p>
+
+    <form method="post">
+      {% csrf_token %}
+
+      <div class="mb-3">
+        {{ form.annual_due_month.label_tag }}
+        {{ form.annual_due_month }}
+        {% if form.annual_due_month.errors %}
+          <div class="text-danger small mt-1">
+            {{ form.annual_due_month.errors }}
+          </div>
+        {% endif %}
+      </div>
+
+      <div class="d-flex gap-2">
+        <button type="submit" class="btn btn-primary">
+          Create Service Routines
+        </button>
+        <a href="{% url 'quotations:detail' quotation.pk %}" class="btn btn-outline-secondary">
+          Cancel
+        </a>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}

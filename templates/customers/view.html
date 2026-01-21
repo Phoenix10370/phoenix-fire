@@ -1,0 +1,100 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <h1 class="h3 mb-0">{{ customer.customer_name }}</h1>
+  <div class="d-flex gap-2">
+    <a class="btn btn-outline-secondary btn-sm" href="{% url 'customers_list' %}">Back</a>
+    <a class="btn btn-outline-primary btn-sm" href="{% url 'customers_edit' customer.id %}">Edit</a>
+  </div>
+</div>
+
+<div class="card shadow-sm mb-3">
+  <div class="card-body">
+    <div class="row g-3">
+
+      <div class="col-md-6">
+        <strong>Contact</strong><br>
+        {{ customer.customer_contact_name|default:"—" }}
+      </div>
+
+      <div class="col-md-6">
+        <strong>Main Phone</strong><br>
+        {{ customer.customer_main_phone|default:"—" }}
+      </div>
+
+      <div class="col-md-6">
+        <strong>Billing Email</strong><br>
+        {% if customer.billing_email %}
+          <div class="d-flex align-items-center gap-2">
+            <span>{{ customer.billing_email }}</span>
+            <a class="btn btn-outline-secondary btn-sm" href="mailto:{{ customer.billing_email }}">✉️</a>
+          </div>
+        {% else %}
+          —
+        {% endif %}
+      </div>
+
+      <div class="col-md-6">
+        <strong>Customer Type</strong><br>
+        {{ customer.customer_type|default:"—" }}
+      </div>
+
+      <div class="col-12">
+        <strong>Address</strong><br>
+        {{ customer.customer_address|default:"—" }}
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<!-- ✅ PROPERTIES SECTION (BOTTOM) -->
+<div class="card shadow-sm">
+  <div class="card-body">
+    <div class="d-flex justify-content-between align-items-center mb-2">
+      <h2 class="h5 mb-0">Properties</h2>
+
+      <!-- Button to open filtered properties list -->
+      <a class="btn btn-outline-success btn-sm"
+         href="{% url 'properties_list' %}?customer={{ customer.id }}">
+        View All In Properties
+      </a>
+    </div>
+
+    <div class="table-responsive">
+      <table class="table table-hover align-middle mb-0">
+        <thead class="table-light">
+          <tr>
+            <th style="width: 140px;">Site ID</th>
+            <th>Building</th>
+            <th>City</th>
+            <th style="width: 220px;" class="text-end">Actions</th>
+          </tr>
+        </thead>
+
+        <tbody>
+          {% for p in properties %}
+          <tr>
+            <td class="fw-semibold">{{ p.site_id }}</td>
+            <td>{{ p.building_name }}</td>
+            <td>{{ p.city|default:"—" }}</td>
+            <td class="text-end">
+              <a class="btn btn-outline-primary btn-sm" href="{% url 'properties_view' p.id %}">View</a>
+              <a class="btn btn-outline-secondary btn-sm" href="{% url 'properties_edit' p.id %}">Edit</a>
+            </td>
+          </tr>
+          {% empty %}
+          <tr>
+            <td colspan="4" class="text-center text-muted py-4">
+              No properties linked to this customer yet.
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+
+      </table>
+    </div>
+  </div>
+</div>
+{% endblock %}

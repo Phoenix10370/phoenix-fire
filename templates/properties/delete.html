@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <h1 class="h3 mb-0">Delete Property</h1>
+  <a class="btn btn-outline-secondary" href="/properties/">Back</a>
+</div>
+
+<div class="card shadow-sm">
+  <div class="card-body">
+    <p class="mb-3">
+      Are you sure you want to delete:
+      <strong>{{ property.name }}</strong>?
+    </p>
+
+    <form method="post">
+      {% csrf_token %}
+      <button class="btn btn-danger">Yes, Delete</button>
+      <a class="btn btn-secondary" href="/properties/">Cancel</a>
+    </form>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="card shadow-sm">
+  <div class="card-header bg-light fw-semibold">
+    Delete Service Routine
+  </div>
+
+  <div class="card-body">
+    <p>
+      Are you sure you want to delete
+      <strong>{{ object.name }}</strong>
+      ({{ object.get_month_due_display }})?
+    </p>
+
+    <form method="post">
+      {% csrf_token %}
+      <div class="d-flex gap-2">
+        <button type="submit" class="btn btn-danger">
+          Yes, delete
+        </button>
+        <a href="{% url 'routines:detail' object.pk %}" class="btn btn-outline-secondary">
+          Cancel
+        </a>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}

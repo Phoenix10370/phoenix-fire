@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <h1 class="h3 mb-0">EFSM Codes</h1>
+  <a class="btn btn-primary" href="{% url 'codes:efsm_create' %}">Add EFSM Code</a>
+</div>
+
+<div class="card shadow-sm">
+  <div class="table-responsive">
+    <table class="table table-hover align-middle mb-0">
+      <thead class="table-light">
+        <tr>
+          <th style="width: 160px;">Code</th>
+          <th>Fire Safety Measure</th>
+          <th class="text-end" style="width: 140px;">Visits/Year</th>
+          <th class="text-end" style="width: 220px;">Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for item in items %}
+          <tr>
+            <td>{{ item.code }}</td>
+            <td>{{ item.fire_safety_measure }}</td>
+            <td class="text-end">{{ item.visits_per_year }}</td>
+            <td class="text-end">
+              <a class="btn btn-sm btn-outline-secondary" href="{% url 'codes:efsm_update' item.pk %}">Edit</a>
+              <a class="btn btn-sm btn-outline-danger" href="{% url 'codes:efsm_delete' item.pk %}">Delete</a>
+            </td>
+          </tr>
+        {% empty %}
+          <tr>
+            <td colspan="4" class="text-muted">No EFSM codes yet.</td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+<div class="d-flex gap-2">
+  <a class="btn btn-outline-secondary" href="{% url 'codes:efsm_import' %}">
+    Import CSV
+  </a>
+  <a class="btn btn-primary" href="{% url 'codes:efsm_create' %}">
+    Add EFSM Code
+  </a>
+</div>
+
+{% endblock %}

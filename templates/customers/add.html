@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <h1 class="h3 mb-0">Add Customer</h1>
+  <a class="btn btn-outline-secondary" href="/customers/">Back</a>
+</div>
+
+<div class="card shadow-sm">
+  <div class="card-body">
+    <form method="post">
+      {% csrf_token %}
+      <div class="mb-3"><label class="form-label">Customer Name</label>{{ form.customer_name }}</div>
+      <div class="mb-3"><label class="form-label">Customer Address</label>{{ form.customer_address }}</div>
+      <div class="mb-3"><label class="form-label">Customer Email</label>{{ form.billing_email }}</div>
+      <div class="mb-3"><label class="form-label">Customer Additional Email</label>{{ form.add_email }}</div>
+      <div class="mb-3"><label class="form-label">Customer Main Phone</label>{{ form.customer_main_phone }}</div>
+      <div class="mb-3"><label class="form-label">Customer Additional Phone</label>{{ form.add_phone }}</div>
+      <div class="mb-3"><label class="form-label">Customer Contact Name</label>{{ form.customer_contact_name }}</div>
+      <div class="mb-3"><label class="form-label">Customer ABN/ACN</label>{{ form.customer_abn_acn }}</div>
+      <div class="mb-3"><label class="form-label">Customer Type</label>{{ form.customer_type }}</div>
+      <div class="mb-3"><label class="form-label">Notes</label>{{ form.notes }}</div>
+      <div class="form-check mb-3">{{ form.is_active }} <label class="form-check-label">Active</label></div>
+      <button class="btn btn-primary">Save</button>
+    </form>
+  </div>
+</div>
+
+<script>
+  document.querySelectorAll("input, select, textarea").forEach(el => el.classList.add("form-control"));
+  document.querySelectorAll('input[type="checkbox"]').forEach(el => el.classList.remove("form-control"));
+  document.querySelectorAll(".form-check input").forEach(el => el.classList.add("form-check-input"));
+</script>
+{% endblock %}

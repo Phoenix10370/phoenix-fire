@@ -1,0 +1,60 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <h1 class="h3 mb-0">Dropdown Lists</h1>
+  <a class="btn btn-primary" href="{% url 'codes:dropdown_list_create' %}">
+    Add Dropdown List
+  </a>
+</div>
+
+<div class="card shadow-sm">
+  <div class="table-responsive">
+    <table class="table table-hover align-middle mb-0">
+      <thead class="table-light">
+        <tr>
+          <th>Name</th>
+          <th style="width: 220px;">Slug</th>
+          <th style="width: 120px;">Status</th>
+          <th class="text-end" style="width: 320px;">Actions</th>
+        </tr>
+      </thead>
+
+      <tbody>
+        {% for item in items %}
+          <tr>
+            <td class="fw-semibold">{{ item.name }}</td>
+            <td><code>{{ item.slug }}</code></td>
+            <td>
+              {% if item.is_active %}
+                <span class="badge bg-success">Active</span>
+              {% else %}
+                <span class="badge bg-secondary">Inactive</span>
+              {% endif %}
+            </td>
+            <td class="text-end">
+              <a class="btn btn-sm btn-outline-primary"
+                 href="{% url 'codes:dropdown_option_list' item.pk %}">
+                Options
+              </a>
+              <a class="btn btn-sm btn-outline-secondary"
+                 href="{% url 'codes:dropdown_list_update' item.pk %}">
+                Edit
+              </a>
+              <a class="btn btn-sm btn-outline-danger"
+                 href="{% url 'codes:dropdown_list_delete' item.pk %}">
+                Delete
+              </a>
+            </td>
+          </tr>
+        {% empty %}
+          <tr>
+            <td colspan="4" class="text-muted">No dropdown lists yet.</td>
+          </tr>
+        {% endfor %}
+      </tbody>
+
+    </table>
+  </div>
+</div>
+{% endblock %}

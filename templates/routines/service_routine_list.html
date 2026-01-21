@@ -1,0 +1,196 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <h1 class="h3 mb-0">Service Routines</h1>
+</div>
+
+<!-- LIVE SEARCH / FILTERS -->
+<div class="card shadow-sm mb-3">
+  <div class="card-body">
+    <div class="row g-2 align-items-end">
+      <div class="col-12 col-md-6">
+        <label class="form-label small text-muted mb-1">Search</label>
+        <input id="routineSearch"
+               type="text"
+               class="form-control"
+               placeholder="Search by client name, address, month, service type...">
+      </div>
+
+      <div class="col-6 col-md-3">
+        <label class="form-label small text-muted mb-1">Service Month</label>
+        <select id="monthFilter" class="form-select">
+          <option value="">All months</option>
+          {% for value,label in month_choices %}
+            <option value="{{ value }}">{{ label }}</option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <div class="col-6 col-md-3">
+        <label class="form-label small text-muted mb-1">Service Type</label>
+        <select id="typeFilter" class="form-select">
+          <option value="">All types</option>
+          {% for value,label in type_choices %}
+            <option value="{{ value }}">{{ label }}</option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <div class="col-12">
+        <div class="text-muted small mt-2">
+          <span id="resultsCount">Showing 0</span>
+          <span class="mx-1">of</span>
+          <span id="totalCount">0</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- FULL LIST -->
+<div class="card shadow-sm">
+  <div class="table-responsive">
+    <table class="table table-hover align-middle mb-0" id="routinesTable">
+      <thead class="table-light">
+        <tr>
+          <th>Client</th>
+          <th>Address</th>
+          <th>Routine</th>
+          <th>Service Month</th>
+          <th>Service Type</th>
+          <th class="text-center">Items</th>
+          <th style="width: 200px;"></th>
+        </tr>
+      </thead>
+
+      <tbody>
+        {% for r in routines %}
+          {% with client_name=r.site.customer.customer_name|default_if_none:"" %}
+          {% with address=r.site.street|default_if_none:"" %}
+          <tr
+            data-month="{{ r.month_due }}"
+            data-type="{{ r.routine_type }}"
+            data-search="
+              {{ client_name|lower }}
+              {{ r.site.building_name|default_if_none:''|lower }}
+              {{ r.site.site_id|default_if_none:''|lower }}
+              {{ address|lower }}
+              {{ r.site.city|default_if_none:''|lower }}
+              {{ r.get_month_due_display|lower }}
+              {{ r.get_routine_type_display|lower }}
+              {{ r.name|default_if_none:''|lower }}
+              {{ r.quotation.number|default_if_none:''|lower }}
+            ">
+            <td>
+              <div class="fw-semibold">
+                {% if r.site.customer %}
+                  {{ r.site.customer.customer_name }}
+                {% else %}
+                  <span class="text-muted">—</span>
+                {% endif %}
+              </div>
+              <div class="text-muted small">
+                {{ r.site.building_name }}
+              </div>
+            </td>
+
+            <td>
+              <div>{{ r.site.street }}</div>
+              <div class="text-muted small">{{ r.site.city }}</div>
+            </td>
+
+            <td>
+              <div class="fw-semibold">{{ r.name }}</div>
+              <div class="text-muted small">
+                Quotation:
+                <a href="{% url 'quotations:detail' r.quotation.pk %}">
+                  {{ r.quotation.number }}
+                </a>
+              </div>
+            </td>
+
+            <td>{{ r.get_month_due_display }}</td>
+
+            <td>{{ r.get_routine_type_display }}</td>
+
+            <td class="text-center">
+              <span class="badge bg-secondary">{{ r.items.count }}</span>
+            </td>
+
+            <td class="text-end">
+              <a href="{% url 'routines:detail' r.pk %}" class="btn btn-sm btn-outline-primary">
+                View
+              </a>
+              <a href="{% url 'routines:edit' r.pk %}" class="btn btn-sm btn-outline-secondary">
+                Edit
+              </a>
+              <a href="{% url 'routines:delete' r.pk %}" class="btn btn-sm btn-outline-danger">
+                Delete
+              </a>
+            </td>
+          </tr>
+          {% endwith %}
+          {% endwith %}
+        {% empty %}
+          <tr>
+            <td colspan="7" class="text-center text-muted py-4">
+              No service routines found.
+            </td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<script>
+  (function () {
+    const searchInput = document.getElementById("routineSearch");
+    const monthFilter = document.getElementById("monthFilter");
+    const typeFilter = document.getElementById("typeFilter");
+
+    const table = document.getElementById("routinesTable");
+    if (!table) return;
+
+    const rows = Array.from(table.querySelectorAll("tbody tr"));
+    const totalCountEl = document.getElementById("totalCount");
+    const resultsCountEl = document.getElementById("resultsCount");
+
+    const total = rows.length;
+    if (totalCountEl) totalCountEl.textContent = String(total);
+
+    function applyFilters() {
+      const q = (searchInput.value || "").trim().toLowerCase();
+      const month = (monthFilter.value || "").trim();
+      const type = (typeFilter.value || "").trim();
+
+      let shown = 0;
+
+      rows.forEach(row => {
+        const haystack = (row.dataset.search || "");
+        const rowMonth = (row.dataset.month || "");
+        const rowType = (row.dataset.type || "");
+
+        let ok = true;
+
+        if (q && !haystack.includes(q)) ok = false;
+        if (month && rowMonth !== month) ok = false;
+        if (type && rowType !== type) ok = false;
+
+        row.classList.toggle("d-none", !ok);
+        if (ok) shown += 1;
+      });
+
+      if (resultsCountEl) resultsCountEl.textContent = "Showing " + String(shown);
+    }
+
+    searchInput.addEventListener("input", applyFilters);
+    monthFilter.addEventListener("change", applyFilters);
+    typeFilter.addEventListener("change", applyFilters);
+
+    applyFilters();
+  })();
+</script>
+
+{% endblock %}

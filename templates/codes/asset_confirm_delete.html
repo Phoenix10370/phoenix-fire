@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% block content %}
+
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <div>
+    <h1 class="h4 mb-1">Delete Asset Code</h1>
+    <p class="text-muted mb-0">This action cannot be undone.</p>
+  </div>
+  <a class="btn btn-outline-secondary" href="{% url 'codes:asset_list' %}">Back</a>
+</div>
+
+<div class="card shadow-sm">
+  <div class="card-body">
+    <div class="border rounded p-3 bg-light mb-3">
+      <div class="fw-semibold">{{ object.code }}</div>
+      <div class="text-muted small">{{ object.description }}</div>
+    </div>
+
+    <form method="post" class="d-flex gap-2">
+      {% csrf_token %}
+      <a class="btn btn-outline-secondary" href="{% url 'codes:asset_list' %}">Cancel</a>
+      <button type="submit" class="btn btn-danger">
+        <i class="bi bi-trash me-1"></i>
+        Yes, delete
+      </button>
+    </form>
+  </div>
+</div>
+
+{% endblock %}

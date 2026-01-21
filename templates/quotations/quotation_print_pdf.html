@@ -1,0 +1,193 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Quotation {{ item.number }}</title>
+
+  <style>
+    /* ✅ Reserve space for footer so it can sit at the absolute bottom */
+    @page { size: A4; margin: 18mm 18mm 30mm 18mm; }
+
+    body { font-family: Helvetica, Arial, sans-serif; font-size: 10.5pt; color: #111; }
+    .muted { color: #666; }
+    .h1 { font-size: 16pt; font-weight: bold; margin: 0; }
+    .box { border: 1px solid #ddd; padding: 10px; margin-bottom: 10px; }
+
+    table { width: 100%; border-collapse: collapse; }
+    th, td { padding: 6px; vertical-align: top; }
+    th { background: #f2f2f2; border-bottom: 1px solid #ddd; text-align: left; font-size: 10pt; }
+    td { border-bottom: 1px solid #eee; }
+
+    .right { text-align: right; }
+    .nowrap { white-space: nowrap; }
+
+    /* Totals styling (keep your current look) */
+    .totals { border: 1px solid #ddd; }
+    .totals td { border: none; padding: 6px 8px; }
+    .totals .line td { border-top: 1px solid #ddd; font-weight: bold; padding-top: 8px; }
+
+    /* ✅ Footer pinned to the very bottom, inside the reserved @page margin */
+    .footer {
+      position: fixed;
+      bottom: 8mm;
+      left: 18mm;
+      right: 18mm;
+      font-size: 9pt;
+      color: #666;
+      border-top: 1px solid #ddd;
+      padding-top: 6px;
+    }
+  </style>
+</head>
+
+<body>
+
+  <!-- LETTERHEAD -->
+  <table style="margin-bottom: 12px;">
+    <tr>
+      <td style="width: 50%; vertical-align: top;">
+        {% if client and client.company_logo %}
+          <img src="{{ client.company_logo.url }}"
+               style="height:60px; width:auto; margin-bottom:6px;" />
+        {% endif %}
+
+        {% if client %}
+          <div style="font-size:9pt; color:#555; line-height:1.2;">
+            <strong>{{ client.trading_name }}</strong><br>
+            {% if client.company_address %}
+              {{ client.company_address|linebreaksbr }}<br>
+            {% endif %}
+            {% if client.company_phone %}
+              {{ client.company_phone }}<br>
+            {% endif %}
+            {% if client.company_email %}
+              {{ client.company_email }}<br>
+            {% endif %}
+            {% if client.company_abn %}
+              ABN: {{ client.company_abn }}
+            {% endif %}
+          </div>
+        {% endif %}
+      </td>
+
+      <td class="right" style="width: 50%; vertical-align: top;">
+        <div class="h1">Service Quotation</div>
+        <div class="muted">Quotation: <strong>{{ item.number }}</strong></div>
+        <div class="muted">Date: {{ item.created_at|date:"d M Y" }}</div>
+      </td>
+    </tr>
+  </table>
+
+  <!-- PROPERTY (your tight style preserved) -->
+  <div class="box" style="padding:6px;">
+    <table>
+      <tr>
+        <td style="width:100%; line-height:1.15; font-size:10pt;">
+          {% if item.site.customer %}
+            <div><strong>{{ item.site.customer.customer_name }}</strong></div>
+          {% endif %}
+
+          {% if item.site.building_name %}
+            <div><strong>{{ item.site.building_name }}</strong></div>
+          {% endif %}
+
+          <div>
+            {{ item.site.street }},
+            {{ item.site.city }}
+            {% if item.site.state %} {{ item.site.state }}{% endif %}
+            {% if item.site.post_code %} {{ item.site.post_code }}{% endif %}
+          </div>
+
+          {% if item.site.fire_coordinator_email %}
+            <div>{{ item.site.fire_coordinator_email }}</div>
+          {% endif %}
+        </td>
+      </tr>
+    </table>
+  </div>
+
+  {% if item.notes %}
+    <div class="box">
+      <div><strong>Notes</strong></div>
+      <div>{{ item.notes|linebreaksbr }}</div>
+    </div>
+  {% endif %}
+
+  <!-- LINE ITEMS -->
+  <div class="box">
+    <div style="margin-bottom:6px;"><strong>Essential Fire Safety Measures</strong></div>
+
+    <table>
+      <thead>
+        <tr>
+          <th>Fire Measures</th>
+          <th class="right nowrap" style="width: 60px;">Qty</th>
+          <th class="right nowrap" style="width: 95px;">Unit Price</th>
+          <th class="right nowrap" style="width: 95px;">Line Total</th>
+        </tr>
+      </thead>
+
+      <tbody>
+        {% for li in item.items.all %}
+          <tr>
+            <td>{{ li.efsm_code.fire_safety_measure }}</td>
+            <td class="right">{{ li.quantity }}</td>
+            <td class="right nowrap">${{ li.unit_price|floatformat:2 }}</td>
+            <td class="right nowrap">${{ li.line_total|floatformat:2 }}</td>
+          </tr>
+        {% empty %}
+          <tr>
+            <td colspan="4" class="muted">No line items.</td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+
+    <!-- TOTALS (your far-right version preserved) -->
+    <table width="100%" cellpadding="0" cellspacing="0" style="margin-top:10px; border:0;">
+      <tr>
+        <td width="100%">&nbsp;</td>
+
+        <td width="70mm" align="right" valign="top" style="border:0; padding:0;">
+          <table class="totals" width="70mm" cellpadding="0" cellspacing="0">
+            <tr>
+              <td class="muted nowrap">Subtotal</td>
+              <td class="right nowrap"><strong>${{ subtotal|floatformat:2 }}</strong></td>
+            </tr>
+
+            <tr>
+              <!-- ✅ GST forced to one line -->
+              <td class="muted nowrap">GST&nbsp;(10%)</td>
+              <td class="right nowrap"><strong>${{ gst|floatformat:2 }}</strong></td>
+            </tr>
+
+            <tr class="line">
+              <td><strong>Total</strong></td>
+              <td class="right nowrap"><strong>${{ total|floatformat:2 }}</strong></td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+    </table>
+
+  </div> <!-- keep box closed -->
+
+  <!-- FOOTER (bottom of page, address single-line, phone/email/abn below) -->
+  <div class="footer">
+    {% if client %}
+      <div>
+        <strong>{{ client.trading_name }}</strong>
+        —
+        {{ client.company_address|striptags|linebreaksbr|cut:"<br />"|cut:"<br>" }}
+      </div>
+
+      <div class="muted" style="margin-top:2px;">
+        {% if client.company_phone %}{{ client.company_phone }}{% endif %}
+        {% if client.company_email %} | {{ client.company_email }}{% endif %}
+        {% if client.company_abn %} | ABN {{ client.company_abn }}{% endif %}
+      </div>
+    {% endif %}
+  </div>
+
+</body>
+</html>

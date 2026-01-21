@@ -1,0 +1,80 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <h1 class="h3 mb-0">{{ title }}</h1>
+</div>
+
+<div class="card shadow-sm">
+  <div class="card-header bg-light fw-semibold">
+    Company Details (Client)
+  </div>
+
+  <div class="card-body">
+    <form method="post" enctype="multipart/form-data">
+      {% csrf_token %}
+
+      <div class="row g-3">
+        <div class="col-md-6">
+          <label class="form-label">Company Logo</label>
+          {{ form.company_logo }}
+          {% if form.instance.company_logo %}
+            <div class="mt-2">
+              <img src="{{ form.instance.company_logo.url }}" alt="Logo" style="max-height:80px;">
+            </div>
+          {% endif %}
+        </div>
+
+        <div class="col-md-6">
+          <label class="form-label">Legal Company Name</label>
+          {{ form.legal_company_name }}
+        </div>
+
+        <div class="col-md-6">
+          <label class="form-label">Trading Name</label>
+          {{ form.trading_name }}
+        </div>
+
+        <div class="col-md-6">
+          <label class="form-label">Company Phone</label>
+          {{ form.company_phone }}
+        </div>
+
+        <div class="col-md-6">
+          <label class="form-label">Company Email</label>
+          {{ form.company_email }}
+        </div>
+
+        <div class="col-md-6">
+          <label class="form-label">Company ABN</label>
+          {{ form.company_abn }}
+        </div>
+
+        <div class="col-md-6">
+          <label class="form-label">Company ACN</label>
+          {{ form.company_acn }}
+        </div>
+
+        <div class="col-md-6">
+          <label class="form-label">Accounts Phone</label>
+          {{ form.accounts_phone }}
+        </div>
+
+        <div class="col-md-6">
+          <label class="form-label">Accounts Email</label>
+          {{ form.accounts_email }}
+        </div>
+
+        <div class="col-12">
+          <label class="form-label">Company Address</label>
+          {{ form.company_address }}
+        </div>
+      </div>
+
+      <div class="mt-4 d-flex justify-content-end gap-2">
+        <button class="btn btn-primary" type="submit">Save</button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}

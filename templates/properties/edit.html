@@ -1,0 +1,147 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <h1 class="h3 mb-0">Edit Property</h1>
+  <a class="btn btn-outline-secondary" href="/properties/">Back</a>
+</div>
+
+<div class="card shadow-sm">
+  <div class="card-body">
+
+    {% if property.site_uid %}
+      <div class="mb-3">
+        <span class="text-muted small">Site ID:</span>
+        <div class="fw-semibold">{{ property.site_uid }}</div>
+      </div>
+    {% endif %}
+
+    <form method="post">
+      {% csrf_token %}
+
+      <div class="row g-3">
+
+        <div class="col-12">
+          <label class="form-label">Building Name</label>
+          {{ form.building_name }}
+        </div>
+
+        <div class="col-md-6">
+        <label class="form-label">Strata Plan</label>
+        {{ form.strata_plan }}
+        </div>
+
+        <div class="col-md-6">
+         <label class="form-label">SOR Site ID</label>
+         {{ form.sor_site_id }}
+        </div>
+
+
+        <div class="col-12">
+          <label class="form-label">Street</label>
+          {{ form.street }}
+        </div>
+
+        <div class="col-md-4">
+          <label class="form-label">City</label>
+          {{ form.city }}
+        </div>
+
+        <div class="col-md-4">
+          <label class="form-label">State</label>
+          {{ form.state }}
+        </div>
+
+        <div class="col-md-4">
+          <label class="form-label">Post Code</label>
+          {{ form.post_code }}
+        </div>
+
+        <div class="col-12">
+          <div class="form-check mt-1">
+            {{ form.active_status }}
+            <label class="form-check-label">Active Status</label>
+          </div>
+        </div>
+
+        <div class="col-12">
+          <label class="form-label">Customer</label>
+          {{ form.customer }}
+        </div>
+
+        <div class="col-12"><hr></div>
+
+        <div class="col-md-6">
+          <label class="form-label">Fire Coordinator</label>
+          {{ form.fire_coordinator }}
+        </div>
+
+        <div class="col-md-6">
+          <label class="form-label">AFSS Due Date</label>
+          {{ form.afss_due_date }}
+        </div>
+
+        <div class="col-md-6">
+          <label class="form-label">Fire Coordinator Email</label>
+          {{ form.fire_coordinator_email }}
+        </div>
+
+        <div class="col-md-6">
+          <label class="form-label">Fire Coordinator Phone</label>
+          {{ form.fire_coordinator_phone }}
+        </div>
+
+        <div class="col-md-6">
+          <label class="form-label">Levels Above Ground</label>
+          {{ form.levels_above_ground }}
+        </div>
+
+        <div class="col-md-6">
+          <label class="form-label">Levels Below Ground</label>
+          {{ form.levels_below_ground }}
+        </div>
+
+        <div class="row g-3">
+  <div class="col-md-6">
+    <label class="form-label">Access Details</label>
+    {{ form.access_details }}
+  </div>
+
+  <div class="col-md-6">
+    <label class="form-label">Access Code</label>
+    {{ form.access_code }}
+  </div>
+</div>
+
+
+        <div class="col-md-6">
+          <label class="form-label">Site Contact</label>
+          {{ form.site_contact }}
+        </div>
+
+        <div class="col-md-6">
+          <label class="form-label">Contact Phone</label>
+          {{ form.contact_phone }}
+        </div>
+
+        <div class="col-12">
+          <label class="form-label">Site Notes</label>
+          {{ form.site_notes }}
+        </div>
+
+        <div class="col-12">
+          <label class="form-label">Technician Notes</label>
+          {{ form.technician_notes }}
+        </div>
+
+      </div>
+
+      <div class="mt-4 d-flex gap-2">
+        <button class="btn btn-primary">Save</button>
+        <a class="btn btn-secondary" href="/properties/">Cancel</a>
+      </div>
+
+    </form>
+  </div>
+</div>
+{% endblock %}

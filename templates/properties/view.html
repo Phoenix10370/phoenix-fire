@@ -1,0 +1,120 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <h1 class="h3 mb-0">{{ property.building_name }}</h1>
+  <div class="d-flex gap-2">
+    <a class="btn btn-outline-secondary btn-sm" href="{% url 'properties_list' %}">Back</a>
+    <a class="btn btn-outline-primary btn-sm" href="{% url 'properties_edit' property.id %}">Edit</a>
+  </div>
+</div>
+
+<div class="card shadow-sm">
+  <div class="card-body">
+    <div class="row g-3">
+
+      <div class="col-md-6">
+        <strong>Site ID</strong><br>
+        {{ property.site_id }}
+      </div>
+
+      <div class="col-md-6">
+        <strong>Status</strong><br>
+        {% if property.active_status %}
+          <span class="badge bg-success">Active</span>
+        {% else %}
+          <span class="badge bg-secondary">Inactive</span>
+        {% endif %}
+      </div>
+
+      <div class="col-12"><hr></div>
+
+      <div class="col-md-8">
+        <strong>Strata Plan</strong><br>
+        {{ property.strata_plan|default:"—" }}
+
+        <div class="mt-2">
+          <strong>Address</strong><br>
+          {{ property.street }}
+          {% if property.city %}, {{ property.city }}{% endif %}
+          {% if property.state %}, {{ property.state }}{% endif %}
+          {% if property.post_code %} {{ property.post_code }}{% endif %}
+        </div>
+
+        {% if property.street or property.city %}
+        <div class="mt-2">
+          <a class="btn btn-outline-success btn-sm"
+             target="_blank"
+             rel="noopener"
+             href="https://www.google.com/maps/search/?api=1&query={{ property.street|urlencode }} {{ property.city|urlencode }}">
+            🗺 View Map
+          </a>
+        </div>
+        {% endif %}
+      </div>
+
+      <div class="col-md-4">
+        <strong>SOR Site ID</strong><br>
+        {{ property.sor_site_id|default:"—" }}
+      </div>
+
+      <div class="col-12"><hr></div>
+
+      <div class="col-md-6">
+        <strong>Customer</strong><br>
+        {% if property.customer %}
+          <div class="d-flex align-items-center gap-2">
+            <a class="btn btn-outline-success btn-sm"
+               target="_blank"
+               rel="noopener"
+               href="{% url 'customers_view' property.customer.id %}">
+              ➜
+            </a>
+            <span class="fw-semibold">{{ property.customer }}</span>
+          </div>
+        {% else %}
+          —
+        {% endif %}
+      </div>
+
+      <div class="col-md-6">
+        <strong>AFSS Due Date</strong><br>
+        {{ property.afss_due_date|default:"—" }}
+      </div>
+
+      <div class="col-12"><hr></div>
+
+      <div class="col-md-4">
+        <strong>Fire Coordinator</strong><br>
+        {{ property.fire_coordinator|default:"—" }}
+
+        <div class="mt-3">
+          <strong>Email</strong><br>
+          {% if property.fire_coordinator_email %}
+            <div class="d-flex gap-2 align-items-center">
+              <span>{{ property.fire_coordinator_email }}</span>
+              <a class="btn btn-outline-secondary btn-sm"
+                 href="mailto:{{ property.fire_coordinator_email }}">
+                ✉️
+              </a>
+            </div>
+          {% else %}
+            —
+          {% endif %}
+        </div>
+      </div>
+
+      <div class="col-md-4">
+        <strong>Site Contact</strong><br>
+        {{ property.site_contact|default:"—" }}
+      </div>
+
+      <div class="col-md-4">
+        <strong>Contact Phone</strong><br>
+        {{ property.contact_phone|default:"—" }}
+      </div>
+
+    </div>
+  </div>
+</div>
+{% endblock %}

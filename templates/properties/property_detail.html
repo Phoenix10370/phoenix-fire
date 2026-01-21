@@ -1,0 +1,155 @@
+{% extends "base.html" %}
+
+{% block content %}
+
+<div class="d-flex justify-content-between align-items-start mb-3">
+  <div>
+    <h1 class="h3 mb-1">{{ object.building_name }}</h1>
+    <div class="text-muted">
+      <span class="me-2 fw-semibold">{{ object.site_id }}</span>
+      {{ object.street }}, {{ object.city }}{% if object.state %}, {{ object.state }}{% endif %}{% if object.post_code %} {{ object.post_code }}{% endif %}
+    </div>
+  </div>
+
+  <div class="d-flex gap-2">
+    <a class="btn btn-outline-secondary" href="{% url 'properties:update' object.pk %}">
+      <i class="bi bi-pencil me-1"></i>Edit
+    </a>
+
+    <a class="btn btn-outline-danger" href="{% url 'properties:delete' object.pk %}">
+      <i class="bi bi-trash me-1"></i>Delete
+    </a>
+  </div>
+</div>
+
+<div class="card shadow-sm mb-3">
+  <div class="card-body">
+
+    <!-- SECTION: PROPERTY -->
+    <h2 class="h6 text-uppercase text-muted mb-3">Property</h2>
+    <dl class="row mb-0">
+
+      <dt class="col-sm-3">Building Name</dt>
+      <dd class="col-sm-9">{{ object.building_name|default:"—" }}</dd>
+
+      <dt class="col-sm-3">Customer</dt>
+      <dd class="col-sm-9">
+        {% if object.customer %}
+          <a href="{% url 'customers:detail' object.customer.pk %}" target="_blank" rel="noopener noreferrer">
+            {{ object.customer.customer_name }}
+          </a>
+        {% else %}
+          <span class="text-muted">—</span>
+        {% endif %}
+      </dd>
+
+      <dt class="col-sm-3">Strata Plan</dt>
+      <dd class="col-sm-9">{{ object.strata_plan|default:"—" }}</dd>
+
+      <dt class="col-sm-3">SOR Site ID</dt>
+      <dd class="col-sm-9">{{ object.sor_site_id|default:"—" }}</dd>
+
+      <dt class="col-sm-3">Street</dt>
+      <dd class="col-sm-9">{{ object.street|default:"—" }}</dd>
+
+      <dt class="col-sm-3">City</dt>
+      <dd class="col-sm-9">{{ object.city|default:"—" }}</dd>
+
+      <dt class="col-sm-3">State</dt>
+      <dd class="col-sm-9">{{ object.state|default:"—" }}</dd>
+
+      <dt class="col-sm-3">Post Code</dt>
+      <dd class="col-sm-9">{{ object.post_code|default:"—" }}</dd>
+
+      <dt class="col-sm-3">Status</dt>
+      <dd class="col-sm-9">
+        {% if object.active_status %}
+          <span class="badge bg-success">Active</span>
+        {% else %}
+          <span class="badge bg-secondary">Inactive</span>
+        {% endif %}
+      </dd>
+
+      <dt class="col-sm-3">Address</dt>
+      <dd class="col-sm-9">
+        {{ object.street }}, {{ object.city }}{% if object.state %}, {{ object.state }}{% endif %}{% if object.post_code %} {{ object.post_code }}{% endif %}
+        <div class="mt-2">
+          <a class="btn btn-outline-secondary btn-sm"
+             href="https://www.google.com/maps/search/?api=1&query={{ object.street|urlencode }}+{{ object.city|urlencode }}+{{ object.state|urlencode }}+{{ object.post_code|urlencode }}"
+             target="_blank" rel="noopener noreferrer">
+            <i class="bi bi-geo-alt me-1"></i>Open in Maps
+          </a>
+        </div>
+      </dd>
+    </dl>
+
+    <hr class="my-4">
+
+    <!-- SECTION: COORDINATOR + BUILDING -->
+    <h2 class="h6 text-uppercase text-muted mb-3">Coordinator & Building</h2>
+    <dl class="row mb-0">
+      <dt class="col-sm-3">Fire Coordinator</dt>
+      <dd class="col-sm-9">{{ object.fire_coordinator|default:"—" }}</dd>
+
+      <dt class="col-sm-3">Coordinator Email</dt>
+      <dd class="col-sm-9">{{ object.fire_coordinator_email|default:"—" }}</dd>
+
+      <dt class="col-sm-3">Coordinator Phone</dt>
+      <dd class="col-sm-9">{{ object.fire_coordinator_phone|default:"—" }}</dd>
+
+      <dt class="col-sm-3">AFSS Due Date</dt>
+      <dd class="col-sm-9">
+        {% if object.afss_due_date %}
+          {{ object.afss_due_date }}
+        {% else %}
+          <span class="text-muted">—</span>
+        {% endif %}
+      </dd>
+
+      <dt class="col-sm-3">Levels Above Ground</dt>
+      <dd class="col-sm-9">{{ object.levels_above_ground|default:"—" }}</dd>
+
+      <dt class="col-sm-3">Levels Below Ground</dt>
+      <dd class="col-sm-9">{{ object.levels_below_ground|default:"—" }}</dd>
+    </dl>
+
+    <hr class="my-4">
+
+    <!-- SECTION: ACCESS + CONTACT -->
+    <h2 class="h6 text-uppercase text-muted mb-3">Access & Contact</h2>
+    <dl class="row mb-0">
+      <dt class="col-sm-3">Access Details</dt>
+      <dd class="col-sm-9">{{ object.access_details|default:"—"|linebreaksbr }}</dd>
+
+      <dt class="col-sm-3">Access Code</dt>
+      <dd class="col-sm-9">{{ object.access_code|default:"—" }}</dd>
+
+      <dt class="col-sm-3">Site Contact</dt>
+      <dd class="col-sm-9">{{ object.site_contact|default:"—" }}</dd>
+
+      <dt class="col-sm-3">Contact Phone</dt>
+      <dd class="col-sm-9">{{ object.contact_phone|default:"—" }}</dd>
+    </dl>
+
+    <hr class="my-4">
+
+    <!-- SECTION: NOTES -->
+    <h2 class="h6 text-uppercase text-muted mb-3">Notes</h2>
+    <dl class="row mb-0">
+      <dt class="col-sm-3">Site Notes</dt>
+      <dd class="col-sm-9">{{ object.site_notes|default:""|linebreaksbr }}</dd>
+
+      <dt class="col-sm-3">Technician Notes</dt>
+      <dd class="col-sm-9">{{ object.technician_notes|default:""|linebreaksbr }}</dd>
+    </dl>
+
+  </div>
+</div>
+
+<a class="btn btn-primary"
+   href="{% url 'quotations:create_for_property' object.pk %}">
+  <i class="bi bi-file-earmark-text me-1"></i>
+  Create Service Quotation
+</a>
+
+{% endblock %}

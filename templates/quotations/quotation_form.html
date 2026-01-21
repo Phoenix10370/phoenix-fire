@@ -1,0 +1,537 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <h1 class="h3 mb-0">{{ title }}</h1>
+</div>
+
+<link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet">
+
+<!-- PROPERTY CONTEXT -->
+<div class="card mb-3 shadow-sm">
+  <div class="card-body">
+    <h6 class="text-muted mb-1">Property</h6>
+    <div class="fw-semibold">{{ property.building_name }}</div>
+    <div class="text-muted small">
+      {{ property.site_id }} — {{ property.street }}, {{ property.city }}
+    </div>
+
+    {% if property.customer %}
+      <div class="mt-1">
+        <span class="text-muted small">Customer:</span>
+        {{ property.customer.customer_name }}
+      </div>
+    {% endif %}
+
+    {% if property.fire_coordinator_email %}
+      <div class="mt-1">
+        <span class="text-muted small">Fire Coordinator Email:</span>
+        <a href="mailto:{{ property.fire_coordinator_email }}">
+          {{ property.fire_coordinator_email }}
+        </a>
+      </div>
+    {% endif %}
+  </div>
+</div>
+
+<form method="post">
+  {% csrf_token %}
+
+  {# ✅ error output so "save does nothing" never happens silently #}
+  {% if form.errors %}
+    <div class="alert alert-danger">
+      <strong>Quotation errors:</strong> {{ form.errors }}
+    </div>
+  {% endif %}
+
+  {% if formset.non_form_errors %}
+    <div class="alert alert-danger">
+      <strong>Line item errors:</strong> {{ formset.non_form_errors }}
+    </div>
+  {% endif %}
+
+  {% if formset.errors %}
+    <div class="alert alert-danger">
+      <strong>Line item row errors:</strong>
+      <pre class="mb-0">{{ formset.errors }}</pre>
+    </div>
+  {% endif %}
+
+  <!-- QUOTATION DETAILS -->
+  <div class="card mb-4 shadow-sm">
+    <div class="card-header bg-light fw-semibold">
+      Quotation Details
+    </div>
+    <div class="card-body">
+      <div class="row g-3">
+        {% for field in form %}
+          <div class="col-md-6">
+            <label class="form-label">{{ field.label }}</label>
+            {{ field }}
+            {% if field.help_text %}
+              <div class="form-text">{{ field.help_text }}</div>
+            {% endif %}
+            {% if field.errors %}
+              <div class="text-danger small">{{ field.errors }}</div>
+            {% endif %}
+          </div>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+
+  <!-- =========================
+       CALCULATIONS AREA (HIDE/SHOW)
+       ========================= -->
+  <div class="card mb-4 shadow-sm" id="calc-card">
+    <div class="card-header bg-light fw-semibold d-flex justify-content-between align-items-center">
+      <span>Service Calculations</span>
+      <button type="button" class="btn btn-sm btn-outline-secondary" id="toggle-calc">Hide</button>
+    </div>
+
+    <div class="card-body" id="calc-body">
+      <div class="table-responsive">
+        <table class="table table-sm align-middle mb-0">
+          <thead class="table-light">
+            <tr>
+              <th style="width: 22%;">Line</th>
+              <th class="text-end" style="width: 12%;">Total Men</th>
+              <th class="text-end" style="width: 14%;">Total Hours</th>
+              <th class="text-end" style="width: 14%;">Price P/Hour</th>
+              <th class="text-end" style="width: 14%;">No. of Visits</th>
+              <th class="text-end" style="width: 24%;">Total Cost</th>
+            </tr>
+          </thead>
+
+          <tbody>
+            <!-- Annual (Visits default = 1) -->
+            <tr>
+              <td class="fw-semibold">Annual</td>
+              <td class="text-end">
+                <input type="number" min="0" step="1"
+                       class="form-control form-control-sm text-end calc-input"
+                       id="men_annual" value="0">
+              </td>
+              <td class="text-end">
+                <input type="number" min="0" step="0.01"
+                       class="form-control form-control-sm text-end calc-input"
+                       id="hours_annual" value="0">
+              </td>
+              <td class="text-end">
+                <input type="number" min="0" step="0.01"
+                       class="form-control form-control-sm text-end calc-input"
+                       id="price_annual" value="0">
+              </td>
+              <td class="text-end">
+                <input type="number" min="0" step="1"
+                       class="form-control form-control-sm text-end calc-input"
+                       id="visits_annual" value="1">
+              </td>
+              <td class="text-end">
+                <span class="fw-semibold">$<span id="total_annual">0.00</span></span>
+              </td>
+            </tr>
+
+            <!-- Half Yearly (Visits default = 1) -->
+            <tr>
+              <td class="fw-semibold">Half Yearly</td>
+              <td class="text-end">
+                <input type="number" min="0" step="1"
+                       class="form-control form-control-sm text-end calc-input"
+                       id="men_half" value="0">
+              </td>
+              <td class="text-end">
+                <input type="number" min="0" step="0.01"
+                       class="form-control form-control-sm text-end calc-input"
+                       id="hours_half" value="0">
+              </td>
+              <td class="text-end">
+                <input type="number" min="0" step="0.01"
+                       class="form-control form-control-sm text-end calc-input"
+                       id="price_half" value="0">
+              </td>
+              <td class="text-end">
+                <input type="number" min="0" step="1"
+                       class="form-control form-control-sm text-end calc-input"
+                       id="visits_half" value="1">
+              </td>
+              <td class="text-end">
+                <span class="fw-semibold">$<span id="total_half">0.00</span></span>
+              </td>
+            </tr>
+
+            <!-- Monthly (Visits default = 12) -->
+            <tr>
+              <td class="fw-semibold">Monthly</td>
+              <td class="text-end">
+                <input type="number" min="0" step="1"
+                       class="form-control form-control-sm text-end calc-input"
+                       id="men_month" value="0">
+              </td>
+              <td class="text-end">
+                <input type="number" min="0" step="0.01"
+                       class="form-control form-control-sm text-end calc-input"
+                       id="hours_month" value="0">
+              </td>
+              <td class="text-end">
+                <input type="number" min="0" step="0.01"
+                       class="form-control form-control-sm text-end calc-input"
+                       id="price_month" value="0">
+              </td>
+              <td class="text-end">
+                <input type="number" min="0" step="1"
+                       class="form-control form-control-sm text-end calc-input"
+                       id="visits_month" value="12">
+              </td>
+              <td class="text-end">
+                <span class="fw-semibold">$<span id="total_month">0.00</span></span>
+              </td>
+            </tr>
+
+            <!-- AFSS -->
+            <tr>
+              <td class="fw-semibold">AFSS Charge</td>
+              <td colspan="4"></td>
+              <td class="text-end">
+                <div class="d-flex justify-content-end align-items-center gap-2">
+                  <span class="text-muted">$</span>
+                  <input type="number" min="0" step="0.01"
+                         class="form-control form-control-sm text-end calc-input"
+                         style="max-width: 160px;"
+                         id="afss_charge" value="0">
+                </div>
+              </td>
+            </tr>
+
+            <!-- Total -->
+            <tr class="table-light">
+              <td class="fw-bold">Total Annual Service Cost</td>
+              <td colspan="4"></td>
+              <td class="text-end">
+                <span class="fw-bold">$<span id="total_service">0.00</span></span>
+              </td>
+            </tr>
+
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- LINE ITEMS -->
+  <div class="card shadow-sm">
+    <div class="card-header bg-light fw-semibold d-flex justify-content-between align-items-center">
+      <span>EFSM Line Items</span>
+
+      <div class="d-flex align-items-center gap-2">
+        <span class="text-muted small">Add one or more EFSM codes</span>
+        <button type="button" id="add-line" class="btn btn-sm btn-outline-primary">
+          + Add line
+        </button>
+      </div>
+    </div>
+
+    <div class="table-responsive">
+      {{ formset.management_form }}
+
+      <table class="table table-hover align-middle mb-0">
+        <thead class="table-light">
+          <tr>
+            <th>EFSM Code</th>
+            <th class="text-end" style="width: 140px;">Qty</th>
+            <th class="text-end" style="width: 160px;">Unit Price</th>
+            <th class="text-end" style="width: 160px;">Total</th>
+            <th class="text-center" style="width: 120px;">Remove</th>
+          </tr>
+        </thead>
+
+        <tbody id="line-items">
+          {% for f in formset %}
+            <tr class="line-item">
+
+              {# ✅ REQUIRED for edit formsets (prevents "id required") #}
+              {% for hidden in f.hidden_fields %}
+                {{ hidden }}
+              {% endfor %}
+
+              <td>
+                {{ f.efsm_code }}
+                {% if f.efsm_code.errors %}
+                  <div class="text-danger small">{{ f.efsm_code.errors }}</div>
+                {% endif %}
+                {% if f.non_field_errors %}
+                  <div class="text-danger small">{{ f.non_field_errors }}</div>
+                {% endif %}
+              </td>
+
+              <td class="text-end">
+                {{ f.quantity }}
+                {% if f.quantity.errors %}
+                  <div class="text-danger small">{{ f.quantity.errors }}</div>
+                {% endif %}
+              </td>
+
+              <td class="text-end">
+                {{ f.unit_price }}
+                {% if f.unit_price.errors %}
+                  <div class="text-danger small">{{ f.unit_price.errors }}</div>
+                {% endif %}
+              </td>
+
+              <td class="text-end">
+                <span class="line-total" data-value="0">0.00</span>
+              </td>
+
+              <td class="text-center">
+                {% if f.DELETE %}<span class="d-none">{{ f.DELETE }}</span>{% endif %}
+                <button type="button" class="btn btn-sm btn-outline-danger js-delete-line">Delete</button>
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    <!-- SUMMARY TOTALS -->
+    <div class="card-footer bg-white">
+      <div class="row justify-content-end">
+        <div class="col-12 col-md-5 col-lg-4">
+          <div class="d-flex justify-content-between py-1">
+            <span class="text-muted">Subtotal</span>
+            <strong>$<span id="subtotal">0.00</span></strong>
+          </div>
+          <div class="d-flex justify-content-between py-1">
+            <span class="text-muted">GST (10%)</span>
+            <strong>$<span id="gst">0.00</span></strong>
+          </div>
+          <hr class="my-2">
+          <div class="d-flex justify-content-between py-1">
+            <span class="text-muted">Total</span>
+            <strong>$<span id="grand-total">0.00</span></strong>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ACTIONS -->
+  <div class="mt-4 d-flex justify-content-end gap-2">
+    <a href="{{ cancel_url }}" class="btn btn-outline-secondary">
+      Cancel
+    </a>
+    <button type="submit" class="btn btn-primary">
+      Save Quotation
+    </button>
+  </div>
+</form>
+
+<!-- EMPTY ROW TEMPLATE (new rows; NO id field) -->
+<template id="empty-row-template">
+  <tr class="line-item">
+    {% for hidden in formset.empty_form.hidden_fields %}
+      {{ hidden }}
+    {% endfor %}
+    <td>{{ formset.empty_form.efsm_code }}</td>
+    <td class="text-end">{{ formset.empty_form.quantity }}</td>
+    <td class="text-end">{{ formset.empty_form.unit_price }}</td>
+    <td class="text-end"><span class="line-total" data-value="0">0.00</span></td>
+    <td class="text-center">
+      {% if formset.can_delete %}<span class="d-none">{{ formset.empty_form.DELETE }}</span>{% endif %}
+      <button type="button" class="btn btn-sm btn-outline-danger js-delete-line">Delete</button>
+    </td>
+  </tr>
+</template>
+
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
+
+<style>
+  .select2-container { width: 100% !important; }
+</style>
+
+<script>
+  // ---------- Helpers ----------
+  function toNumber(val) {
+    if (val === null || val === undefined) return 0;
+    var s = String(val).replace(/[^0-9.\-]/g, "");
+    var n = parseFloat(s);
+    return isNaN(n) ? 0 : n;
+  }
+
+  function money(n) {
+    return (Math.round((n + Number.EPSILON) * 100) / 100).toFixed(2);
+  }
+
+  // ---------- EFSM totals ----------
+  function rowLineTotal($row) {
+    var qtyVal = $row.find('input[name$="-quantity"]').val();
+    var priceVal = $row.find('input[name$="-unit_price"]').val();
+    return toNumber(qtyVal) * toNumber(priceVal);
+  }
+
+  function isRowDeleted($row) {
+    if ($row.hasClass("is-deleted")) return true;
+    var $del = $row.find('input[type="checkbox"][name$="-DELETE"]');
+    return ($del.length && $del.is(":checked"));
+  }
+
+  function updateEFSMTotals() {
+    var subtotal = 0;
+
+    $("#line-items tr.line-item").each(function() {
+      var $row = $(this);
+
+      if (isRowDeleted($row)) {
+        $row.find(".line-total").text("0.00").attr("data-value", "0");
+        return;
+      }
+
+      var lt = rowLineTotal($row);
+      subtotal += lt;
+
+      $row.find(".line-total").text(money(lt)).attr("data-value", String(lt));
+    });
+
+    var gst = subtotal * 0.10;
+    var grand = subtotal + gst;
+
+    $("#subtotal").text(money(subtotal));
+    $("#gst").text(money(gst));
+    $("#grand-total").text(money(grand));
+  }
+
+  function bindEFSMRowEvents($row) {
+    $row.on("input", 'input[name$="-quantity"], input[name$="-unit_price"]', function() {
+      updateEFSMTotals();
+    });
+  }
+
+  // ---------- Select2 EFSM ----------
+  function initEFSMSelect($el) {
+    if ($el.hasClass("select2-hidden-accessible")) return;
+
+    var url = $el.data("autocomplete-url") || "{% url 'quotations:efsm-autocomplete' %}";
+
+    $el.select2({
+      width: "100%",
+      placeholder: "Search EFSM…",
+      allowClear: true,
+      minimumInputLength: 1,
+      ajax: {
+        url: url,
+        dataType: "json",
+        delay: 200,
+        data: function(params) {
+          return { q: params.term, page: params.page || 1 };
+        },
+        processResults: function(data) {
+          return { results: data.results, pagination: { more: data.more } };
+        },
+        cache: true
+      }
+    });
+  }
+
+  function initAllEFSMSelects(scope) {
+    var $scope = scope ? $(scope) : $(document);
+    $scope.find(".efsm-select").each(function () {
+      initEFSMSelect($(this));
+    });
+  }
+
+  // ---------- Add/Delete EFSM rows ----------
+  function addEFSMLineItem(prefix) {
+    var totalInput = document.getElementById("id_" + prefix + "-TOTAL_FORMS");
+    var index = parseInt(totalInput.value, 10);
+
+    var tpl = document.getElementById("empty-row-template");
+    var html = tpl.innerHTML.replace(/__prefix__/g, index);
+
+    document.getElementById("line-items").insertAdjacentHTML("beforeend", html);
+    totalInput.value = index + 1;
+
+    var $newRow = $("#line-items tr").last();
+    initAllEFSMSelects($newRow);
+    bindEFSMRowEvents($newRow);
+
+    updateEFSMTotals();
+  }
+
+  function deleteEFSMLine($row) {
+    var $del = $row.find('input[type="checkbox"][name$="-DELETE"]');
+    if ($del.length) {
+      $del.prop("checked", true);
+      $row.addClass("is-deleted").hide();
+    } else {
+      $row.remove();
+    }
+    updateEFSMTotals();
+  }
+
+  // ---------- Service Calculations ----------
+  function calc4(menId, hoursId, priceId, visitsId) {
+    var men    = toNumber(document.getElementById(menId).value);
+    var hrs    = toNumber(document.getElementById(hoursId).value);
+    var price  = toNumber(document.getElementById(priceId).value);
+    var visits = toNumber(document.getElementById(visitsId).value);
+    return men * hrs * price * visits;
+  }
+
+  function updateServiceCalcs() {
+    var annual = calc4("men_annual", "hours_annual", "price_annual", "visits_annual");
+    var half   = calc4("men_half", "hours_half", "price_half", "visits_half");
+    var month  = calc4("men_month", "hours_month", "price_month", "visits_month");
+    var afss   = toNumber(document.getElementById("afss_charge").value);
+
+    document.getElementById("total_annual").textContent = money(annual);
+    document.getElementById("total_half").textContent   = money(half);
+    document.getElementById("total_month").textContent  = money(month);
+
+    var totalService = annual + half + month + afss;
+    document.getElementById("total_service").textContent = money(totalService);
+  }
+
+  function toggleCalc() {
+    var body = document.getElementById("calc-body");
+    var btn = document.getElementById("toggle-calc");
+
+    if (body.style.display === "none") {
+      body.style.display = "";
+      btn.textContent = "Hide";
+    } else {
+      body.style.display = "none";
+      btn.textContent = "Show";
+    }
+  }
+
+  $(function () {
+    var prefix = "{{ formset.prefix }}";
+
+    initAllEFSMSelects(null);
+
+    $("#line-items tr.line-item").each(function() {
+      bindEFSMRowEvents($(this));
+    });
+
+    updateEFSMTotals();
+
+    $("#add-line").on("click", function () {
+      addEFSMLineItem(prefix);
+    });
+
+    $("#line-items").on("click", ".js-delete-line", function () {
+      deleteEFSMLine($(this).closest("tr.line-item"));
+    });
+
+    $(".calc-input").on("input", function() {
+      updateServiceCalcs();
+    });
+
+    updateServiceCalcs();
+
+    $("#toggle-calc").on("click", function() {
+      toggleCalc();
+    });
+  });
+</script>
+{% endblock %}

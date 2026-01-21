@@ -1,0 +1,62 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <h1 class="h3 mb-0">Email Quotation {{ item.number }}</h1>
+
+  <div class="d-flex gap-2">
+    <a href="{% url 'quotations:detail' item.pk %}" class="btn btn-outline-secondary">
+      Back
+    </a>
+  </div>
+</div>
+
+<div class="card shadow-sm">
+  <div class="card-header bg-light fw-semibold">
+    Send Email
+  </div>
+
+  <div class="card-body">
+    <form method="post" novalidate>
+      {% csrf_token %}
+
+      <div class="mb-3">
+        <label class="form-label">Email Template</label>
+        {{ form.template }}
+      </div>
+
+      <div class="row g-3">
+        <div class="col-md-6">
+          <label class="form-label">To</label>
+          {{ form.to }}
+          <div class="form-text">{{ form.to.help_text }}</div>
+        </div>
+
+        <div class="col-md-6">
+          <label class="form-label">CC</label>
+          {{ form.cc }}
+          <div class="form-text">{{ form.cc.help_text }}</div>
+        </div>
+      </div>
+
+      <hr class="my-4">
+
+      <div class="alert alert-info mb-0">
+        <div class="fw-semibold">Attachment</div>
+        <div class="text-muted">A PDF copy of this Service Quotation will be attached (same as Print PDF).</div>
+      </div>
+
+      <div class="d-flex gap-2 mt-4">
+        <button class="btn btn-success" type="submit">
+          <i class="bi bi-send me-1"></i>
+          Send Email
+        </button>
+
+        <a class="btn btn-outline-secondary" href="{% url 'quotations:detail' item.pk %}">
+          Cancel
+        </a>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}
