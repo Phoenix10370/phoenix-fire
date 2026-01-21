@@ -7,6 +7,7 @@ SECRET_KEY = os.environ.get("SECRET_KEY", "dev-only")
 DEBUG = True
 
 ALLOWED_HOSTS = [
+    "phoenix-fire-1.onrender.com",
     "192.168.50.91",
     "localhost",
     "127.0.0.1",
@@ -68,12 +69,16 @@ if os.environ.get("DB_HOST"):
         }
     }
 else:
-    DATABASES = {
-        "default": {
-            "ENGINE": "django.db.backends.sqlite3",
-            "NAME": BASE_DIR / "db.sqlite3",
-        }
-    }
+ import dj_database_url
+
+DATABASES = {
+    "default": dj_database_url.config(
+        default=f"sqlite:///{BASE_DIR / 'db.sqlite3'}",
+        conn_max_age=600,
+        ssl_require=True,
+    )
+}
+
 
 INSTALLED_APPS = [
     "django.contrib.admin",
