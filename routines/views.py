@@ -43,9 +43,9 @@ def delete_routines_for_quotation(request, quotation_id: int):
 
 
 # =========================
-# LIST VIEW
+# LIST VIEW (PUBLIC)
 # =========================
-class ServiceRoutineListView(LoginRequiredMixin, ListView):
+class ServiceRoutineListView(ListView):
     model = ServiceRoutine
     template_name = "routines/service_routine_list.html"
     context_object_name = "routines"
