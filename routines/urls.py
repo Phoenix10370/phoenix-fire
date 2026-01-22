@@ -30,9 +30,8 @@ urlpatterns = [
 
     # Routine edit/delete
     path("<int:pk>/edit/", views.ServiceRoutineUpdateView.as_view(), name="edit"),
+path("<int:pk>/delete/", views.ServiceRoutineDeleteView.as_view(), name="delete"),
 
-    # Routine items (inline add / delete)
-    path("<int:pk>/add-item/", views.add_item, name="add_item"),
-    path("<int:pk>/delete-item/<int:item_id>/", views.delete_item, name="delete_item"),
+
 
 ]
