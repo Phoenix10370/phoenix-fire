@@ -66,19 +66,17 @@
 
       <tbody>
         {% for r in routines %}
-          {% with client_name=r.site.customer.customer_name|default_if_none:"" %}
-          {% with address=r.site.street|default_if_none:"" %}
           <tr
             data-month="{{ r.month_due }}"
             data-type="{{ r.routine_type }}"
             data-search="
-              {{ client_name|lower }}
+              {% if r.site.customer %}{{ r.site.customer.customer_name|default_if_none:''|lower }}{% endif %}
               {{ r.site.building_name|default_if_none:''|lower }}
               {{ r.site.site_id|default_if_none:''|lower }}
-              {{ address|lower }}
+              {{ r.site.street|default_if_none:''|lower }}
               {{ r.site.city|default_if_none:''|lower }}
-              {{ r.get_month_due_display|lower }}
-              {{ r.get_routine_type_display|lower }}
+              {{ r.get_month_due_display|default_if_none:''|lower }}
+              {{ r.get_routine_type_display|default_if_none:''|lower }}
               {{ r.name|default_if_none:''|lower }}
               {{ r.quotation.number|default_if_none:''|lower }}
             ">
@@ -91,17 +89,17 @@
                 {% endif %}
               </div>
               <div class="text-muted small">
-                {{ r.site.building_name }}
+                {{ r.site.building_name|default_if_none:"" }}
               </div>
             </td>
 
             <td>
-              <div>{{ r.site.street }}</div>
-              <div class="text-muted small">{{ r.site.city }}</div>
+              <div>{{ r.site.street|default_if_none:"" }}</div>
+              <div class="text-muted small">{{ r.site.city|default_if_none:"" }}</div>
             </td>
 
             <td>
-              <div class="fw-semibold">{{ r.name }}</div>
+              <div class="fw-semibold">{{ r.name|default_if_none:"" }}</div>
               <div class="text-muted small">
                 Quotation:
                 <a href="{% url 'quotations:detail' r.quotation.pk %}">
@@ -130,8 +128,6 @@
               </a>
             </td>
           </tr>
-          {% endwith %}
-          {% endwith %}
         {% empty %}
           <tr>
             <td colspan="7" class="text-center text-muted py-4">
