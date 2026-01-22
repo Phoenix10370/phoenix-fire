@@ -1,17 +1,32 @@
 {% extends "base.html" %}
 
 {% block content %}
-<div class="d-flex justify-content-between align-items-center mb-3">
-  <div>
-    <h1 class="h3 mb-0">{{ routine.name }}</h1>
-    <div class="text-muted small">
-      Quotation:
-      <a href="{% url 'quotations:detail' routine.quotation.pk %}">
-        {{ routine.quotation.number }}
-      </a>
-    </div>
-  </div>
 
+{% if prev_routine or next_routine %}
+<div class="d-flex justify-content-end mb-3">
+  <div class="d-inline-flex align-items-center gap-2 px-3 py-2 border rounded bg-light">
+    {% if prev_routine %}
+      <a href="{% url 'routines:detail' prev_routine.pk %}"
+         class="btn btn-sm btn-outline-primary">←</a>
+    {% else %}
+      <button class="btn btn-sm btn-outline-secondary" disabled>←</button>
+    {% endif %}
+
+    <span class="fw-bold small text-uppercase">
+      PAGE {{ current_index }} OF {{ total_count }}
+    </span>
+
+    {% if next_routine %}
+      <a href="{% url 'routines:detail' next_routine.pk %}"
+         class="btn btn-sm btn-outline-primary">→</a>
+    {% else %}
+      <button class="btn btn-sm btn-outline-secondary" disabled>→</button>
+    {% endif %}
+  </div>
+</div>
+{% endif %}
+
+<div class="mb-3">
   <div class="d-flex gap-2">
     <a href="{% url 'routines:edit' routine.pk %}" class="btn btn-outline-secondary">
       Edit
@@ -22,44 +37,63 @@
   </div>
 </div>
 
-<!-- ROUTINE DETAILS -->
-<div class="card mb-3 shadow-sm">
-  <div class="card-header bg-light fw-semibold">
-    Routine Details
+<div class="card mb-4 shadow-sm">
+  <div class="card-header bg-light d-flex justify-content-between align-items-center">
+    <span class="fs-5 fw-bold">Routine Details</span>
+    <span class="fs-5 fw-bold text-primary">
+  Service Month – {{ routine.get_month_due_display }}
+</span>
+
+    <span class="fs-5 fw-bold text-primary">
+     Service Type - {{ routine.get_routine_type_display }}
+    </span>
   </div>
 
   <div class="card-body">
-    <div class="row g-3">
+    <div class="row g-4 align-items-start">
 
-      <div class="col-md-6">
-        <div class="text-muted small">Customer</div>
-        <div class="fw-semibold">
-          {% if routine.site.customer %}
-            {{ routine.site.customer.customer_name }}
-          {% else %}
-            <span class="text-muted">—</span>
-          {% endif %}
+      {# LEFT COLUMN #}
+      <div class="col-md-8">
+
+        <div class="mb-3">
+          <div class="text-muted small">Property</div>
+          <div class="fw-semibold">{{ routine.site.building_name }}</div>
+          <div class="text-muted small">
+            {{ routine.site.site_id }} — {{ routine.site.street }}, {{ routine.site.city }}, {{ routine.site.state }} {{ routine.site.post_code}}
+          </div>
         </div>
-      </div>
 
-      <div class="col-md-6">
-        <div class="text-muted small">Property</div>
-        <div class="fw-semibold">{{ routine.site.building_name }}</div>
-        <div class="text-muted small">
-          {{ routine.site.site_id }} — {{ routine.site.street }}, {{ routine.site.city }}
+        <div class="mb-3">
+          <div class="text-muted small">Customer</div>
+          <div class="fw-semibold">
+            {{ routine.site.customer.customer_name|default:"—" }}
+          </div>
         </div>
+
+        <div class="mb-3">
+          <div class="text-muted small">Work Order Number</div>
+          <div class="fw-semibold">
+            {{ routine.work_order_number|default:"—" }}
+          </div>
+        </div>
+
+        <div>
+          <div class="text-muted small">Notes</div>
+          <div>
+            {{ routine.notes|linebreaksbr|default:"—" }}
+          </div>
+        </div>
+
       </div>
 
+      {# RIGHT COLUMN #}
       <div class="col-md-4">
-        <div class="text-muted small">Service Type</div>
-        <div class="fw-semibold">{{ routine.get_routine_type_display }}</div>
-      </div>
+        <div class="text-muted small mb-1">Service Month</div>
 
-      <!-- ✅ Editable Service Month -->
-      <div class="col-md-4">
-        <div class="text-muted small">Service Month</div>
-
-        <form method="post" action="{% url 'routines:update_month_due' routine.pk %}" id="monthForm" class="d-flex gap-2">
+        <form method="post"
+              action="{% url 'routines:update_month_due' routine.pk %}"
+              id="monthForm"
+              class="d-flex gap-2">
           {% csrf_token %}
           <input type="hidden" name="apply_to_all" id="applyToAll" value="0">
 
@@ -77,29 +111,7 @@
         </form>
 
         <div class="text-muted small mt-1">
-          Changing the month can optionally shift Bi-Annual and Monthly routines.
-        </div>
-      </div>
-
-      <div class="col-md-4">
-        <div class="text-muted small">Work Order Number</div>
-        <div class="fw-semibold">
-          {% if routine.work_order_number %}
-            {{ routine.work_order_number }}
-          {% else %}
-            <span class="text-muted">—</span>
-          {% endif %}
-        </div>
-      </div>
-
-      <div class="col-md-12">
-        <div class="text-muted small">Notes</div>
-        <div>
-          {% if routine.notes %}
-            {{ routine.notes|linebreaksbr }}
-          {% else %}
-            <span class="text-muted">—</span>
-          {% endif %}
+          Optionally update all related routines.
         </div>
       </div>
 
@@ -107,63 +119,158 @@
   </div>
 </div>
 
-<!-- EFSM ITEMS -->
 <div class="card shadow-sm mb-4">
-  <div class="card-header bg-light fw-semibold">
-    EFSM Items
+  <div class="card-header bg-light fw-semibold d-flex justify-content-between align-items-center">
+    <span>Routine Items</span>
+  </div>
+
+  {# ✅ ADD ITEM (EFSM OR CUSTOM) #}
+  <div class="card-body border-bottom bg-light">
+    <div class="d-flex justify-content-between align-items-center mb-2">
+      <div class="fw-bold">ADD ITEM</div>
+      <div class="text-muted small">Choose EFSM code OR type a custom description (won’t be added to EFSM codes)</div>
+    </div>
+
+    <form method="post"
+      action="{% url 'routines:add_item' routine.pk %}"
+      class="row g-2 align-items-end justify-content-end">
+
+      {% csrf_token %}
+
+      <div class="col-12 col-md-4">
+        <label class="form-label small text-muted mb-1">EFSM Code (optional)</label>
+        {{ add_item_form.efsm_code }}
+        {% if add_item_form.efsm_code.errors %}
+          <div class="text-danger small">{{ add_item_form.efsm_code.errors }}</div>
+        {% endif %}
+      </div>
+
+      <div class="col-12 col-md-4">
+        <label class="form-label small text-muted mb-1">Custom Description (optional)</label>
+        {{ add_item_form.custom_description }}
+        {% if add_item_form.custom_description.errors %}
+          <div class="text-danger small">{{ add_item_form.custom_description.errors }}</div>
+        {% endif %}
+      </div>
+
+      <div class="col-6 col-md-2">
+        <label class="form-label small text-muted mb-1">Qty</label>
+        {{ add_item_form.quantity }}
+        {% if add_item_form.quantity.errors %}
+          <div class="text-danger small">{{ add_item_form.quantity.errors }}</div>
+        {% endif %}
+      </div>
+
+      <div class="col-6 col-md-2">
+        <label class="form-label small text-muted mb-1">Unit Price</label>
+        {{ add_item_form.unit_price }}
+        {% if add_item_form.unit_price.errors %}
+          <div class="text-danger small">{{ add_item_form.unit_price.errors }}</div>
+        {% endif %}
+      </div>
+
+      <div class="col-auto">
+
+        <button type="submit" class="btn btn-sm btn-success">
+         + Add Measure
+        </button>
+
+
+      </div>
+
+      {% if add_item_form.non_field_errors %}
+        <div class="col-12 mt-2">
+          <div class="alert alert-danger py-2 mb-0">
+            {{ add_item_form.non_field_errors }}
+          </div>
+        </div>
+      {% endif %}
+    </form>
   </div>
 
   <div class="table-responsive">
     <table class="table table-hover align-middle mb-0">
       <thead class="table-light">
         <tr>
-          <th style="width: 140px;">EFSM Code</th>
+          <th style="width: 130px;">Code</th>
           <th>Description</th>
-          <th class="text-end" style="width: 120px;">Qty</th>
-          <th class="text-end" style="width: 160px;">Unit Price</th>
-          <th class="text-end" style="width: 160px;">Line Total</th>
+          <th class="text-end" style="width: 110px;">Qty</th>
+          <th class="text-end" style="width: 140px;">Unit Price</th>
+          <th class="text-end" style="width: 140px;">Line Total</th>
+          <th class="text-center" style="width: 60px;"></th>
         </tr>
       </thead>
 
       <tbody>
         {% for li in routine.items.all %}
-          <tr>
-            <td class="fw-semibold">{{ li.efsm_code.code }}</td>
-            <td>{{ li.efsm_code.fire_safety_measure }}</td>
-            <td class="text-end">{{ li.quantity }}</td>
-            <td class="text-end">${{ li.unit_price|floatformat:2 }}</td>
-            <td class="text-end">${{ li.line_total|floatformat:2 }}</td>
-          </tr>
+        <tr>
+          <td class="fw-semibold">{{ li.display_code }}</td>
+          <td>{{ li.display_description }}</td>
+          <td class="text-end">{{ li.quantity }}</td>
+          <td class="text-end">${{ li.unit_price|floatformat:2 }}</td>
+          <td class="text-end">${{ li.line_total|floatformat:2 }}</td>
+          <td class="text-center">
+            <form method="post"
+                  action="{% url 'routines:delete_item' routine.pk li.pk %}"
+                  onsubmit="return confirm('Delete this item from the routine?');">
+              {% csrf_token %}
+              <button type="submit" class="btn btn-sm btn-outline-danger" title="Delete line">
+                🗑
+              </button>
+            </form>
+          </td>
+        </tr>
         {% empty %}
-          <tr>
-            <td colspan="5" class="text-center text-muted py-3">
-              No EFSM items.
-            </td>
-          </tr>
+        <tr>
+          <td colspan="6" class="text-center text-muted py-3">
+            No items.
+          </td>
+        </tr>
         {% endfor %}
       </tbody>
     </table>
   </div>
+
+  {# TOTALS #}
+  <div class="card-footer bg-white">
+    <div class="row justify-content-end">
+      <div class="col-md-4">
+        <div class="d-flex justify-content-between py-1">
+          <span class="text-muted">Subtotal</span>
+          <strong>${{ subtotal|floatformat:2 }}</strong>
+        </div>
+        <div class="d-flex justify-content-between py-1">
+          <span class="text-muted">GST (10%)</span>
+          <strong>${{ gst|floatformat:2 }}</strong>
+        </div>
+        <hr>
+        <div class="d-flex justify-content-between py-1">
+          <span class="fw-semibold">Total</span>
+          <strong>${{ total|floatformat:2 }}</strong>
+        </div>
+      </div>
+    </div>
+  </div>
 </div>
 
 <script>
-  (function () {
-    const form = document.getElementById("monthForm");
-    const select = document.getElementById("monthSelect");
-    const applyToAll = document.getElementById("applyToAll");
-    if (!form || !select || !applyToAll) return;
+(function () {
+  const form = document.getElementById("monthForm");
+  const select = document.getElementById("monthSelect");
+  const applyToAll = document.getElementById("applyToAll");
+  if (!form || !select || !applyToAll) return;
 
-    const original = select.value;
+  const original = select.value;
 
-    form.addEventListener("submit", function () {
-      applyToAll.value = "0";
-
-      if (select.value !== original) {
-        const yes = window.confirm("Do you want this change to reflect on all related routines?");
-        if (yes) applyToAll.value = "1";
+  form.addEventListener("submit", function () {
+    applyToAll.value = "0";
+    if (select.value !== original) {
+      if (confirm("Apply this month change to all related routines?")) {
+        applyToAll.value = "1";
       }
-    });
-  })();
+    }
+  });
+})();
 </script>
 
 {% endblock %}

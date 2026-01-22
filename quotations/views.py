@@ -1,5 +1,5 @@
 # quotations/views.py
-from decimal import Decimal
+from decimal import Decimal, InvalidOperation
 from io import BytesIO
 import os
 
@@ -34,6 +34,58 @@ def _pdf_link_callback(uri, rel):
     if os.path.isfile(uri):
         return uri
     return uri
+
+
+# -----------------------------
+# Calculator helpers (NEW)
+# -----------------------------
+def _to_int(val, default=0):
+    try:
+        if val is None or str(val).strip() == "":
+            return int(default)
+        return int(Decimal(str(val)))
+    except Exception:
+        return int(default)
+
+
+def _to_dec(val, default="0.00"):
+    try:
+        if val is None or str(val).strip() == "":
+            return Decimal(str(default)).quantize(Decimal("0.01"))
+        return Decimal(str(val)).quantize(Decimal("0.01"))
+    except (InvalidOperation, ValueError):
+        return Decimal(str(default)).quantize(Decimal("0.01"))
+
+
+def _apply_calc_post_to_quote(quote: Quotation, post):
+    """
+    Apply calculator POST fields onto a Quotation instance (in memory).
+    Call quote.save(update_fields=[...]) when you're ready to persist.
+    """
+    quote.calc_men_annual = _to_int(post.get("men_annual"), 0)
+    quote.calc_hours_annual = _to_dec(post.get("hours_annual"), "0.00")
+    quote.calc_price_annual = _to_dec(post.get("price_annual"), "0.00")
+    quote.calc_visits_annual = _to_int(post.get("visits_annual"), 1)
+
+    quote.calc_men_half = _to_int(post.get("men_half"), 0)
+    quote.calc_hours_half = _to_dec(post.get("hours_half"), "0.00")
+    quote.calc_price_half = _to_dec(post.get("price_half"), "0.00")
+    quote.calc_visits_half = _to_int(post.get("visits_half"), 1)
+
+    quote.calc_men_month = _to_int(post.get("men_month"), 0)
+    quote.calc_hours_month = _to_dec(post.get("hours_month"), "0.00")
+    quote.calc_price_month = _to_dec(post.get("price_month"), "0.00")
+    quote.calc_visits_month = _to_int(post.get("visits_month"), 12)
+
+    quote.calc_afss_charge = _to_dec(post.get("afss_charge"), "0.00")
+
+
+CALC_UPDATE_FIELDS = [
+    "calc_men_annual", "calc_hours_annual", "calc_price_annual", "calc_visits_annual",
+    "calc_men_half", "calc_hours_half", "calc_price_half", "calc_visits_half",
+    "calc_men_month", "calc_hours_month", "calc_price_month", "calc_visits_month",
+    "calc_afss_charge",
+]
 
 
 class QuotationListView(ListView):
@@ -100,20 +152,13 @@ def quotation_accept(request, pk):
         if not accepted_by_name:
             accepted_by_name = ((request.user.get_full_name() or "").strip() or request.user.username)
 
-        # Save using your existing method (it currently sets accepted_at; you can still keep it for now)
-        # But for date-only display, your template MUST use accepted_date_value and detail should use |date filter.
-        quote.mark_accepted(request.user, work_order_number=work_order_number)
-
-        # Store the chosen date into accepted_at at midnight (until you migrate to DateField)
-        quote.accepted_at = timezone.make_aware(
-            timezone.datetime.combine(accepted_date, timezone.datetime.min.time()),
-            timezone.get_current_timezone(),
+        # ✅ Use model method that stores accepted_date (DateField)
+        quote.mark_accepted(
+            request.user,
+            accepted_date=accepted_date,
+            accepted_by_name=accepted_by_name,
+            work_order_number=work_order_number,
         )
-
-        # Optional: if you added accepted_by_name field in model, save it
-        if hasattr(quote, "accepted_by_name"):
-            quote.accepted_by_name = accepted_by_name
-
         quote.save()
 
         quote.log(
@@ -126,11 +171,8 @@ def quotation_accept(request, pk):
         messages.success(request, f"Quotation {quote.number} accepted.")
         return redirect("quotations:detail", pk=quote.pk)
 
-    # ✅ GET: value MUST be YYYY-MM-DD for <input type="date">
     accepted_date_value = timezone.localdate().strftime("%Y-%m-%d")
     accepted_by_value = ((request.user.get_full_name() or "").strip() or request.user.username)
-
-    # ✅ Per your requirement: always blank on open
     work_order_value = ""
 
     return render(
@@ -138,7 +180,7 @@ def quotation_accept(request, pk):
         "quotations/quotation_accept.html",
         {
             "item": quote,
-            "accepted_date_value": accepted_date_value,   # ✅ MUST match template variable
+            "accepted_date_value": accepted_date_value,
             "accepted_by_value": accepted_by_value,
             "work_order_value": work_order_value,
             "cancel_url": reverse("quotations:detail", kwargs={"pk": quote.pk}),
@@ -205,9 +247,16 @@ def quotation_create_for_property(request, property_id):
             formset.instance = quote
             formset.save()
 
+            # ✅ Persist calculator values
+            _apply_calc_post_to_quote(quote, request.POST)
+            quote.save(update_fields=CALC_UPDATE_FIELDS)
+
             quote.log("created", request.user, "Quotation created.")
             messages.success(request, f"Quotation {quote.number} saved successfully.")
             return redirect("quotations:list")
+
+        # ✅ Keep calculator values visible on the page when there are errors (do NOT save)
+        _apply_calc_post_to_quote(quote, request.POST)
 
         messages.error(request, "Quotation was NOT saved. Please fix the errors shown below.")
 
@@ -236,12 +285,19 @@ def quotation_update(request, pk):
         formset = QuotationItemFormSet(request.POST, instance=quote)
 
         if form.is_valid() and formset.is_valid():
-            form.save()
+            quote = form.save()
             formset.save()
+
+            # ✅ Persist calculator values
+            _apply_calc_post_to_quote(quote, request.POST)
+            quote.save(update_fields=CALC_UPDATE_FIELDS)
 
             quote.log("modified", request.user, "Quotation updated.")
             messages.success(request, f"Quotation {quote.number} updated successfully.")
             return redirect("quotations:list")
+
+        # ✅ Keep calculator values visible on the page when there are errors (do NOT save)
+        _apply_calc_post_to_quote(quote, request.POST)
 
         messages.error(request, "Quotation was NOT updated. Please fix the errors shown below.")
 

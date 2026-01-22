@@ -1,4 +1,8 @@
 # quotations/models.py
+from __future__ import annotations
+
+from decimal import Decimal
+
 from django.conf import settings
 from django.db import models, transaction
 from django.db.models import Max
@@ -40,10 +44,10 @@ class Quotation(models.Model):
         related_name="quotations_accepted",
     )
 
-    # ✅ NEW: manual display name (typed on accept screen)
+    # ✅ manual display name (typed on accept screen)
     accepted_by_name = models.CharField(max_length=120, blank=True, default="")
 
-    # ✅ CHANGED: date-only (no time)
+    # ✅ date-only (no time)
     accepted_date = models.DateField(null=True, blank=True)
 
     rejected_by = models.ForeignKey(
@@ -56,6 +60,27 @@ class Quotation(models.Model):
     rejected_at = models.DateTimeField(null=True, blank=True)
 
     work_order_number = models.CharField(max_length=50, null=True, blank=True)
+
+    # =========================================================
+    # ✅ Service Calculator persistence fields (NEW)
+    # These store the calculator values so they reload on edit.
+    # =========================================================
+    calc_men_annual = models.PositiveIntegerField(default=0)
+    calc_hours_annual = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal("0.00"))
+    calc_price_annual = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal("0.00"))
+    calc_visits_annual = models.PositiveIntegerField(default=1)
+
+    calc_men_half = models.PositiveIntegerField(default=0)
+    calc_hours_half = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal("0.00"))
+    calc_price_half = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal("0.00"))
+    calc_visits_half = models.PositiveIntegerField(default=1)
+
+    calc_men_month = models.PositiveIntegerField(default=0)
+    calc_hours_month = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal("0.00"))
+    calc_price_month = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal("0.00"))
+    calc_visits_month = models.PositiveIntegerField(default=12)
+
+    calc_afss_charge = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal("0.00"))
 
     class Meta:
         ordering = ["-created_at"]

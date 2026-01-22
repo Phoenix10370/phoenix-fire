@@ -7,13 +7,15 @@
 
 <link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet">
 
-<!-- PROPERTY CONTEXT -->
+<!-- PROPERTY DETAILS -->
 <div class="card mb-3 shadow-sm">
+  <div class="card-header bg-light fw-semibold">
+    Property
+  </div>
   <div class="card-body">
-    <h6 class="text-muted mb-1">Property</h6>
     <div class="fw-semibold">{{ property.building_name }}</div>
     <div class="text-muted small">
-      {{ property.site_id }} — {{ property.street }}, {{ property.city }}
+      {{ property.site_id }} — {{ property.street }}, {{ property.city }}, {{ property.state }} {{ property.post_code }}
     </div>
 
     {% if property.customer %}
@@ -24,15 +26,63 @@
     {% endif %}
 
     {% if property.fire_coordinator_email %}
-      <div class="mt-1">
+      <div class="mt-3">
         <span class="text-muted small">Fire Coordinator Email:</span>
         <a href="mailto:{{ property.fire_coordinator_email }}">
           {{ property.fire_coordinator_email }}
         </a>
       </div>
     {% endif %}
+
   </div>
 </div>
+
+<!-- SERVICE ROUTINES -->
+{% if form.instance.pk %}
+  {% with routines=form.instance.service_routines.all %}
+    <div class="card mb-3 shadow-sm border-info">
+      <div class="card-header bg-light fw-semibold d-flex justify-content-between align-items-center">
+        <span>Service Routines</span>
+
+        <div class="d-flex gap-2">
+          {% if routines %}
+            <a href="{% url 'quotations:detail' form.instance.pk %}"
+               class="btn btn-sm btn-outline-secondary">
+              View Routines
+            </a>
+          {% endif %}
+
+          <a href="{% url 'routines:create_from_quotation' form.instance.pk %}"
+             class="btn btn-sm btn-primary">
+            Create / Re-test Routines
+          </a>
+        </div>
+      </div>
+
+      <div class="card-body">
+        {% if routines %}
+          <div class="alert alert-warning mb-3">
+            <strong>{{ routines|length }}</strong> service routines already exist.
+            Delete them first if you want to test again.
+          </div>
+
+          <form method="post"
+                action="{% url 'routines:delete_routines_for_quotation' form.instance.pk %}"
+                onsubmit="return confirm('Delete ALL existing service routines? This cannot be undone.');">
+            {% csrf_token %}
+            <button type="submit" class="btn btn-danger">
+              Delete Existing Service Routines
+            </button>
+          </form>
+        {% else %}
+          <p class="text-muted mb-0">
+            No service routines created yet.
+          </p>
+        {% endif %}
+      </div>
+    </div>
+  {% endwith %}
+{% endif %}
 
 <form method="post">
   {% csrf_token %}
@@ -104,84 +154,96 @@
           </thead>
 
           <tbody>
-            <!-- Annual (Visits default = 1) -->
+            <!-- Annual -->
             <tr>
               <td class="fw-semibold">Annual</td>
               <td class="text-end">
                 <input type="number" min="0" step="1"
                        class="form-control form-control-sm text-end calc-input"
-                       id="men_annual" value="0">
+                       id="men_annual" name="men_annual"
+                       value="{{ quote.calc_men_annual|default_if_none:0 }}">
               </td>
               <td class="text-end">
                 <input type="number" min="0" step="0.01"
                        class="form-control form-control-sm text-end calc-input"
-                       id="hours_annual" value="0">
+                       id="hours_annual" name="hours_annual"
+                       value="{{ quote.calc_hours_annual|default_if_none:0 }}">
               </td>
               <td class="text-end">
                 <input type="number" min="0" step="0.01"
                        class="form-control form-control-sm text-end calc-input"
-                       id="price_annual" value="0">
+                       id="price_annual" name="price_annual"
+                       value="{{ quote.calc_price_annual|default_if_none:0 }}">
               </td>
               <td class="text-end">
                 <input type="number" min="0" step="1"
                        class="form-control form-control-sm text-end calc-input"
-                       id="visits_annual" value="1">
+                       id="visits_annual" name="visits_annual"
+                       value="{{ quote.calc_visits_annual|default_if_none:1 }}">
               </td>
               <td class="text-end">
                 <span class="fw-semibold">$<span id="total_annual">0.00</span></span>
               </td>
             </tr>
 
-            <!-- Half Yearly (Visits default = 1) -->
+            <!-- Half Yearly -->
             <tr>
               <td class="fw-semibold">Half Yearly</td>
               <td class="text-end">
                 <input type="number" min="0" step="1"
                        class="form-control form-control-sm text-end calc-input"
-                       id="men_half" value="0">
+                       id="men_half" name="men_half"
+                       value="{{ quote.calc_men_half|default_if_none:0 }}">
               </td>
               <td class="text-end">
                 <input type="number" min="0" step="0.01"
                        class="form-control form-control-sm text-end calc-input"
-                       id="hours_half" value="0">
+                       id="hours_half" name="hours_half"
+                       value="{{ quote.calc_hours_half|default_if_none:0 }}">
               </td>
               <td class="text-end">
                 <input type="number" min="0" step="0.01"
                        class="form-control form-control-sm text-end calc-input"
-                       id="price_half" value="0">
+                       id="price_half" name="price_half"
+                       value="{{ quote.calc_price_half|default_if_none:0 }}">
               </td>
               <td class="text-end">
                 <input type="number" min="0" step="1"
                        class="form-control form-control-sm text-end calc-input"
-                       id="visits_half" value="1">
+                       id="visits_half" name="visits_half"
+                       value="{{ quote.calc_visits_half|default_if_none:1 }}">
               </td>
               <td class="text-end">
                 <span class="fw-semibold">$<span id="total_half">0.00</span></span>
               </td>
             </tr>
 
-            <!-- Monthly (Visits default = 12) -->
+            <!-- Monthly -->
             <tr>
               <td class="fw-semibold">Monthly</td>
               <td class="text-end">
                 <input type="number" min="0" step="1"
                        class="form-control form-control-sm text-end calc-input"
-                       id="men_month" value="0">
+                       id="men_month" name="men_month"
+                       value="{{ quote.calc_men_month|default_if_none:0 }}">
               </td>
               <td class="text-end">
                 <input type="number" min="0" step="0.01"
                        class="form-control form-control-sm text-end calc-input"
-                       id="hours_month" value="0">
+                       id="hours_month" name="hours_month"
+                       value="{{ quote.calc_hours_month|default_if_none:0 }}">
               </td>
               <td class="text-end">
                 <input type="number" min="0" step="0.01"
                        class="form-control form-control-sm text-end calc-input"
-                       id="price_month" value="0">
+                       id="price_month" name="price_month"
+                       value="{{ quote.calc_price_month|default_if_none:0 }}">
               </td>
               <td class="text-end">
                 <input type="number" min="0" step="1"
                        class="form-control form-control-sm text-end calc-input"
-                       id="visits_month" value="12">
+                       id="visits_month" name="visits_month"
+                       value="{{ quote.calc_visits_month|default_if_none:12 }}">
               </td>
               <td class="text-end">
                 <span class="fw-semibold">$<span id="total_month">0.00</span></span>
@@ -198,7 +260,8 @@
                   <input type="number" min="0" step="0.01"
                          class="form-control form-control-sm text-end calc-input"
                          style="max-width: 160px;"
-                         id="afss_charge" value="0">
+                         id="afss_charge" name="afss_charge"
+                         value="{{ quote.calc_afss_charge|default_if_none:0 }}">
                 </div>
               </td>
             </tr>
@@ -249,7 +312,6 @@
           {% for f in formset %}
             <tr class="line-item">
 
-              {# ✅ REQUIRED for edit formsets (prevents "id required") #}
               {% for hidden in f.hidden_fields %}
                 {{ hidden }}
               {% endfor %}
@@ -283,6 +345,7 @@
               </td>
 
               <td class="text-center">
+                {# keep hidden DELETE field for existing rows, but JS removal is instant #}
                 {% if f.DELETE %}<span class="d-none">{{ f.DELETE }}</span>{% endif %}
                 <button type="button" class="btn btn-sm btn-outline-danger js-delete-line">Delete</button>
               </td>
@@ -325,7 +388,7 @@
   </div>
 </form>
 
-<!-- EMPTY ROW TEMPLATE (new rows; NO id field) -->
+<!-- EMPTY ROW TEMPLATE -->
 <template id="empty-row-template">
   <tr class="line-item">
     {% for hidden in formset.empty_form.hidden_fields %}
@@ -350,7 +413,6 @@
 </style>
 
 <script>
-  // ---------- Helpers ----------
   function toNumber(val) {
     if (val === null || val === undefined) return 0;
     var s = String(val).replace(/[^0-9.\-]/g, "");
@@ -362,7 +424,6 @@
     return (Math.round((n + Number.EPSILON) * 100) / 100).toFixed(2);
   }
 
-  // ---------- EFSM totals ----------
   function rowLineTotal($row) {
     var qtyVal = $row.find('input[name$="-quantity"]').val();
     var priceVal = $row.find('input[name$="-unit_price"]').val();
@@ -406,7 +467,6 @@
     });
   }
 
-  // ---------- Select2 EFSM ----------
   function initEFSMSelect($el) {
     if ($el.hasClass("select2-hidden-accessible")) return;
 
@@ -439,7 +499,18 @@
     });
   }
 
-  // ---------- Add/Delete EFSM rows ----------
+  function openEFSMSelect2($select) {
+    if (!$select || !$select.length) return;
+    if (!$select.data("select2")) return;
+
+    $select.select2("open");
+
+    setTimeout(function () {
+      var $search = $(".select2-container--open .select2-search__field");
+      if ($search.length) $search.trigger("focus");
+    }, 0);
+  }
+
   function addEFSMLineItem(prefix) {
     var totalInput = document.getElementById("id_" + prefix + "-TOTAL_FORMS");
     var index = parseInt(totalInput.value, 10);
@@ -454,21 +525,19 @@
     initAllEFSMSelects($newRow);
     bindEFSMRowEvents($newRow);
 
+    var $newSelect = $newRow.find(".efsm-select");
+    setTimeout(function () {
+      openEFSMSelect2($newSelect);
+    }, 0);
+
     updateEFSMTotals();
   }
 
   function deleteEFSMLine($row) {
-    var $del = $row.find('input[type="checkbox"][name$="-DELETE"]');
-    if ($del.length) {
-      $del.prop("checked", true);
-      $row.addClass("is-deleted").hide();
-    } else {
-      $row.remove();
-    }
+    $row.remove();
     updateEFSMTotals();
   }
 
-  // ---------- Service Calculations ----------
   function calc4(menId, hoursId, priceId, visitsId) {
     var men    = toNumber(document.getElementById(menId).value);
     var hrs    = toNumber(document.getElementById(hoursId).value);
@@ -531,6 +600,15 @@
 
     $("#toggle-calc").on("click", function() {
       toggleCalc();
+    });
+
+    $(document).on("focus", "select.efsm-select", function () {
+      openEFSMSelect2($(this));
+    });
+
+    $(document).on("click", ".select2-selection", function () {
+      var $select = $(this).closest(".select2-container").prev("select.efsm-select");
+      openEFSMSelect2($select);
     });
   });
 </script>

@@ -9,39 +9,70 @@
   </a>
 </div>
 
+{% if routines_exist %}
+  <div class="alert alert-warning">
+    <div class="fw-semibold mb-1">Service routines already exist for this quotation.</div>
+    <div class="small text-muted mb-2">
+      Delete existing routines first if you want to re-test creation.
+    </div>
+
+    <form method="post"
+          action="{% url 'routines:delete_routines_for_quotation' quotation.pk %}"
+          onsubmit="return confirm('Delete ALL existing service routines? This cannot be undone.');">
+      {% csrf_token %}
+      <button type="submit" class="btn btn-danger">
+        Delete Existing Service Routines
+      </button>
+    </form>
+  </div>
+{% endif %}
+
 <div class="card shadow-sm">
   <div class="card-header bg-light fw-semibold">
-    Select Annual Due Month
+    Create Service Routines
   </div>
 
   <div class="card-body">
     <p class="text-muted mb-3">
-      The selected month becomes the due month for the <strong>Annual Service Routine</strong>.
-      A <strong>Bi-Annual Service Routine</strong> will be created 6 months later (if needed),
-      and monthly routines will be created for the remaining months (if needed).
+      Choose the <strong>Annual Due Month</strong> and an <strong>Invoice Frequency</strong>.
     </p>
 
-    <form method="post">
+    <form method="post" action="{% url 'routines:create_from_quotation' quotation.pk %}">
       {% csrf_token %}
 
       <div class="mb-3">
         {{ form.annual_due_month.label_tag }}
         {{ form.annual_due_month }}
         {% if form.annual_due_month.errors %}
-          <div class="text-danger small mt-1">
-            {{ form.annual_due_month.errors }}
-          </div>
+          <div class="text-danger small mt-1">{{ form.annual_due_month.errors }}</div>
+        {% endif %}
+      </div>
+
+      <div class="mb-3">
+        {{ form.invoice_frequency.label_tag }}
+        {{ form.invoice_frequency }}
+        {% if form.invoice_frequency.help_text %}
+          <div class="form-text">{{ form.invoice_frequency.help_text }}</div>
+        {% endif %}
+        {% if form.invoice_frequency.errors %}
+          <div class="text-danger small mt-1">{{ form.invoice_frequency.errors }}</div>
         {% endif %}
       </div>
 
       <div class="d-flex gap-2">
-        <button type="submit" class="btn btn-primary">
+        <button type="submit" class="btn btn-primary" {% if routines_exist %}disabled{% endif %}>
           Create Service Routines
         </button>
         <a href="{% url 'quotations:detail' quotation.pk %}" class="btn btn-outline-secondary">
           Cancel
         </a>
       </div>
+
+      {% if routines_exist %}
+        <div class="form-text mt-2">
+          Create is disabled while routines exist. Delete them above to re-test.
+        </div>
+      {% endif %}
     </form>
   </div>
 </div>
