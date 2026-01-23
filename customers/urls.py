@@ -12,6 +12,9 @@ from .views import (
     SiteCreateView,
     SiteDeleteView,
     SiteUpdateView,
+    CustomerImportView,
+    CustomerImportTemplateView,
+    CustomerBulkDeleteView,  # ✅ NEW
 )
 
 app_name = "customers"
@@ -20,6 +23,9 @@ urlpatterns = [
     # Customers
     path("", CustomerListView.as_view(), name="list"),
     path("new/", CustomerCreateView.as_view(), name="create"),
+    path("import/", CustomerImportView.as_view(), name="import"),
+    path("import/template/", CustomerImportTemplateView.as_view(), name="import_template"),
+    path("bulk-delete/", CustomerBulkDeleteView.as_view(), name="bulk_delete"),  # ✅ NEW
     path("<int:pk>/", CustomerDetailView.as_view(), name="detail"),
     path("<int:pk>/edit/", CustomerUpdateView.as_view(), name="update"),
     path("<int:pk>/delete/", CustomerDeleteView.as_view(), name="delete"),

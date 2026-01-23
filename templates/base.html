@@ -29,9 +29,6 @@
       body.page-exit .page-wrap { transition: none; }
     }
 
-    /* =========================
-       GLOBAL BACK BUTTON STYLE
-       ========================= */
     .btn-back,
     a.btn-back,
     button.btn-back {
@@ -40,43 +37,23 @@
       color: #fff !important;
     }
 
-    .btn-back:hover,
-    a.btn-back:hover,
-    button.btn-back:hover {
+    .btn-back:hover {
       filter: brightness(0.95);
-      color: #fff !important;
     }
 
-    /* Footer spacing */
     .app-footer { padding-bottom: 24px; }
-
-    /* Hide print-only blocks on screen */
     .print-only { display: none; }
 
-    /* Print behaviour */
     @media print {
       nav.navbar,
       .no-print {
         display: none !important;
       }
 
-      body {
-        background: #fff !important;
-      }
-
-      main.container {
-        margin: 0 !important;
-        padding: 0 !important;
-      }
-
-      .print-letterhead {
-        display: flex !important;
-      }
-
-      .page-wrap {
-        animation: none !important;
-      }
-
+      body { background: #fff !important; }
+      main.container { margin: 0 !important; padding: 0 !important; }
+      .print-letterhead { display: flex !important; }
+      .page-wrap { animation: none !important; }
       .print-only { display: block !important; }
     }
   </style>
@@ -88,7 +65,7 @@
 <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
   <div class="container">
 
-    <!-- BRAND WITH LOGO -->
+    <!-- BRAND -->
     <a class="navbar-brand fw-semibold d-flex align-items-center gap-2"
        href="{% url 'dashboard' %}">
       {% if client_profile and client_profile.company_logo %}
@@ -105,14 +82,38 @@
     </button>
 
     <div class="collapse navbar-collapse" id="mainNav">
+
+      <!-- LEFT NAV -->
       <ul class="navbar-nav me-auto">
 
         <li class="nav-item">
           <a class="nav-link" href="{% url 'dashboard' %}">Dashboard</a>
         </li>
 
-        <li class="nav-item">
-          <a class="nav-link" href="{% url 'customers:list' %}">Customers</a>
+        <!-- CUSTOMERS DROPDOWN -->
+        <li class="nav-item dropdown">
+          <a class="nav-link dropdown-toggle" href="#" id="customersDropdown"
+             role="button" data-bs-toggle="dropdown" aria-expanded="false">
+            Customers
+          </a>
+          <ul class="dropdown-menu" aria-labelledby="customersDropdown">
+            <li>
+              <a class="dropdown-item" href="{% url 'customers:list' %}">
+                <i class="bi bi-people me-2"></i>Customer List
+              </a>
+            </li>
+            <li>
+              <a class="dropdown-item" href="{% url 'customers:create' %}">
+                <i class="bi bi-person-plus me-2"></i>Add Customer
+              </a>
+            </li>
+            <li><hr class="dropdown-divider"></li>
+            <li>
+              <a class="dropdown-item" href="{% url 'customers:import' %}">
+                <i class="bi bi-upload me-2"></i>Import Customers (CSV)
+              </a>
+            </li>
+          </ul>
         </li>
 
         <li class="nav-item">
@@ -123,7 +124,6 @@
           <a class="nav-link" href="{% url 'routines:list' %}">Routines</a>
         </li>
 
-
         <li class="nav-item">
           <a class="nav-link" href="{% url 'quotations:list' %}">Quotations</a>
         </li>
@@ -131,59 +131,59 @@
         <!-- SETTINGS -->
         <li class="nav-item dropdown">
           <a class="nav-link dropdown-toggle" href="#" id="settingsDropdown"
-             role="button" data-bs-toggle="dropdown">
+             role="button" data-bs-toggle="dropdown" aria-expanded="false">
             Settings
           </a>
+          <ul class="dropdown-menu" aria-labelledby="settingsDropdown">
 
-          <ul class="dropdown-menu">
             <li class="dropdown-header text-uppercase small text-muted">Codes</li>
 
             <li>
               <a class="dropdown-item" href="{% url 'codes:efsm_list' %}">
-                <i class="bi bi-shield-check me-2"></i> EFSM Codes
+                <i class="bi bi-shield-check me-2"></i>EFSM Codes
               </a>
             </li>
 
             <li>
               <a class="dropdown-item" href="{% url 'codes:defect_list' %}">
-                <i class="bi bi-exclamation-triangle me-2"></i> Defect Codes
+                <i class="bi bi-exclamation-triangle me-2"></i>Defect Codes
               </a>
             </li>
 
             <li>
               <a class="dropdown-item" href="{% url 'codes:asset_list' %}">
-                <i class="bi bi-box-seam me-2"></i> Asset Codes
+                <i class="bi bi-box-seam me-2"></i>Asset Codes
               </a>
             </li>
 
             <li>
               <a class="dropdown-item" href="{% url 'codes:dropdown_list_list' %}">
-                <i class="bi bi-list-check me-2"></i> Dropdown Lists
+                <i class="bi bi-list-check me-2"></i>Dropdown Lists
               </a>
             </li>
 
             <li><hr class="dropdown-divider"></li>
 
-            <li class="dropdown-header text-uppercase small text-muted">
-              Main Database
-            </li>
+            <li class="dropdown-header text-uppercase small text-muted">Main Database</li>
 
             <li>
               <a class="dropdown-item" href="{% url 'company:client_profile' %}">
-                <i class="bi bi-building me-2"></i> Client
+                <i class="bi bi-building me-2"></i>Client
               </a>
             </li>
 
             <li>
               <a class="dropdown-item" href="{% url 'email_templates:list' %}">
-                <i class="bi bi-envelope-paper me-2"></i> Email Templates
+                <i class="bi bi-envelope-paper me-2"></i>Email Templates
               </a>
             </li>
+
           </ul>
         </li>
+
       </ul>
 
-      <!-- AUTH -->
+      <!-- RIGHT NAV -->
       <ul class="navbar-nav">
         {% if user.is_authenticated %}
           <li class="nav-item">
@@ -200,6 +200,7 @@
           </li>
         {% endif %}
       </ul>
+
     </div>
   </div>
 </nav>
@@ -207,26 +208,19 @@
 <!-- PAGE CONTENT -->
 <main class="container my-4 page-wrap">
 
-  <!-- PRINT LETTERHEAD -->
   {% if client_profile and client_profile.company_logo %}
     <div class="print-letterhead d-none d-print-flex mb-4">
-      <img src="{{ client_profile.company_logo.url }}"
-           alt="Company Logo"
-           style="height:70px;width:auto;">
+      <img src="{{ client_profile.company_logo.url }}" style="height:70px;">
     </div>
   {% endif %}
 
-  <!-- ✅ GLOBAL GREEN BACK BUTTON -->
   <div class="mb-3 no-print">
-    <button type="button"
-            class="btn btn-back btn-sm"
-            onclick="goBackAnimated()"
-            title="Back">
+    <button type="button" class="btn btn-back btn-sm"
+            onclick="goBackAnimated()" title="Back">
       <i class="bi bi-arrow-left"></i>
     </button>
   </div>
 
-  <!-- MESSAGES -->
   {% if messages %}
     <div class="mb-3 no-print">
       {% for message in messages %}
@@ -240,27 +234,6 @@
 
   {% block content %}{% endblock %}
 
-  <!-- PRINT-ONLY FOOTER -->
-  <footer class="container my-4 text-muted small app-footer print-only">
-    {% if client_profile %}
-      <div class="d-flex flex-wrap gap-3 align-items-start justify-content-between border-top pt-3">
-        <div class="fw-semibold">
-          {{ client_profile.trading_name }}
-        </div>
-
-        <div style="max-width:420px;">
-          {{ client_profile.company_address|linebreaksbr }}
-        </div>
-
-        <div class="text-end">
-          <div>{{ client_profile.company_phone }}</div>
-          <div>{{ client_profile.company_email }}</div>
-          <div>ABN: {{ client_profile.company_abn }}</div>
-        </div>
-      </div>
-    {% endif %}
-  </footer>
-
 </main>
 
 <!-- Bootstrap JS -->
@@ -270,11 +243,11 @@
   function goBackAnimated() {
     const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     if (reduceMotion) {
-      window.history.back();
+      history.back();
       return;
     }
     document.body.classList.add("page-exit");
-    setTimeout(() => window.history.back(), 150);
+    setTimeout(() => history.back(), 150);
   }
 </script>
 

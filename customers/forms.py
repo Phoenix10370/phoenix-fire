@@ -16,6 +16,10 @@ class CustomerForm(forms.ModelForm):
             "add_email",
             "add_phone",
             "customer_abn_acn",
+
+            # NEW (editable)
+            "billing_type",
+
             "is_active",
             "notes",
         ]
@@ -29,11 +33,18 @@ class CustomerForm(forms.ModelForm):
             "add_email": forms.EmailInput(attrs={"class": "form-control"}),
             "add_phone": forms.TextInput(attrs={"class": "form-control"}),
             "customer_abn_acn": forms.TextInput(attrs={"class": "form-control"}),
+
+            # NEW widget
+            "billing_type": forms.Select(attrs={"class": "form-select"}),
+
             "notes": forms.Textarea(attrs={"class": "form-control", "rows": 4}),
         }
 
     # Make checkbox look right in Bootstrap
-    is_active = forms.BooleanField(required=False, widget=forms.CheckboxInput(attrs={"class": "form-check-input"}))
+    is_active = forms.BooleanField(
+        required=False,
+        widget=forms.CheckboxInput(attrs={"class": "form-check-input"})
+    )
 
 
 class SiteForm(forms.ModelForm):
@@ -57,4 +68,18 @@ class ContactForm(forms.ModelForm):
         }
 
     # Make checkbox look right in Bootstrap
-    is_primary = forms.BooleanField(required=False, widget=forms.CheckboxInput(attrs={"class": "form-check-input"}))
+    is_primary = forms.BooleanField(
+        required=False,
+        widget=forms.CheckboxInput(attrs={"class": "form-check-input"})
+    )
+def __init__(self, *args, **kwargs):
+    super().__init__(*args, **kwargs)
+
+    for field in self.fields.values():
+        field.widget.attrs.setdefault("class", "")
+        field.widget.attrs["class"] += " form-control"
+
+class CustomerImportForm(forms.Form):
+    file = forms.FileField(
+        widget=forms.ClearableFileInput(attrs={"class": "form-control", "accept": ".csv"})
+    )

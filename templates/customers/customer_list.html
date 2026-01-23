@@ -11,7 +11,7 @@
   </a>
 </div>
 
-<!-- SEARCH BAR (¼ WIDTH + LIVE) -->
+<!-- SEARCH BAR -->
 <div class="row mb-3">
   <div class="col-md-3">
     <input
@@ -27,144 +27,182 @@
   </div>
 </div>
 
-<div class="card shadow-sm">
-  <div class="table-responsive">
-    <table class="table table-hover align-middle mb-0">
-      <thead class="table-light">
-        <tr>
-          <th style="width:500px;">Customer</th>
-          <th style="width:180px;">Type</th>
-          <th style="width:250px;">Primary Contact</th>
-          <th style="width:120px;">Status</th>
-          <th class="text-end" style="width:300px;">Actions</th>
-        </tr>
-      </thead>
+<!-- BULK DELETE FORM -->
+<form id="bulk-delete-form" method="post" action="{% url 'customers:bulk_delete' %}">
+  {% csrf_token %}
 
-      <tbody id="customer-table-body">
-        {% for item in items %}
-        <tr
-          class="customer-row"
-          tabindex="0"
-          data-view-url="{% url 'customers:detail' item.pk %}"
-          data-edit-url="{% url 'customers:update' item.pk %}"
-          data-delete-url="{% url 'customers:delete' item.pk %}"
-          aria-label="Customer row {{ item.customer_name }}"
-        >
-          <td class="fw-semibold">
-            {{ item.customer_name }}
-            {% if item.customer_address %}
-              <div class="text-muted small fw-normal">{{ item.customer_address }}</div>
-            {% endif %}
-          </td>
+  <div class="d-flex justify-content-between align-items-center mb-2">
+    <div class="text-muted small" id="selected-count">0 selected</div>
 
-          <td>
-            {% if item.customer_type %}
-              {% if item.customer_type == "Strata" %}
-                <span class="badge text-bg-info">Strata</span>
-              {% elif item.customer_type == "Government" %}
-                <span class="badge text-bg-primary">Government</span>
-              {% elif item.customer_type == "Housing" %}
-                <span class="badge text-bg-warning">Housing</span>
-              {% else %}
-                <span class="badge text-bg-secondary">{{ item.customer_type }}</span>
-              {% endif %}
-            {% else %}
-              <span class="text-muted">—</span>
-            {% endif %}
-          </td>
-
-          <td>
-            {{ item.customer_contact_name|default:"—" }}
-          </td>
-
-          <td>
-            {% if item.is_active %}
-              <span class="badge bg-success">Active</span>
-            {% else %}
-              <span class="badge bg-secondary">Inactive</span>
-            {% endif %}
-          </td>
-
-          <td class="text-end">
-
-            <!-- VIEW -->
-            <a
-              class="btn btn-outline-primary btn-sm"
-              href="{% url 'customers:detail' item.pk %}"
-              data-bs-toggle="tooltip"
-              title="View customer details (V)"
-              aria-label="View customer details"
-            >
-              <i class="bi bi-eye"></i>
-            </a>
-
-            <!-- EDIT -->
-            <a
-              class="btn btn-outline-warning btn-sm"
-              href="{% url 'customers:update' item.pk %}"
-              data-bs-toggle="tooltip"
-              title="Edit customer (E)"
-              aria-label="Edit customer"
-            >
-              <i class="bi bi-pencil"></i>
-            </a>
-
-            <!-- DELETE -->
-            <a
-              class="btn btn-outline-danger btn-sm"
-              href="{% url 'customers:delete' item.pk %}"
-              data-bs-toggle="tooltip"
-              title="Delete customer (Delete)"
-              aria-label="Delete customer"
-            >
-              <i class="bi bi-trash"></i>
-            </a>
-
-          </td>
-        </tr>
-        {% empty %}
-        <tr>
-          <td colspan="5" class="text-center text-muted py-4">
-            No customers found.
-          </td>
-        </tr>
-        {% endfor %}
-      </tbody>
-
-    </table>
+    <button
+      id="bulk-delete-btn"
+      type="submit"
+      class="btn btn-danger btn-sm"
+      disabled
+      onclick="return confirm('Delete selected customers? This cannot be undone.');"
+    >
+      <i class="bi bi-trash me-1"></i>
+      Bulk Delete
+    </button>
   </div>
-</div>
+
+  <div class="card shadow-sm">
+    <div class="table-responsive">
+      <table class="table table-hover align-middle mb-0">
+        <thead class="table-light">
+          <tr>
+            <th style="width:48px;" class="text-center">
+              <input
+                id="select-all"
+                class="form-check-input"
+                type="checkbox"
+                aria-label="Select all customers"
+              >
+            </th>
+            <th style="width:500px;">Customer</th>
+            <th style="width:180px;">Type</th>
+            <th style="width:250px;">Primary Contact</th>
+            <th style="width:120px;">Status</th>
+            <th class="text-end" style="width:300px;">Actions</th>
+          </tr>
+        </thead>
+
+        <tbody id="customer-table-body">
+          {% for item in items %}
+          <tr
+            class="customer-row"
+            tabindex="0"
+            data-view-url="{% url 'customers:detail' item.pk %}"
+            data-edit-url="{% url 'customers:update' item.pk %}"
+            data-delete-url="{% url 'customers:delete' item.pk %}"
+            aria-label="Customer row {{ item.customer_name }}"
+          >
+            <td class="text-center">
+              <input
+                class="form-check-input row-check"
+                type="checkbox"
+                name="ids"
+                value="{{ item.pk }}"
+                aria-label="Select {{ item.customer_name }}"
+              >
+            </td>
+
+            <td class="fw-semibold">
+              {{ item.customer_name }}
+              {% if item.customer_address %}
+                <div class="text-muted small fw-normal">{{ item.customer_address }}</div>
+              {% endif %}
+            </td>
+
+            <td>
+              {% if item.customer_type %}
+                {% if item.customer_type == "Strata" %}
+                  <span class="badge text-bg-info">Strata</span>
+                {% elif item.customer_type == "Government" %}
+                  <span class="badge text-bg-primary">Government</span>
+                {% elif item.customer_type == "Housing" %}
+                  <span class="badge text-bg-warning">Housing</span>
+                {% else %}
+                  <span class="badge text-bg-secondary">{{ item.customer_type }}</span>
+                {% endif %}
+              {% else %}
+                <span class="text-muted">—</span>
+              {% endif %}
+            </td>
+
+            <td>{{ item.customer_contact_name|default:"—" }}</td>
+
+            <td>
+              {% if item.is_active %}
+                <span class="badge bg-success">Active</span>
+              {% else %}
+                <span class="badge bg-secondary">Inactive</span>
+              {% endif %}
+            </td>
+
+            <td class="text-end">
+              <a
+                class="btn btn-outline-primary btn-sm"
+                href="{% url 'customers:detail' item.pk %}"
+                data-bs-toggle="tooltip"
+                title="View customer details (V)"
+                aria-label="View customer details"
+                target="_blank"
+                rel="noopener"
+              >
+                <i class="bi bi-eye"></i>
+              </a>
+
+              <a
+                class="btn btn-outline-warning btn-sm"
+                href="{% url 'customers:update' item.pk %}"
+                data-bs-toggle="tooltip"
+                title="Edit customer (E)"
+                aria-label="Edit customer"
+                target="_blank"
+                rel="noopener"
+              >
+                <i class="bi bi-pencil"></i>
+              </a>
+
+              <a
+                class="btn btn-outline-danger btn-sm"
+                href="{% url 'customers:delete' item.pk %}"
+                data-bs-toggle="tooltip"
+                title="Delete customer (Delete)"
+                aria-label="Delete customer"
+                target="_blank"
+                rel="noopener"
+              >
+                <i class="bi bi-trash"></i>
+              </a>
+            </td>
+          </tr>
+          {% empty %}
+          <tr>
+            <td colspan="6" class="text-center text-muted py-4">
+              No customers found.
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+
+      </table>
+    </div>
+  </div>
+</form>
 
 <script>
   document.addEventListener("DOMContentLoaded", () => {
-    if (typeof bootstrap === "undefined") {
-      console.error("Bootstrap JS not loaded. Tooltips cannot run.");
-      return;
-    }
-
     const searchInput = document.getElementById("customer-search");
     const tableBody = document.getElementById("customer-table-body");
+
+    const selectAll = document.getElementById("select-all");
+    const bulkDeleteBtn = document.getElementById("bulk-delete-btn");
+    const selectedCount = document.getElementById("selected-count");
 
     let selectedRow = null;
 
     function initTooltips() {
+      if (typeof bootstrap === "undefined") return;
       document.querySelectorAll('[data-bs-toggle="tooltip"]').forEach(el => {
         const inst = bootstrap.Tooltip.getInstance(el);
         if (inst) inst.dispose();
-
-        new bootstrap.Tooltip(el, {
-          trigger: "hover focus",
-          delay: { show: 250, hide: 100 }
-        });
+        new bootstrap.Tooltip(el, { trigger: "hover focus", delay: { show: 250, hide: 100 } });
       });
     }
 
     function initRowSelection() {
       document.querySelectorAll("tr.customer-row").forEach(row => {
         row.addEventListener("click", (e) => {
-          if (e.target.closest("a, button")) return;
+          // ✅ Don't trigger row actions when clicking checkboxes or buttons
+          if (e.target.closest("a, button, input")) return;
           selectRow(row);
+          // ✅ open detail in a new tab when clicking the row
+          const viewUrl = row.getAttribute("data-view-url");
+          if (viewUrl) window.open(viewUrl, "_blank", "noopener");
         });
+
         row.addEventListener("focus", () => selectRow(row));
       });
     }
@@ -175,7 +213,7 @@
       selectedRow.classList.add("table-active");
     }
 
-    // Keyboard shortcuts: V=view, E=edit, Delete=delete (selected row)
+    // Keyboard shortcuts: V=view, E=edit, Delete=delete (selected row) - open new tab
     document.addEventListener("keydown", (e) => {
       const tag = (e.target && e.target.tagName) ? e.target.tagName.toLowerCase() : "";
       if (tag === "input" || tag === "textarea" || e.target.isContentEditable) return;
@@ -187,19 +225,54 @@
 
       if (e.key === "v" || e.key === "V") {
         e.preventDefault();
-        window.location.href = viewUrl;
+        window.open(viewUrl, "_blank", "noopener");
       } else if (e.key === "e" || e.key === "E") {
         e.preventDefault();
-        window.location.href = editUrl;
+        window.open(editUrl, "_blank", "noopener");
       } else if (e.key === "Delete") {
         e.preventDefault();
-        window.location.href = deleteUrl;
+        window.open(deleteUrl, "_blank", "noopener");
       }
     });
+
+    function updateBulkUI() {
+      const checks = document.querySelectorAll(".row-check");
+      const checked = document.querySelectorAll(".row-check:checked");
+      selectedCount.textContent = `${checked.length} selected`;
+      bulkDeleteBtn.disabled = checked.length === 0;
+
+      // keep select-all in sync
+      if (checks.length === 0) {
+        selectAll.checked = false;
+        selectAll.indeterminate = false;
+        return;
+      }
+      selectAll.checked = checked.length === checks.length;
+      selectAll.indeterminate = checked.length > 0 && checked.length < checks.length;
+    }
+
+    function initBulkCheckboxes() {
+      // select all
+      selectAll.addEventListener("change", () => {
+        document.querySelectorAll(".row-check").forEach(cb => {
+          cb.checked = selectAll.checked;
+        });
+        updateBulkUI();
+      });
+
+      // per row checkbox
+      document.querySelectorAll(".row-check").forEach(cb => {
+        cb.addEventListener("change", updateBulkUI);
+        cb.addEventListener("click", (e) => e.stopPropagation()); // ✅ don't trigger row click
+      });
+
+      updateBulkUI();
+    }
 
     function initAllUI() {
       initTooltips();
       initRowSelection();
+      initBulkCheckboxes();
     }
 
     // Live search (AJAX)
@@ -218,6 +291,11 @@
             if (newBody) {
               tableBody.innerHTML = newBody.innerHTML;
               selectedRow = null;
+
+              // Reset select-all after new results
+              selectAll.checked = false;
+              selectAll.indeterminate = false;
+
               initAllUI();
             }
           });

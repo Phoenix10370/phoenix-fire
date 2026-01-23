@@ -1,0 +1,65 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <h1 class="h3 mb-0">Import Customers (CSV)</h1>
+  <div class="d-flex gap-2">
+    <!-- ✅ Template download button -->
+    <a class="btn btn-outline-secondary"
+       href="{% url 'customers:import_template' %}">
+      <i class="bi bi-download me-1"></i>
+      Download CSV Template
+    </a>
+
+    <a class="btn btn-outline-secondary" href="{% url 'customers:list' %}">Back</a>
+  </div>
+</div>
+
+<div class="card shadow-sm">
+  <div class="card-body">
+    <p class="text-muted mb-3">
+      Upload a CSV file to create multiple customers. Required column: <code>customer_name</code>.
+    </p>
+
+    {% if form.errors %}
+      <div class="alert alert-danger">
+        Please correct the errors below and try again.
+      </div>
+    {% endif %}
+
+    <form method="post" enctype="multipart/form-data">
+      {% csrf_token %}
+
+      <div class="mb-3">
+        <label class="form-label">CSV File</label>
+        {{ form.file }}
+        {% for e in form.file.errors %}
+          <div class="text-danger small">{{ e }}</div>
+        {% endfor %}
+      </div>
+
+      <div class="d-flex gap-2">
+        <button class="btn btn-primary" type="submit">
+          <i class="bi bi-upload me-1"></i>
+          Import
+        </button>
+        <a class="btn btn-outline-secondary" href="{% url 'customers:list' %}">Cancel</a>
+      </div>
+    </form>
+  </div>
+</div>
+
+{% if errors %}
+  <div class="card shadow-sm mt-3">
+    <div class="card-header fw-semibold text-danger">Import Errors (nothing was imported)</div>
+    <div class="card-body">
+      <ul class="mb-0">
+        {% for e in errors %}
+          <li>{{ e }}</li>
+        {% endfor %}
+      </ul>
+    </div>
+  </div>
+{% endif %}
+
+{% endblock %}

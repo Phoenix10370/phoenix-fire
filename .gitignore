@@ -17,3 +17,6 @@ media/
 Thumbs.db
 .vscode/
 .idea/
+# Local backups
+*.backup-*
+media_backup-*/

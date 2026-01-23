@@ -1,4 +1,5 @@
 from django.db import models
+import uuid
 
 
 class Customer(models.Model):
@@ -14,9 +15,47 @@ class Customer(models.Model):
         (TYPE_OTHER, "Other"),
     ]
 
+    BILLING_FACTORED = "FACTORED"
+    BILLING_NON_FACTORED = "NON_FACTORED"
+    BILLING_CASH = "CASH"
+    BILLING_BARTERCARD = "BARTERCARD"
+
+    BILLING_TYPE_CHOICES = [
+        (BILLING_FACTORED, "Factored"),
+        (BILLING_NON_FACTORED, "Non Factored"),
+        (BILLING_CASH, "Cash"),
+        (BILLING_BARTERCARD, "Bartercard"),
+    ]
+
     # Core
     customer_name = models.CharField(max_length=200)
     customer_address = models.TextField(blank=True, default="")
+
+    # System / IDs (NOT unique yet)
+    company_code = models.CharField(
+        max_length=12,
+        editable=False,
+        blank=True,
+        db_index=True,
+        help_text="System generated unique ID created when the client is created.",
+    )
+
+    accounting_id = models.CharField(
+        max_length=64,
+        editable=False,
+        blank=True,
+        null=True,
+        db_index=True,
+        help_text="Unique ID created when linked to an accounting API at a later stage.",
+    )
+
+    # Billing
+    billing_type = models.CharField(
+        max_length=20,
+        choices=BILLING_TYPE_CHOICES,
+        default=BILLING_FACTORED,
+        db_index=True,
+    )
 
     # Emails
     billing_email = models.EmailField(blank=True, default="")
@@ -45,6 +84,13 @@ class Customer(models.Model):
 
     def __str__(self):
         return self.customer_name
+
+    def save(self, *args, **kwargs):
+        if not self.company_code:
+            import uuid
+            self.company_code = uuid.uuid4().hex[:12].upper()
+        super().save(*args, **kwargs)
+
 
 
 class Site(models.Model):

@@ -1,4 +1,9 @@
 {% extends "base.html" %}
+{% if form.errors %}
+  <div class="alert alert-danger">
+    Please correct the errors below and try again.
+  </div>
+{% endif %}
 
 {% block content %}
 <div class="d-flex justify-content-between align-items-center mb-3">
@@ -10,6 +15,12 @@
   <div class="card-body">
     <form method="post" novalidate>
       {% csrf_token %}
+      {% if form.errors %}
+  <div class="alert alert-danger">
+    Please correct the errors below and try again.
+  </div>
+{% endif %}
+
 
       <div class="row g-3">
         <div class="col-md-8">
@@ -40,15 +51,36 @@
           {{ form.customer_main_phone }}
         </div>
 
+        {# NEW: Billing Type #}
         <div class="col-md-6">
-          <label class="form-label">Billing Email</label>
-          {{ form.billing_email }}
+          <label class="form-label">Billing Type</label>
+          {{ form.billing_type }}
+          {% for e in form.billing_type.errors %}<div class="text-danger small">{{ e }}</div>{% endfor %}
         </div>
 
+     <label class="form-label">Billing Email</label>
+{{ form.billing_email }}
+
+{% if form.billing_email.errors %}
+  <div class="text-danger small">
+    {{ form.billing_email.errors|striptags }}
+  </div>
+{% endif %}
+
+
+
         <div class="col-md-6">
-          <label class="form-label">Additional Email</label>
-          {{ form.add_email }}
-        </div>
+  <label class="form-label">Additional Email</label>
+  {{ form.add_email }}
+
+  {% if form.add_email.errors %}
+    <div class="text-danger small">
+      {{ form.add_email.errors|striptags }}
+    </div>
+  {% endif %}
+</div>
+
+
 
         <div class="col-md-6">
           <label class="form-label">Additional Phone</label>
