@@ -4,25 +4,57 @@ import django.db.models.constraints
 from django.db import migrations, models
 
 
+def resequence_positions(apps, schema_editor):
+    QuotationItem = apps.get_model("quotations", "QuotationItem")
+
+    quotation_ids = (
+        QuotationItem.objects
+        .values_list("quotation_id", flat=True)
+        .distinct()
+    )
+
+    for qid in quotation_ids:
+        items = list(
+            QuotationItem.objects
+            .filter(quotation_id=qid)
+            .order_by("position", "id")
+        )
+
+        # Force unique + stable ordering: 1..N
+        for i, item in enumerate(items, start=1):
+            item.position = i
+
+        if items:
+            QuotationItem.objects.bulk_update(items, ["position"])
+
+
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('codes', '0011_alter_dropdownoption_options'),
-        ('quotations', '0005_quotation_calc_afss_charge_and_more'),
+        ("codes", "0011_alter_dropdownoption_options"),
+        ("quotations", "0005_quotation_calc_afss_charge_and_more"),
     ]
 
     operations = [
         migrations.AlterModelOptions(
-            name='quotationitem',
-            options={'ordering': ['position', 'id']},
+            name="quotationitem",
+            options={"ordering": ["position", "id"]},
         ),
         migrations.AddField(
-            model_name='quotationitem',
-            name='position',
+            model_name="quotationitem",
+            name="position",
             field=models.PositiveIntegerField(db_index=True, default=0),
         ),
+
+        # ✅ Fix existing duplicated zeros (and any duplicates) BEFORE adding unique constraint
+        migrations.RunPython(resequence_positions, reverse_code=migrations.RunPython.noop),
+
         migrations.AddConstraint(
-            model_name='quotationitem',
-            constraint=models.UniqueConstraint(deferrable=django.db.models.constraints.Deferrable['DEFERRED'], fields=('quotation', 'position'), name='uniq_quotation_item_position'),
+            model_name="quotationitem",
+            constraint=models.UniqueConstraint(
+                deferrable=django.db.models.constraints.Deferrable["DEFERRED"],
+                fields=("quotation", "position"),
+                name="uniq_quotation_item_position",
+            ),
         ),
     ]
