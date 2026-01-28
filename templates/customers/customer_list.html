@@ -120,41 +120,27 @@
               {% endif %}
             </td>
 
+            <!-- ACTIONS (MATCH ROUTINES STYLE) -->
             <td class="text-end">
               <a
-                class="btn btn-outline-primary btn-sm"
+                class="btn btn-sm btn-outline-primary"
                 href="{% url 'customers:detail' item.pk %}"
-                data-bs-toggle="tooltip"
-                title="View customer details (V)"
-                aria-label="View customer details"
-                target="_blank"
-                rel="noopener"
               >
-                <i class="bi bi-eye"></i>
+                View
               </a>
 
               <a
-                class="btn btn-outline-warning btn-sm"
+                class="btn btn-sm btn-outline-secondary"
                 href="{% url 'customers:update' item.pk %}"
-                data-bs-toggle="tooltip"
-                title="Edit customer (E)"
-                aria-label="Edit customer"
-                target="_blank"
-                rel="noopener"
               >
-                <i class="bi bi-pencil"></i>
+                Edit
               </a>
 
               <a
-                class="btn btn-outline-danger btn-sm"
+                class="btn btn-sm btn-outline-danger"
                 href="{% url 'customers:delete' item.pk %}"
-                data-bs-toggle="tooltip"
-                title="Delete customer (Delete)"
-                aria-label="Delete customer"
-                target="_blank"
-                rel="noopener"
               >
-                <i class="bi bi-trash"></i>
+                Delete
               </a>
             </td>
           </tr>
@@ -182,15 +168,6 @@
     const selectedCount = document.getElementById("selected-count");
 
     let selectedRow = null;
-
-    function initTooltips() {
-      if (typeof bootstrap === "undefined") return;
-      document.querySelectorAll('[data-bs-toggle="tooltip"]').forEach(el => {
-        const inst = bootstrap.Tooltip.getInstance(el);
-        if (inst) inst.dispose();
-        new bootstrap.Tooltip(el, { trigger: "hover focus", delay: { show: 250, hide: 100 } });
-      });
-    }
 
     function initRowSelection() {
       document.querySelectorAll("tr.customer-row").forEach(row => {
@@ -270,7 +247,6 @@
     }
 
     function initAllUI() {
-      initTooltips();
       initRowSelection();
       initBulkCheckboxes();
     }

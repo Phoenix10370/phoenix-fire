@@ -16,6 +16,11 @@ urlpatterns = [
     path("<int:pk>/accept/", views.quotation_accept, name="accept"),
     path("<int:pk>/reject/", views.quotation_reject, name="reject"),
 
+    # Comments / Correspondence
+    path("<int:pk>/comments/add/", views.quotation_add_comment, name="add_comment"),
+    path("<int:pk>/correspondence/upload/", views.quotation_upload_correspondence, name="upload_correspondence"),
+    path("<int:pk>/correspondence/<int:doc_id>/download/", views.quotation_download_correspondence, name="download_correspondence"),
+
     path("<int:pk>/print/pdf/", views.quotation_print_pdf, name="print_pdf"),
 
     path("<int:pk>/send-email/", email_views.quotation_send_email, name="send_email"),

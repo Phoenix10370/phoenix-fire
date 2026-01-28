@@ -8,6 +8,7 @@ from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.db.models import Q
 from django.http import HttpResponse, JsonResponse
+from django.http import FileResponse, Http404
 from django.shortcuts import get_object_or_404, redirect, render
 from django.template.loader import get_template
 from django.urls import reverse, reverse_lazy
@@ -23,9 +24,16 @@ from properties.models import Property
 from company.models import ClientProfile
 
 from .forms import QuotationForm, QuotationItemFormSet
-from .models import Quotation
+from .models import (
+    Quotation,
+    QuotationComment,
+    QuotationCorrespondence,
+)
 
 
+# =========================
+# PDF helpers
+# =========================
 def _pdf_link_callback(uri, rel):
     if uri.startswith(settings.MEDIA_URL):
         return os.path.join(settings.MEDIA_ROOT, uri.replace(settings.MEDIA_URL, ""))
@@ -36,9 +44,9 @@ def _pdf_link_callback(uri, rel):
     return uri
 
 
-# -----------------------------
-# Calculator helpers (NEW)
-# -----------------------------
+# =========================
+# Calculator helpers
+# =========================
 def _to_int(val, default=0):
     try:
         if val is None or str(val).strip() == "":
@@ -58,10 +66,6 @@ def _to_dec(val, default="0.00"):
 
 
 def _apply_calc_post_to_quote(quote: Quotation, post):
-    """
-    Apply calculator POST fields onto a Quotation instance (in memory).
-    Call quote.save(update_fields=[...]) when you're ready to persist.
-    """
     quote.calc_men_annual = _to_int(post.get("men_annual"), 0)
     quote.calc_hours_annual = _to_dec(post.get("hours_annual"), "0.00")
     quote.calc_price_annual = _to_dec(post.get("price_annual"), "0.00")
@@ -88,6 +92,9 @@ CALC_UPDATE_FIELDS = [
 ]
 
 
+# =========================
+# List / Detail
+# =========================
 class QuotationListView(ListView):
     model = Quotation
     template_name = "quotations/quotation_list.html"
@@ -95,7 +102,8 @@ class QuotationListView(ListView):
 
     def get_queryset(self):
         return (
-            Quotation.objects.select_related("site", "site__customer")
+            Quotation.objects
+            .select_related("site", "site__customer")
             .prefetch_related("items", "items__efsm_code")
         )
 
@@ -107,29 +115,98 @@ class QuotationDetailView(DetailView):
 
     def get_queryset(self):
         return (
-            Quotation.objects.select_related("site", "site__customer")
-            .prefetch_related("items", "items__efsm_code", "logs", "logs__actor")
+            Quotation.objects
+            .select_related("site", "site__customer")
+            .prefetch_related(
+                "items", "items__efsm_code",
+                "logs", "logs__actor",
+                "comments", "comments__created_by",
+                "correspondence", "correspondence__uploaded_by",
+            )
         )
 
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
 
-        quote = self.object
-        subtotal = Decimal("0.00")
-        for li in quote.items.all():
-            subtotal += Decimal(li.line_total)
-
+        subtotal = sum(Decimal(li.line_total) for li in self.object.items.all())
         gst = (subtotal * Decimal("0.10")).quantize(Decimal("0.01"))
         total = (subtotal + gst).quantize(Decimal("0.01"))
 
-        ctx["subtotal"] = subtotal.quantize(Decimal("0.01"))
-        ctx["gst"] = gst
-        ctx["total"] = total
+        ctx.update({
+            "subtotal": subtotal.quantize(Decimal("0.01")),
+            "gst": gst,
+            "total": total,
+            "comments": self.object.comments.all(),
+            "correspondence": self.object.correspondence.all(),
+        })
         return ctx
 
 
 # =========================
-# Accept (DATE ONLY) / Reject
+# Comments / Correspondence
+# =========================
+@login_required
+@require_POST
+def quotation_add_comment(request, pk):
+    quote = get_object_or_404(Quotation, pk=pk)
+    text = (request.POST.get("comment") or "").strip()
+
+    if not text:
+        messages.error(request, "Comment cannot be blank.")
+        return redirect("quotations:detail", pk=quote.pk)
+
+    QuotationComment.objects.create(
+        quotation=quote,
+        comment=text,
+        created_by=request.user if getattr(request.user, "is_authenticated", False) else None,
+    )
+
+    quote.log("modified", request.user, "Comment added.")
+    messages.success(request, "Comment added.")
+    return redirect("quotations:detail", pk=quote.pk)
+
+
+@login_required
+@require_POST
+def quotation_upload_correspondence(request, pk):
+    quote = get_object_or_404(Quotation, pk=pk)
+
+    f = request.FILES.get("document")
+    if not f:
+        messages.error(request, "Please choose a document to upload.")
+        return redirect("quotations:detail", pk=quote.pk)
+
+    QuotationCorrespondence.objects.create(
+        quotation=quote,
+        document=f,
+        uploaded_by=request.user if getattr(request.user, "is_authenticated", False) else None,
+        original_name=getattr(f, "name", "") or "",
+    )
+
+    quote.log("modified", request.user, f"Correspondence uploaded: {getattr(f, 'name', 'document')}")
+    messages.success(request, "Document uploaded.")
+    return redirect("quotations:detail", pk=quote.pk)
+
+
+@login_required
+def quotation_download_correspondence(request, pk, doc_id):
+    quote = get_object_or_404(Quotation, pk=pk)
+    doc = get_object_or_404(QuotationCorrespondence, pk=doc_id, quotation=quote)
+
+    if not doc.document:
+        raise Http404("File not found.")
+
+    try:
+        fh = doc.document.open("rb")
+    except Exception:
+        raise Http404("File not found.")
+
+    filename = doc.original_name or os.path.basename(doc.document.name) or "document"
+    return FileResponse(fh, as_attachment=True, filename=filename)
+
+
+# =========================
+# Accept / Reject
 # =========================
 @login_required
 def quotation_accept(request, pk):
@@ -150,9 +227,11 @@ def quotation_accept(request, pk):
             return redirect("quotations:accept", pk=quote.pk)
 
         if not accepted_by_name:
-            accepted_by_name = ((request.user.get_full_name() or "").strip() or request.user.username)
+            accepted_by_name = (
+                (request.user.get_full_name() or "").strip()
+                or request.user.username
+            )
 
-        # ✅ Use model method that stores accepted_date (DateField)
         quote.mark_accepted(
             request.user,
             accepted_date=accepted_date,
@@ -164,25 +243,25 @@ def quotation_accept(request, pk):
         quote.log(
             "accepted",
             request.user,
-            f"Accepted. Date={accepted_date.strftime('%Y-%m-%d')} "
-            f"Accepted By={accepted_by_name} Work Order={work_order_number or '—'}",
+            f"Accepted. Date={accepted_date} "
+            f"Accepted By={accepted_by_name} "
+            f"Work Order={work_order_number or '—'}",
         )
 
         messages.success(request, f"Quotation {quote.number} accepted.")
         return redirect("quotations:detail", pk=quote.pk)
-
-    accepted_date_value = timezone.localdate().strftime("%Y-%m-%d")
-    accepted_by_value = ((request.user.get_full_name() or "").strip() or request.user.username)
-    work_order_value = ""
 
     return render(
         request,
         "quotations/quotation_accept.html",
         {
             "item": quote,
-            "accepted_date_value": accepted_date_value,
-            "accepted_by_value": accepted_by_value,
-            "work_order_value": work_order_value,
+            "accepted_date_value": timezone.localdate().strftime("%Y-%m-%d"),
+            "accepted_by_value": (
+                (request.user.get_full_name() or "").strip()
+                or request.user.username
+            ),
+            "work_order_value": "",
             "cancel_url": reverse("quotations:detail", kwargs={"pk": quote.pk}),
         },
     )
@@ -205,6 +284,9 @@ def quotation_reject(request, pk):
     return redirect("quotations:detail", pk=quote.pk)
 
 
+# =========================
+# Autocomplete
+# =========================
 def efsm_autocomplete(request):
     q = (request.GET.get("q") or "").strip()
     page = int(request.GET.get("page", 1))
@@ -218,36 +300,49 @@ def efsm_autocomplete(request):
 
     start = (page - 1) * page_size
     end = start + page_size + 1
-
     rows = list(qs.values("id", "code", "fire_safety_measure")[start:end])
     more = len(rows) > page_size
     rows = rows[:page_size]
 
-    return JsonResponse(
-        {
-            "results": [
-                {"id": r["id"], "text": f"{r['code']} - {r['fire_safety_measure']}"}
-                for r in rows
-            ],
-            "more": more,
-        }
-    )
+    return JsonResponse({
+        "results": [
+            {"id": r["id"], "text": f"{r['code']} - {r['fire_safety_measure']}"}
+            for r in rows
+        ],
+        "more": more,
+    })
 
 
+# =========================
+# CREATE / UPDATE
+# =========================
 def quotation_create_for_property(request, property_id):
     prop = get_object_or_404(Property.objects.select_related("customer"), pk=property_id)
     quote = Quotation(site=prop)
 
     if request.method == "POST":
         form = QuotationForm(request.POST, instance=quote)
+
+        # ✅ If quote doesn't exist yet, formset can't query items. Use default.
         formset = QuotationItemFormSet(request.POST, instance=quote)
 
         if form.is_valid() and formset.is_valid():
-            quote = form.save()
-            formset.instance = quote
-            formset.save()
+            quote = form.save(commit=False)
 
-            # ✅ Persist calculator values
+            if quote.status == "draft":
+                quote.status = "created"
+
+            quote.save()
+
+            # ✅ NOW that quote exists, force queryset ordering for any internal lookups
+            formset = QuotationItemFormSet(
+                request.POST,
+                instance=quote,
+                queryset=quote.items.order_by("position", "id"),
+            )
+            if formset.is_valid():
+                formset.save()
+
             _apply_calc_post_to_quote(quote, request.POST)
             quote.save(update_fields=CALC_UPDATE_FIELDS)
 
@@ -255,10 +350,8 @@ def quotation_create_for_property(request, property_id):
             messages.success(request, f"Quotation {quote.number} saved successfully.")
             return redirect("quotations:list")
 
-        # ✅ Keep calculator values visible on the page when there are errors (do NOT save)
         _apply_calc_post_to_quote(quote, request.POST)
-
-        messages.error(request, "Quotation was NOT saved. Please fix the errors shown below.")
+        messages.error(request, "Quotation was NOT saved. Please fix the errors below.")
 
     else:
         form = QuotationForm(instance=quote)
@@ -282,13 +375,23 @@ def quotation_update(request, pk):
 
     if request.method == "POST":
         form = QuotationForm(request.POST, instance=quote)
-        formset = QuotationItemFormSet(request.POST, instance=quote)
+
+        # ✅ FORCE stable ordering when binding POST
+        formset = QuotationItemFormSet(
+            request.POST,
+            instance=quote,
+            queryset=quote.items.order_by("position", "id"),
+        )
 
         if form.is_valid() and formset.is_valid():
-            quote = form.save()
+            quote = form.save(commit=False)
+
+            if quote.status == "draft":
+                quote.status = "created"
+
+            quote.save()
             formset.save()
 
-            # ✅ Persist calculator values
             _apply_calc_post_to_quote(quote, request.POST)
             quote.save(update_fields=CALC_UPDATE_FIELDS)
 
@@ -296,14 +399,17 @@ def quotation_update(request, pk):
             messages.success(request, f"Quotation {quote.number} updated successfully.")
             return redirect("quotations:list")
 
-        # ✅ Keep calculator values visible on the page when there are errors (do NOT save)
         _apply_calc_post_to_quote(quote, request.POST)
-
-        messages.error(request, "Quotation was NOT updated. Please fix the errors shown below.")
+        messages.error(request, "Quotation was NOT updated. Please fix the errors below.")
 
     else:
         form = QuotationForm(instance=quote)
-        formset = QuotationItemFormSet(instance=quote)
+
+        # ✅ FORCE stable ordering on GET as well (edit page rendering)
+        formset = QuotationItemFormSet(
+            instance=quote,
+            queryset=quote.items.order_by("position", "id"),
+        )
 
     return render(
         request,
@@ -318,6 +424,9 @@ def quotation_update(request, pk):
     )
 
 
+# =========================
+# DELETE / PDF
+# =========================
 class QuotationDeleteView(DeleteView):
     model = Quotation
     template_name = "quotations/quotation_confirm_delete.html"
@@ -331,30 +440,26 @@ class QuotationDeleteView(DeleteView):
 
 def quotation_print_pdf(request, pk):
     quote = get_object_or_404(
-        Quotation.objects.select_related("site", "site__customer")
+        Quotation.objects
+        .select_related("site", "site__customer")
         .prefetch_related("items", "items__efsm_code"),
         pk=pk,
     )
 
     client = ClientProfile.get_solo()
 
-    subtotal = Decimal("0.00")
-    for li in quote.items.all():
-        subtotal += Decimal(li.line_total)
-
+    subtotal = sum(Decimal(li.line_total) for li in quote.items.all())
     gst = (subtotal * Decimal("0.10")).quantize(Decimal("0.01"))
     total = (subtotal + gst).quantize(Decimal("0.01"))
 
     template = get_template("quotations/quotation_print_pdf.html")
-    html = template.render(
-        {
-            "item": quote,
-            "client": client,
-            "subtotal": subtotal.quantize(Decimal("0.01")),
-            "gst": gst,
-            "total": total,
-        }
-    )
+    html = template.render({
+        "item": quote,
+        "client": client,
+        "subtotal": subtotal.quantize(Decimal("0.01")),
+        "gst": gst,
+        "total": total,
+    })
 
     result = BytesIO()
     pdf = pisa.CreatePDF(
@@ -365,12 +470,8 @@ def quotation_print_pdf(request, pk):
     )
 
     if pdf.err:
-        return HttpResponse(
-            "PDF generation error. Check quotation_print_pdf.html for unsupported HTML/CSS.",
-            status=500,
-        )
+        return HttpResponse("PDF generation error.", status=500)
 
-    filename = f"Quotation-{quote.number}.pdf"
     response = HttpResponse(result.getvalue(), content_type="application/pdf")
-    response["Content-Disposition"] = f'inline; filename="{filename}"'
+    response["Content-Disposition"] = f'inline; filename="Quotation-{quote.number}.pdf"'
     return response

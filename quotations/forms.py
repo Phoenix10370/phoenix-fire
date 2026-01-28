@@ -1,6 +1,9 @@
 # quotations/forms.py
+from decimal import Decimal, InvalidOperation
+
 from django import forms
-from django.forms import inlineformset_factory
+from django.forms import inlineformset_factory, BaseInlineFormSet
+from django.core.exceptions import ValidationError
 
 from .models import Quotation, QuotationItem
 from codes.models import Code
@@ -16,16 +19,35 @@ class QuotationForm(forms.ModelForm):
         }
 
 
+def _to_decimal(val, default=Decimal("0.00")) -> Decimal:
+    try:
+        if val in (None, ""):
+            return default
+        return Decimal(str(val))
+    except (InvalidOperation, ValueError):
+        return default
+
+
+def _to_int(val, default=0) -> int:
+    try:
+        if val in (None, ""):
+            return default
+        return int(Decimal(str(val)))
+    except Exception:
+        return default
+
+
 class QuotationItemForm(forms.ModelForm):
     class Meta:
         model = QuotationItem
-        fields = ["efsm_code", "quantity", "unit_price"]
+        fields = ["efsm_code", "quantity", "unit_price", "position"]
         widgets = {
             "efsm_code": forms.Select(attrs={"class": "form-select efsm-select"}),
             "quantity": forms.NumberInput(attrs={"class": "form-control", "min": 1}),
             "unit_price": forms.NumberInput(
                 attrs={"class": "form-control", "min": 0, "step": "0.01"}
             ),
+            "position": forms.HiddenInput(),
         }
 
     def __init__(self, *args, **kwargs):
@@ -34,22 +56,118 @@ class QuotationItemForm(forms.ModelForm):
         f = self.fields["efsm_code"]
         f.widget.attrs["data-autocomplete-url"] = "/quotations/autocomplete/efsm/"
 
-        # ✅ CRITICAL: On POST, Django must be able to validate the selected ID.
-        # This does NOT affect page load performance (only runs when saving).
+        # ✅ allow blank extra row without validation errors
+        self.fields["efsm_code"].required = False
+        self.fields["quantity"].required = False
+        self.fields["unit_price"].required = False
+
+        # ✅ On POST, Django must validate selected IDs
         if self.is_bound:
             f.queryset = Code.objects.all()
         else:
-            # GET: keep it fast (no huge dropdown)
+            # ✅ On GET, keep it light
             if self.instance and self.instance.efsm_code_id:
                 f.queryset = Code.objects.filter(pk=self.instance.efsm_code_id)
             else:
                 f.queryset = Code.objects.none()
+
+            # make extra rows appear blank
+            if not getattr(self.instance, "pk", None):
+                self.fields["quantity"].initial = ""
+                self.fields["unit_price"].initial = ""
+
+    def clean(self):
+        cleaned = super().clean()
+
+        efsm = cleaned.get("efsm_code")
+        qty_raw = cleaned.get("quantity")
+        unit_raw = cleaned.get("unit_price")
+
+        qty = _to_int(qty_raw, 0)
+        unit = _to_decimal(unit_raw, Decimal("0.00"))
+
+        # No EFSM selected: allow a truly empty row; but block "half-filled" rows
+        if efsm is None:
+            typed_qty = qty_raw not in (None, "", "0")
+            typed_unit = unit_raw not in (None, "", "0", "0.0", "0.00")
+            meaningful = (typed_qty and qty not in (0, 1)) or (typed_unit and unit != Decimal("0.00"))
+
+            if meaningful:
+                raise ValidationError("Select an EFSM code for this row, or delete the row.")
+
+            # treat as empty
+            cleaned["quantity"] = None
+            cleaned["unit_price"] = None
+            return cleaned
+
+        # EFSM selected: normalize defaults
+        if qty <= 0:
+            cleaned["quantity"] = 1
+        if unit_raw in (None, ""):
+            cleaned["unit_price"] = Decimal("0.00")
+
+        return cleaned
+
+
+class BaseQuotationItemFormSet(BaseInlineFormSet):
+    """
+    Save items in the exact order they appear in the browser by writing `position`
+    sequentially in form order. Version-safe delete handling.
+    """
+
+    def save(self, commit=True):
+        if not self.is_valid():
+            return super().save(commit=commit)
+
+        saved_instances = []
+
+        # 1) delete flagged rows (no deleted_objects dependency)
+        if self.can_delete:
+            for form in self.forms:
+                if not hasattr(form, "cleaned_data"):
+                    continue
+                if form.cleaned_data.get("DELETE"):
+                    inst = form.instance
+                    if inst and getattr(inst, "pk", None):
+                        inst.delete()
+
+        # 2) save remaining rows in UI order
+        pos = 1
+        for form in self.forms:
+            if not hasattr(form, "cleaned_data"):
+                continue
+
+            if self.can_delete and form.cleaned_data.get("DELETE"):
+                continue
+
+            efsm = form.cleaned_data.get("efsm_code")
+            if efsm is None:
+                continue  # skip empty row(s)
+
+            inst: QuotationItem = form.save(commit=False)
+            inst.quotation = self.instance
+            inst.position = pos
+            pos += 1
+
+            if inst.quantity in (None, 0):
+                inst.quantity = 1
+            if inst.unit_price is None:
+                inst.unit_price = Decimal("0.00")
+
+            if commit:
+                inst.save()
+
+            saved_instances.append(inst)
+
+        # IMPORTANT: no self.save_m2m() here (inline formsets may not have it)
+        return saved_instances
 
 
 QuotationItemFormSet = inlineformset_factory(
     Quotation,
     QuotationItem,
     form=QuotationItemForm,
+    formset=BaseQuotationItemFormSet,
     extra=1,
     can_delete=True,
 )

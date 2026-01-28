@@ -1,3 +1,4 @@
+{# templates/routines/detail.html #}
 {% extends "base.html" %}
 
 {% block content %}
@@ -5,6 +6,16 @@
 {% if prev_routine or next_routine %}
 <div class="d-flex justify-content-end mb-3">
   <div class="d-inline-flex align-items-center gap-2 px-3 py-2 border rounded bg-light">
+
+    {# FIRST #}
+    {% if first_routine and current_index|default:1 > 1 %}
+      <a href="{% url 'routines:detail' first_routine.pk %}"
+         class="btn btn-sm btn-outline-secondary">« First</a>
+    {% else %}
+      <button class="btn btn-sm btn-outline-secondary" disabled>« First</button>
+    {% endif %}
+
+    {# PREV #}
     {% if prev_routine %}
       <a href="{% url 'routines:detail' prev_routine.pk %}"
          class="btn btn-sm btn-outline-primary">←</a>
@@ -16,46 +27,66 @@
       PAGE {{ current_index }} OF {{ total_count }}
     </span>
 
+    {# NEXT #}
     {% if next_routine %}
       <a href="{% url 'routines:detail' next_routine.pk %}"
          class="btn btn-sm btn-outline-primary">→</a>
     {% else %}
       <button class="btn btn-sm btn-outline-secondary" disabled>→</button>
     {% endif %}
+
+    {# LAST #}
+    {% if last_routine and total_count|default:1 > current_index %}
+      <a href="{% url 'routines:detail' last_routine.pk %}"
+         class="btn btn-sm btn-outline-secondary">Last »</a>
+    {% else %}
+      <button class="btn btn-sm btn-outline-secondary" disabled>Last »</button>
+    {% endif %}
+
   </div>
 </div>
 {% endif %}
 
 <div class="mb-3">
-  <div class="d-flex gap-2">
-    <a href="{% url 'routines:edit' routine.pk %}" class="btn btn-outline-secondary">
-      Edit
-    </a>
+  <div class="d-flex gap-2 flex-wrap">
+
+  
     <a href="{% url 'quotations:detail' routine.quotation.pk %}" class="btn btn-outline-secondary">
       Back to Quotation
     </a>
+
+    <form method="post"
+          action="{% url 'routines:create_job_task' routine.pk %}"
+          class="d-inline">
+      {% csrf_token %}
+      <button type="submit" class="btn btn-outline-primary">
+        Create Job Tasks
+      </button>
+    </form>
+
   </div>
 </div>
 
 <div class="card mb-4 shadow-sm">
   <div class="card-header bg-light d-flex justify-content-between align-items-center">
     <span class="fs-5 fw-bold">Routine Details</span>
-    <span class="fs-5 fw-bold text-primary">
-  Service Month – {{ routine.get_month_due_display }}
-</span>
 
     <span class="fs-5 fw-bold text-primary">
-     Service Type - {{ routine.get_routine_type_display }}
+      Service Month – {{ routine.get_month_due_display }}
+    </span>
+
+    <span class="fs-5 fw-bold text-primary">
+      Service Type - {{ routine.get_routine_type_display }}
     </span>
   </div>
 
   <div class="card-body">
-    <div class="row g-4 align-items-start">
+    <div class="row g-3 align-items-start">
 
       {# LEFT COLUMN #}
       <div class="col-md-8">
 
-        <div class="mb-3">
+        <div class="mb-2">
           <div class="text-muted small">Property</div>
           <div class="fw-semibold">{{ routine.site.building_name }}</div>
           <div class="text-muted small">
@@ -63,7 +94,7 @@
           </div>
         </div>
 
-        <div class="mb-3">
+        <div class="mb-2">
           <div class="text-muted small">Customer</div>
           <div class="fw-semibold">
             {{ routine.site.customer.customer_name|default:"—" }}
@@ -74,13 +105,6 @@
           <div class="text-muted small">Work Order Number</div>
           <div class="fw-semibold">
             {{ routine.work_order_number|default:"—" }}
-          </div>
-        </div>
-
-        <div>
-          <div class="text-muted small">Notes</div>
-          <div>
-            {{ routine.notes|linebreaksbr|default:"—" }}
           </div>
         </div>
 
@@ -113,18 +137,189 @@
         <div class="text-muted small mt-1">
           Optionally update all related routines.
         </div>
+
+      </div>
+
+      {# FULL-WIDTH NOTES ROW (spans the entire Routine Details card) #}
+      <div class="col-12">
+        <hr class="my-3">
+
+        <div class="row g-3">
+
+          <div class="col-12 col-md-4">
+            <div class="card h-100 border shadow-sm">
+              <div class="card-body py-3">
+                <div class="fw-semibold mb-2">Quotation Notes</div>
+                <div class="text-muted small">
+                  {{ routine.quotation_notes|linebreaksbr|default:"—" }}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="col-12 col-md-4">
+            <div class="card h-100 border shadow-sm">
+              <div class="card-body py-3">
+                <div class="fw-semibold mb-2">Site Notes</div>
+                <div class="text-muted small">
+                  {{ routine.site_notes|linebreaksbr|default:"—" }}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="col-12 col-md-4">
+            <div class="card h-100 border shadow-sm">
+              <div class="card-body py-3">
+                <div class="fw-semibold mb-2">Technician Notes</div>
+                <div class="text-muted small">
+                  {{ routine.technician_notes|linebreaksbr|default:"—" }}
+                </div>
+              </div>
+            </div>
+          </div>
+
+        </div>
       </div>
 
     </div>
   </div>
 </div>
 
+{# 4-card section: Routine Detail Values (accordion style header) #}
+<div class="accordion mb-4" id="routineValuesAccordion">
+  <div class="accordion-item">
+    <h2 class="accordion-header" id="headingValues">
+      <button class="accordion-button fw-semibold" type="button"
+              data-bs-toggle="collapse" data-bs-target="#collapseValues"
+              aria-expanded="true" aria-controls="collapseValues">
+        Routine Detail Values
+
+      </button>
+    </h2>
+
+    <div id="collapseValues" class="accordion-collapse collapse show"
+         aria-labelledby="headingValues"
+         data-bs-parent="#routineValuesAccordion">
+      <div class="accordion-body">
+
+        <div class="row g-3">
+
+          <div class="col-12 col-md-6 col-lg-3">
+  <div class="card h-100 border shadow-sm">
+    <div class="card-body py-3 d-flex flex-column">
+
+      <div>
+        <div class="fw-semibold mb-2">Annual</div>
+
+        <div class="d-flex justify-content-between">
+          <span class="text-muted">Men Req.</span>
+          <strong>{{ routine.annual_men_req|default:"—" }}</strong>
+        </div>
+
+        <div class="d-flex justify-content-between">
+          <span class="text-muted">Man Hours</span>
+          <strong>{{ routine.annual_man_hours|default:"—" }}</strong>
+        </div>
+      </div>
+
+      {# PUSH BUTTON TO BOTTOM #}
+      <div class="mt-auto pt-3">
+        <a href="{% url 'routines:edit' routine.pk %}"
+           class="btn btn-outline-primary w-100">
+          Edit Routine Values
+        </a>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+
+          {# Card 2: Half Yearly #}
+          <div class="col-12 col-md-6 col-lg-3">
+            <div class="card h-100 border shadow-sm">
+              <div class="card-body py-3">
+                <div class="fw-semibold mb-2">Half Yearly</div>
+                <div class="d-flex justify-content-between">
+                  <span class="text-muted">Men Req.</span>
+                  <strong>{{ routine.half_yearly_men_req|default:"—" }}</strong>
+                </div>
+                <div class="d-flex justify-content-between">
+                  <span class="text-muted">Man Hours</span>
+                  <strong>{{ routine.half_yearly_man_hours|default:"—" }}</strong>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {# Card 3: Monthly #}
+          <div class="col-12 col-md-6 col-lg-3">
+            <div class="card h-100 border shadow-sm">
+              <div class="card-body py-3">
+                <div class="fw-semibold mb-2">Monthly</div>
+                <div class="d-flex justify-content-between">
+                  <span class="text-muted">Men Req.</span>
+                  <strong>{{ routine.monthly_men_req|default:"—" }}</strong>
+                </div>
+                <div class="d-flex justify-content-between">
+                  <span class="text-muted">Man Hours</span>
+                  <strong>{{ routine.monthly_man_hours|default:"—" }}</strong>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {# Card 4: Monthly Run / Week + Apply #}
+          <div class="col-12 col-md-6 col-lg-3">
+            <div class="card h-100 border shadow-sm">
+              <div class="card-body py-3">
+                <div class="fw-semibold mb-2">Monthly Run / Week</div>
+
+                <form method="post"
+                      action="{% url 'routines:apply_monthly_notes_to_all' routine.pk %}"
+                      class="d-grid gap-2">
+                  {% csrf_token %}
+
+                  <div>
+                    <label class="form-label small text-muted mb-1">Run</label>
+                    <input type="text" class="form-control"
+                           name="monthly_run_notes"
+                           value="{{ routine.monthly_run_notes }}"
+                           placeholder="e.g. 1">
+                  </div>
+
+                  <div>
+                    <label class="form-label small text-muted mb-1">Week</label>
+                    <input type="text" class="form-control"
+                           name="monthly_week_notes"
+                           value="{{ routine.monthly_week_notes }}"
+                           placeholder="e.g. 4">
+                  </div>
+
+                  <button type="submit" class="btn btn-outline-primary w-100">
+                    Add to all related routines
+                  </button>
+                </form>
+
+              </div>
+            </div>
+          </div>
+
+        </div>
+
+      </div>
+    </div>
+  </div>
+</div>
+
+{# --- Everything below here is your original Routine Items + totals + JS --- #}
+
 <div class="card shadow-sm mb-4">
   <div class="card-header bg-light fw-semibold d-flex justify-content-between align-items-center">
     <span>Routine Items</span>
   </div>
 
-  {# ✅ ADD ITEM (EFSM OR CUSTOM) #}
   <div class="card-body border-bottom bg-light">
     <div class="d-flex justify-content-between align-items-center mb-2">
       <div class="fw-bold">ADD ITEM</div>
@@ -170,12 +365,9 @@
       </div>
 
       <div class="col-auto">
-
         <button type="submit" class="btn btn-sm btn-success">
-         + Add Measure
+          + Add Measure
         </button>
-
-
       </div>
 
       {% if add_item_form.non_field_errors %}
@@ -231,7 +423,6 @@
     </table>
   </div>
 
-  {# TOTALS #}
   <div class="card-footer bg-white">
     <div class="row justify-content-end">
       <div class="col-md-4">

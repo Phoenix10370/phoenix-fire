@@ -1,0 +1,67 @@
+{% extends "base.html" %}
+{% block content %}
+
+<div class="d-flex align-items-center justify-content-between mb-3">
+  <div>
+    <h1 class="h3 mb-1">Job Tasks</h1>
+    <div class="text-muted">Create and manage tasks linked to a Property and Customer.</div>
+  </div>
+  <div class="d-flex gap-2">
+    <a href="{% url 'job_tasks:create' %}" class="btn btn-primary">+ New Job Task</a>
+  </div>
+</div>
+
+<form method="get" class="row g-2 mb-3">
+  <div class="col-md-6">
+    <input type="text" name="q" value="{{ q }}" class="form-control" placeholder="Search title, description, address...">
+  </div>
+  <div class="col-md-6 d-flex gap-2">
+    <button class="btn btn-outline-primary" type="submit">Search</button>
+    <a class="btn btn-outline-secondary" href="{% url 'job_tasks:list' %}">Clear</a>
+  </div>
+</form>
+
+<div class="card shadow-sm">
+  <div class="card-body p-0">
+    <div class="table-responsive">
+      <table class="table table-sm align-middle mb-0">
+        <thead class="table-light">
+          <tr>
+            <th>Title</th>
+            <th>Status</th>
+            <th>Property</th>
+            <th>Customer</th>
+            <th>Due</th>
+            <th class="text-end">Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for t in job_tasks %}
+            <tr>
+              <td>
+                <a href="{% url 'job_tasks:detail' t.pk %}" class="text-decoration-none">
+                  {{ t.title }}
+                </a>
+              </td>
+              <td><span class="badge text-bg-secondary">{{ t.get_status_display }}</span></td>
+              <td>{{ t.site|default:"—" }}</td>
+              <td>{{ t.customer|default:"—" }}</td>
+              <td>{% if t.due_date %}{{ t.due_date }}{% else %}<span class="text-muted">—</span>{% endif %}</td>
+              <td class="text-end">
+                <a class="btn btn-sm btn-outline-primary" href="{% url 'job_tasks:detail' t.pk %}">View</a>
+                <a class="btn btn-sm btn-outline-secondary" href="{% url 'job_tasks:edit' t.pk %}">Edit</a>
+                <a class="btn btn-sm btn-outline-danger" href="{% url 'job_tasks:delete' t.pk %}">Delete</a>
+              </td>
+            </tr>
+          {% empty %}
+            <tr>
+              <td colspan="6" class="p-3 text-muted">No job tasks found.</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+{% endblock %}

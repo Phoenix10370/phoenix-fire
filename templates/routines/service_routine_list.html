@@ -5,173 +5,147 @@
   <h1 class="h3 mb-0">Service Routines</h1>
 </div>
 
-<!-- LIVE SEARCH / FILTERS -->
+<!-- FILTERS (server-side via GET) -->
 <div class="card shadow-sm mb-3">
-  <div class="card-body">
-    <div class="row g-2 align-items-end">
+  <div class="card-body py-3">
+
+    <form method="get" class="row g-2 align-items-end">
       <div class="col-12 col-md-6">
         <label class="form-label small text-muted mb-1">Search</label>
-        <input id="routineSearch"
-               type="text"
-               class="form-control"
-               placeholder="Search by client name, address, month, service type...">
+        <input
+          name="q"
+          value="{{ q_value }}"
+          type="text"
+          class="form-control"
+          placeholder="Search by client name, address, month, service type...">
       </div>
 
       <div class="col-6 col-md-3">
         <label class="form-label small text-muted mb-1">Service Month</label>
-        <select id="monthFilter" class="form-select">
+        <select name="month" class="form-select">
           <option value="">All months</option>
           {% for value,label in month_choices %}
-            <option value="{{ value }}">{{ label }}</option>
+            <option value="{{ value }}" {% if month_value == value|stringformat:"s" %}selected{% endif %}>
+              {{ label }}
+            </option>
           {% endfor %}
         </select>
       </div>
 
       <div class="col-6 col-md-3">
         <label class="form-label small text-muted mb-1">Service Type</label>
-        <select id="typeFilter" class="form-select">
+        <select name="type" class="form-select">
           <option value="">All types</option>
           {% for value,label in type_choices %}
-            <option value="{{ value }}">{{ label }}</option>
+            <option value="{{ value }}" {% if type_value == value %}selected{% endif %}>
+              {{ label }}
+            </option>
           {% endfor %}
         </select>
       </div>
 
-      <div class="col-12">
-        <div class="text-muted small mt-2">
-          <span id="resultsCount">Showing 0</span>
-          <span class="mx-1">of</span>
-          <span id="totalCount">0</span>
+      <div class="col-12 d-flex gap-2">
+        <button type="submit" class="btn btn-primary">Apply</button>
+
+        <a class="btn btn-outline-secondary" href="{% url 'routines:list' %}">
+          Clear
+        </a>
+
+        <div class="ms-auto text-muted small align-self-center">
+          Showing <strong>{{ page_obj.paginator.count }}</strong> result{{ page_obj.paginator.count|pluralize }}
         </div>
       </div>
-    </div>
+    </form>
+
   </div>
 </div>
 
-<!-- FULL LIST -->
+<!-- TABLE -->
 <div class="card shadow-sm">
   <div class="table-responsive">
-    <table class="table table-hover align-middle mb-0" id="routinesTable">
+    <table class="table table-hover align-middle mb-0">
       <thead class="table-light">
         <tr>
           <th>Client</th>
           <th>Address</th>
           <th>Routine</th>
-          <th>Service Month</th>
-          <th>Service Type</th>
-          <th class="text-center">Items</th>
-          <th style="width: 200px;"></th>
+          <th style="width: 160px;">Service Month</th>
+          <th style="width: 160px;">Service Type</th>
+          <th class="text-center" style="width: 90px;">Items</th>
+          <th class="text-end" style="width: 220px;">Actions</th>
         </tr>
       </thead>
 
       <tbody>
         {% for r in routines %}
-          {# ---- SAFE customer name (customer can be NULL) ---- #}
-          {% if r.site.customer %}
-            {% with client_name=r.site.customer.customer_name %}
-              {% with address=r.site.street|default_if_none:"" %}
-                <tr
-                  data-month="{{ r.month_due }}"
-                  data-type="{{ r.routine_type }}"
-                  data-search="
-                    {{ client_name|lower }}
-                    {{ r.site.building_name|default_if_none:''|lower }}
-                    {{ r.site.site_id|default_if_none:''|lower }}
-                    {{ address|lower }}
-                    {{ r.site.city|default_if_none:''|lower }}
-                    {{ r.get_month_due_display|lower }}
-                    {{ r.get_routine_type_display|lower }}
-                    {{ r.name|default_if_none:''|lower }}
-                    {{ r.quotation.number|default_if_none:''|lower }}
-                  ">
-                  <td>
-                    <div class="fw-semibold">{{ client_name }}</div>
-                    <div class="text-muted small">{{ r.site.building_name }}</div>
-                  </td>
+          <tr>
+            <td>
+              <div class="fw-semibold">
+                {% if r.site.customer %}
+                  {{ r.site.customer.customer_name }}
+                {% else %}
+                  <span class="text-muted">—</span>
+                {% endif %}
+              </div>
+              <div class="text-muted small">
+                {% if r.site.building_name %}
+                  {{ r.site.building_name }}
+                {% else %}
+                  <span class="text-muted">—</span>
+                {% endif %}
+              </div>
+            </td>
 
-                  <td>
-                    <div>{{ r.site.street }}</div>
-                    <div class="text-muted small">{{ r.site.city }}</div>
-                  </td>
+            <td>
+              <div>
+                {% if r.site.street %}
+                  {{ r.site.street }}
+                {% else %}
+                  <span class="text-muted">—</span>
+                {% endif %}
+              </div>
+              <div class="text-muted small">
+                {% if r.site.city %}
+                  {{ r.site.city }}
+                {% else %}
+                  <span class="text-muted">—</span>
+                {% endif %}
+              </div>
+            </td>
 
-                  <td>
-                    <div class="fw-semibold">{{ r.name }}</div>
-                    <div class="text-muted small">
-                      Quotation:
-                      <a href="{% url 'quotations:detail' r.quotation.pk %}">
-                        {{ r.quotation.number }}
-                      </a>
-                    </div>
-                  </td>
+            <td>
+              <div class="fw-semibold">
+                {% if r.name %}
+                  {{ r.name }}
+                {% else %}
+                  <span class="text-muted">—</span>
+                {% endif %}
+              </div>
+              <div class="text-muted small">
+                Quotation:
+                {% if r.quotation %}
+                  <a href="{% url 'quotations:detail' r.quotation.pk %}">
+                    {{ r.quotation.number }}
+                  </a>
+                {% else %}
+                  <span class="text-muted">—</span>
+                {% endif %}
+              </div>
+            </td>
 
-                  <td>{{ r.get_month_due_display }}</td>
-                  <td>{{ r.get_routine_type_display }}</td>
+            <td>{{ r.get_month_due_display }}</td>
+            <td>{{ r.get_routine_type_display }}</td>
 
-                  <td class="text-center">
-                    <span class="badge bg-secondary">{{ r.items.count }}</span>
-                  </td>
+            <td class="text-center">
+              <span class="badge bg-secondary">{{ r.items.count }}</span>
+            </td>
 
-                  <td class="text-end">
-                    <a href="{% url 'routines:detail' r.pk %}" class="btn btn-sm btn-outline-primary">View</a>
-                    <a href="{% url 'routines:edit' r.pk %}" class="btn btn-sm btn-outline-secondary">Edit</a>
-                    <a href="{% url 'routines:delete' r.pk %}" class="btn btn-sm btn-outline-danger">Delete</a>
-                  </td>
-                </tr>
-              {% endwith %}
-            {% endwith %}
-          {% else %}
-            {% with client_name="" %}
-              {% with address=r.site.street|default_if_none:"" %}
-                <tr
-                  data-month="{{ r.month_due }}"
-                  data-type="{{ r.routine_type }}"
-                  data-search="
-                    {{ client_name|lower }}
-                    {{ r.site.building_name|default_if_none:''|lower }}
-                    {{ r.site.site_id|default_if_none:''|lower }}
-                    {{ address|lower }}
-                    {{ r.site.city|default_if_none:''|lower }}
-                    {{ r.get_month_due_display|lower }}
-                    {{ r.get_routine_type_display|lower }}
-                    {{ r.name|default_if_none:''|lower }}
-                    {{ r.quotation.number|default_if_none:''|lower }}
-                  ">
-                  <td>
-                    <div class="fw-semibold"><span class="text-muted">—</span></div>
-                    <div class="text-muted small">{{ r.site.building_name }}</div>
-                  </td>
-
-                  <td>
-                    <div>{{ r.site.street }}</div>
-                    <div class="text-muted small">{{ r.site.city }}</div>
-                  </td>
-
-                  <td>
-                    <div class="fw-semibold">{{ r.name }}</div>
-                    <div class="text-muted small">
-                      Quotation:
-                      <a href="{% url 'quotations:detail' r.quotation.pk %}">
-                        {{ r.quotation.number }}
-                      </a>
-                    </div>
-                  </td>
-
-                  <td>{{ r.get_month_due_display }}</td>
-                  <td>{{ r.get_routine_type_display }}</td>
-
-                  <td class="text-center">
-                    <span class="badge bg-secondary">{{ r.items.count }}</span>
-                  </td>
-
-                  <td class="text-end">
-                    <a href="{% url 'routines:detail' r.pk %}" class="btn btn-sm btn-outline-primary">View</a>
-                    <a href="{% url 'routines:edit' r.pk %}" class="btn btn-sm btn-outline-secondary">Edit</a>
-                    <a href="{% url 'routines:delete' r.pk %}" class="btn btn-sm btn-outline-danger">Delete</a>
-                  </td>
-                </tr>
-              {% endwith %}
-            {% endwith %}
-          {% endif %}
+            <td class="text-end">
+              <a href="{% url 'routines:detail' r.pk %}" class="btn btn-sm btn-outline-primary">View</a>
+              <a href="{% url 'routines:edit' r.pk %}" class="btn btn-sm btn-outline-secondary">Edit</a>
+              <a href="{% url 'routines:delete' r.pk %}" class="btn btn-sm btn-outline-danger">Delete</a>
+            </td>
+          </tr>
         {% empty %}
           <tr>
             <td colspan="7" class="text-center text-muted py-4">
@@ -180,57 +154,62 @@
           </tr>
         {% endfor %}
       </tbody>
+
     </table>
   </div>
+
+  {# Pagination (preserve q/month/type) #}
+  {% if is_paginated %}
+    <div class="card-footer bg-white">
+      <nav class="d-flex justify-content-between align-items-center">
+        <div class="text-muted small">
+          Page <strong>{{ page_obj.number }}</strong> of {{ page_obj.paginator.num_pages }}
+        </div>
+
+        <div class="btn-group" role="group" aria-label="Pagination">
+          {# First #}
+          {% if page_obj.number > 1 %}
+            <a class="btn btn-sm btn-outline-secondary"
+               href="?page=1{% if q_value %}&q={{ q_value|urlencode }}{% endif %}{% if month_value %}&month={{ month_value|urlencode }}{% endif %}{% if type_value %}&type={{ type_value|urlencode }}{% endif %}">
+              « First
+            </a>
+          {% else %}
+            <span class="btn btn-sm btn-outline-secondary disabled">« First</span>
+          {% endif %}
+
+          {# Prev #}
+          {% if page_obj.has_previous %}
+            <a class="btn btn-sm btn-outline-secondary"
+               href="?page={{ page_obj.previous_page_number }}{% if q_value %}&q={{ q_value|urlencode }}{% endif %}{% if month_value %}&month={{ month_value|urlencode }}{% endif %}{% if type_value %}&type={{ type_value|urlencode }}{% endif %}">
+              ‹ Prev
+            </a>
+          {% else %}
+            <span class="btn btn-sm btn-outline-secondary disabled">‹ Prev</span>
+          {% endif %}
+
+          {# Next #}
+          {% if page_obj.has_next %}
+            <a class="btn btn-sm btn-outline-secondary"
+               href="?page={{ page_obj.next_page_number }}{% if q_value %}&q={{ q_value|urlencode }}{% endif %}{% if month_value %}&month={{ month_value|urlencode }}{% endif %}{% if type_value %}&type={{ type_value|urlencode }}{% endif %}">
+              Next ›
+            </a>
+          {% else %}
+            <span class="btn btn-sm btn-outline-secondary disabled">Next ›</span>
+          {% endif %}
+
+          {# Last #}
+          {% if page_obj.number < page_obj.paginator.num_pages %}
+            <a class="btn btn-sm btn-outline-secondary"
+               href="?page={{ page_obj.paginator.num_pages }}{% if q_value %}&q={{ q_value|urlencode }}{% endif %}{% if month_value %}&month={{ month_value|urlencode }}{% endif %}{% if type_value %}&type={{ type_value|urlencode }}{% endif %}">
+              Last »
+            </a>
+          {% else %}
+            <span class="btn btn-sm btn-outline-secondary disabled">Last »</span>
+          {% endif %}
+        </div>
+      </nav>
+    </div>
+  {% endif %}
 </div>
-
-<script>
-  (function () {
-    const searchInput = document.getElementById("routineSearch");
-    const monthFilter = document.getElementById("monthFilter");
-    const typeFilter = document.getElementById("typeFilter");
-
-    const table = document.getElementById("routinesTable");
-    if (!table) return;
-
-    const rows = Array.from(table.querySelectorAll("tbody tr"));
-    const totalCountEl = document.getElementById("totalCount");
-    const resultsCountEl = document.getElementById("resultsCount");
-
-    const total = rows.length;
-    if (totalCountEl) totalCountEl.textContent = String(total);
-
-    function applyFilters() {
-      const q = (searchInput.value || "").trim().toLowerCase();
-      const month = (monthFilter.value || "").trim();
-      const type = (typeFilter.value || "").trim();
-
-      let shown = 0;
-
-      rows.forEach(row => {
-        const haystack = (row.dataset.search || "");
-        const rowMonth = (row.dataset.month || "");
-        const rowType = (row.dataset.type || "");
-
-        let ok = true;
-
-        if (q && !haystack.includes(q)) ok = false;
-        if (month && rowMonth !== month) ok = false;
-        if (type && rowType !== type) ok = false;
-
-        row.classList.toggle("d-none", !ok);
-        if (ok) shown += 1;
-      });
-
-      if (resultsCountEl) resultsCountEl.textContent = "Showing " + String(shown);
-    }
-
-    searchInput.addEventListener("input", applyFilters);
-    monthFilter.addEventListener("change", applyFilters);
-    typeFilter.addEventListener("change", applyFilters);
-
-    applyFilters();
-  })();
-</script>
 
 {% endblock %}

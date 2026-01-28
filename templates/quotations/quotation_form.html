@@ -1,6 +1,8 @@
+{# templates/quotations/quotation_form.html #}
 {% extends "base.html" %}
 
 {% block content %}
+{% with quote=form.instance %}
 <div class="d-flex justify-content-between align-items-center mb-3">
   <h1 class="h3 mb-0">{{ title }}</h1>
 </div>
@@ -304,6 +306,7 @@
             <th class="text-end" style="width: 140px;">Qty</th>
             <th class="text-end" style="width: 160px;">Unit Price</th>
             <th class="text-end" style="width: 160px;">Total</th>
+            <th class="text-center" style="width: 120px;">Order</th>
             <th class="text-center" style="width: 120px;">Remove</th>
           </tr>
         </thead>
@@ -345,7 +348,13 @@
               </td>
 
               <td class="text-center">
-                {# keep hidden DELETE field for existing rows, but JS removal is instant #}
+                <div class="btn-group btn-group-sm" role="group" aria-label="Reorder line item">
+                  <button type="button" class="btn btn-outline-secondary js-move-up" title="Move up">↑</button>
+                  <button type="button" class="btn btn-outline-secondary js-move-down" title="Move down">↓</button>
+                </div>
+              </td>
+
+              <td class="text-center">
                 {% if f.DELETE %}<span class="d-none">{{ f.DELETE }}</span>{% endif %}
                 <button type="button" class="btn btn-sm btn-outline-danger js-delete-line">Delete</button>
               </td>
@@ -398,6 +407,12 @@
     <td class="text-end">{{ formset.empty_form.quantity }}</td>
     <td class="text-end">{{ formset.empty_form.unit_price }}</td>
     <td class="text-end"><span class="line-total" data-value="0">0.00</span></td>
+    <td class="text-center">
+      <div class="btn-group btn-group-sm" role="group" aria-label="Reorder line item">
+        <button type="button" class="btn btn-outline-secondary js-move-up" title="Move up">↑</button>
+        <button type="button" class="btn btn-outline-secondary js-move-down" title="Move down">↓</button>
+      </div>
+    </td>
     <td class="text-center">
       {% if formset.can_delete %}<span class="d-none">{{ formset.empty_form.DELETE }}</span>{% endif %}
       <button type="button" class="btn btn-sm btn-outline-danger js-delete-line">Delete</button>
@@ -474,7 +489,7 @@
 
     $el.select2({
       width: "100%",
-      placeholder: "Search EFSM…",
+      placeholder: "Search EFSM code or measure…",
       allowClear: true,
       minimumInputLength: 1,
       ajax: {
@@ -488,6 +503,34 @@
           return { results: data.results, pagination: { more: data.more } };
         },
         cache: true
+      },
+      templateResult: function(item) {
+        if (!item || item.loading) return item.text;
+        if (item.code && item.measure) {
+          return $("<span><strong>" + item.code + "</strong> — " + item.measure + "</span>");
+        }
+        return item.text;
+      },
+      templateSelection: function(item) {
+        if (!item) return "";
+        if (item.code && item.measure) {
+          return item.code + " — " + item.measure;
+        }
+        return item.text || "";
+      }
+    });
+
+    $el.on("select2:select", function(e) {
+      var data = e.params && e.params.data ? e.params.data : null;
+      if (!data) return;
+
+      if (data.code && data.measure) {
+        var optionText = data.code + " — " + data.measure;
+        var $opt = $(this).find('option[value="' + data.id + '"]');
+        if ($opt.length) {
+          $opt.text(optionText);
+        }
+        $(this).trigger("change.select2");
       }
     });
   }
@@ -530,11 +573,102 @@
       openEFSMSelect2($newSelect);
     }, 0);
 
+    renumberFormset(prefix);
     updateEFSMTotals();
   }
 
+  function isExistingFormRow($row) {
+    var $id = $row.find('input[type="hidden"][name$="-id"]');
+    return ($id.length && String($id.val() || "").trim() !== "");
+  }
+
   function deleteEFSMLine($row) {
-    $row.remove();
+    if (isExistingFormRow($row)) {
+      var $del = $row.find('input[type="checkbox"][name$="-DELETE"]');
+      if ($del.length) {
+        $del.prop("checked", true);
+        $row.addClass("is-deleted").hide();
+      } else {
+        $row.addClass("is-deleted").hide();
+      }
+    } else {
+      $row.remove();
+      renumberFormset("{{ formset.prefix }}");
+    }
+    updateEFSMTotals();
+  }
+
+  // -----------------------------
+  // Reorder / Renumber Formset
+  // -----------------------------
+  function renumberFormset(prefix) {
+    // ✅ IMPORTANT: preserve DOM order exactly.
+    // The database order is already correct (position field).
+    // We only renumber indices so Django formset saves correctly.
+
+    var $tbody = $("#line-items");
+    var $rows = $tbody.find("tr.line-item").not(".is-deleted");
+
+    $rows.each(function (i) {
+      var $row = $(this);
+
+      $row.find(":input, label").each(function () {
+        var $el = $(this);
+
+        var name = $el.attr("name");
+        if (name) {
+          var reName = new RegExp("^" + prefix + "-\\d+-");
+          $el.attr("name", name.replace(reName, prefix + "-" + i + "-"));
+        }
+
+        var id = $el.attr("id");
+        if (id) {
+          var reId = new RegExp("^id_" + prefix + "-\\d+-");
+          $el.attr("id", id.replace(reId, "id_" + prefix + "-" + i + "-"));
+        }
+
+        var f = $el.attr("for");
+        if (f) {
+          var reFor = new RegExp("^id_" + prefix + "-\\d+-");
+          $el.attr("for", f.replace(reFor, "id_" + prefix + "-" + i + "-"));
+        }
+      });
+    });
+
+    $("#id_" + prefix + "-TOTAL_FORMS").val($rows.length);
+
+    // Re-init select2 after id/name changes
+    $tbody.find(".efsm-select").each(function () {
+      var $s = $(this);
+      if ($s.hasClass("select2-hidden-accessible")) $s.select2("destroy");
+    });
+    initAllEFSMSelects($tbody);
+  }
+
+  function canSwap($rowA, $rowB) {
+    if (!$rowA.length || !$rowB.length) return false;
+    return true;
+  }
+
+  function moveRowUp($row) {
+    var $prev = $row.prevAll(".line-item:not(.is-deleted)").first();
+    if (!$prev.length) return;
+
+    if (!canSwap($row, $prev)) return;
+
+    $row.insertBefore($prev);
+    renumberFormset("{{ formset.prefix }}");
+    updateEFSMTotals();
+  }
+
+  function moveRowDown($row) {
+    var $next = $row.nextAll(".line-item:not(.is-deleted)").first();
+    if (!$next.length) return;
+
+    if (!canSwap($next, $row)) return;
+
+    $row.insertAfter($next);
+    renumberFormset("{{ formset.prefix }}");
     updateEFSMTotals();
   }
 
@@ -573,6 +707,19 @@
     }
   }
 
+  function ensureDefaultVisitsOnCreate() {
+    var isNew = "{{ form.instance.pk|default:'' }}" === "";
+    if (!isNew) return;
+
+    var a = document.getElementById("visits_annual");
+    var h = document.getElementById("visits_half");
+    var m = document.getElementById("visits_month");
+
+    if (a && (a.value === "" || a.value === "0")) a.value = "1";
+    if (h && (h.value === "" || h.value === "0")) h.value = "1";
+    if (m && (m.value === "" || m.value === "0")) m.value = "12";
+  }
+
   $(function () {
     var prefix = "{{ formset.prefix }}";
 
@@ -582,6 +729,8 @@
       bindEFSMRowEvents($(this));
     });
 
+    // ✅ DO NOT call renumberFormset() on load.
+    // Django already renders the correct persisted order.
     updateEFSMTotals();
 
     $("#add-line").on("click", function () {
@@ -592,10 +741,19 @@
       deleteEFSMLine($(this).closest("tr.line-item"));
     });
 
+    $("#line-items").on("click", ".js-move-up", function () {
+      moveRowUp($(this).closest("tr.line-item"));
+    });
+
+    $("#line-items").on("click", ".js-move-down", function () {
+      moveRowDown($(this).closest("tr.line-item"));
+    });
+
     $(".calc-input").on("input", function() {
       updateServiceCalcs();
     });
 
+    ensureDefaultVisitsOnCreate();
     updateServiceCalcs();
 
     $("#toggle-calc").on("click", function() {
@@ -612,4 +770,5 @@
     });
   });
 </script>
+{% endwith %}
 {% endblock %}

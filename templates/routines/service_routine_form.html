@@ -2,7 +2,7 @@
 
 {% block content %}
 <div class="d-flex justify-content-between align-items-center mb-3">
-  <h1 class="h3 mb-0">Edit Service Routine</h1>
+  <h1 class="h3 mb-0">Edit Routine Values</h1>
 
   <a href="{% url 'routines:detail' object.pk %}" class="btn btn-outline-secondary">
     Cancel
@@ -16,9 +16,97 @@
 
       <input type="hidden" name="apply_to_all" id="applyToAll" value="0">
 
-      {{ form.as_p }}
+      <div class="row g-3">
+        <div class="col-md-4">
+          <label class="form-label small text-muted mb-1">Service Month</label>
+          {{ form.month_due }}
+        </div>
 
-      <div class="mt-3">
+        <div class="col-md-4">
+          <label class="form-label small text-muted mb-1">Work Order Number</label>
+          {{ form.work_order_number }}
+        </div>
+      </div>
+
+      <hr class="my-3">
+
+      <div class="row g-3">
+        <div class="col-md-6">
+          <label class="form-label small text-muted mb-1">Monthly Run</label>
+          {{ form.monthly_run_notes }}
+        </div>
+        <div class="col-md-6">
+          <label class="form-label small text-muted mb-1">Monthly Week</label>
+          {{ form.monthly_week_notes }}
+        </div>
+      </div>
+
+      <div class="accordion mt-4" id="routineEditAccordion">
+        <div class="accordion-item">
+          <h2 class="accordion-header" id="headingEditValues">
+            <button class="accordion-button collapsed fw-semibold" type="button"
+                    data-bs-toggle="collapse" data-bs-target="#collapseEditValues"
+                    aria-expanded="false" aria-controls="collapseEditValues">
+              Routine Detail Values
+            </button>
+          </h2>
+          <div id="collapseEditValues" class="accordion-collapse collapse" aria-labelledby="headingEditValues"
+               data-bs-parent="#routineEditAccordion">
+            <div class="accordion-body">
+              <div class="row g-3">
+                <div class="col-md-6">
+                  <div class="fw-semibold mb-2">Annual</div>
+                  <label class="form-label small text-muted mb-1">Annual Men Req.</label>
+                  {{ form.annual_men_req }}
+                  <label class="form-label small text-muted mb-1 mt-2">Annual Man Hours</label>
+                  {{ form.annual_man_hours }}
+                </div>
+
+                <div class="col-md-6">
+                  <div class="fw-semibold mb-2">Half Yearly</div>
+                  <label class="form-label small text-muted mb-1">Half Yearly Men Req.</label>
+                  {{ form.half_yearly_men_req }}
+                  <label class="form-label small text-muted mb-1 mt-2">Half Yearly Man Hours</label>
+                  {{ form.half_yearly_man_hours }}
+                </div>
+
+                <div class="col-md-6">
+                  <div class="fw-semibold mb-2">Monthly</div>
+                  <label class="form-label small text-muted mb-1">Monthly Men Req.</label>
+                  {{ form.monthly_men_req }}
+                  <label class="form-label small text-muted mb-1 mt-2">Monthly Man Hours</label>
+                  {{ form.monthly_man_hours }}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="accordion-item">
+          <h2 class="accordion-header" id="headingEditNotes">
+            <button class="accordion-button collapsed fw-semibold" type="button"
+                    data-bs-toggle="collapse" data-bs-target="#collapseEditNotes"
+                    aria-expanded="false" aria-controls="collapseEditNotes">
+              Notes
+            </button>
+          </h2>
+          <div id="collapseEditNotes" class="accordion-collapse collapse" aria-labelledby="headingEditNotes"
+               data-bs-parent="#routineEditAccordion">
+            <div class="accordion-body">
+              <label class="form-label small text-muted mb-1">Quotation Notes</label>
+              {{ form.quotation_notes }}
+
+              <label class="form-label small text-muted mb-1 mt-3">Site Notes</label>
+              {{ form.site_notes }}
+
+              <label class="form-label small text-muted mb-1 mt-3">Technician Notes</label>
+              {{ form.technician_notes }}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="mt-4">
         <button type="submit" class="btn btn-primary">
           Save Changes
         </button>
@@ -40,12 +128,9 @@
 
     form.addEventListener("submit", function () {
       applyToAll.value = "0";
-
       if (monthSelect.value !== originalMonth) {
         const yes = window.confirm("Do you want this change to reflect on all related routines?");
-        if (yes) {
-          applyToAll.value = "1";
-        }
+        if (yes) applyToAll.value = "1";
       }
     });
   })();

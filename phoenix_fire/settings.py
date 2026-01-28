@@ -2,18 +2,31 @@ import os
 from pathlib import Path
 
 import dj_database_url
+from dotenv import load_dotenv
 
 BASE_DIR = Path(__file__).resolve().parent.parent
+
+# -----------------------------------------------------------------------------
+# Load environment variables from .env
+# Priority (first found wins):
+#   1) BASE_DIR / "qbo_integration" / ".env"
+#   2) BASE_DIR / ".env"
+# -----------------------------------------------------------------------------
+DOTENV_1 = BASE_DIR / "qbo_integration" / ".env"
+DOTENV_2 = BASE_DIR / ".env"
+
+if DOTENV_1.exists():
+    load_dotenv(DOTENV_1)
+elif DOTENV_2.exists():
+    load_dotenv(DOTENV_2)
 
 # =============================================================================
 # Core
 # =============================================================================
 SECRET_KEY = os.environ.get("SECRET_KEY", "dev-only")
 
-# Local default = DEBUG on, Render default = DEBUG off (unless you set DEBUG=1)
 DEBUG = os.environ.get("DEBUG", "1") == "1"
 
-# Render sets RENDER="true" automatically in many setups, but we also detect disk
 IS_RENDER = os.environ.get("RENDER", "").lower() == "true" or Path("/var/data").exists()
 
 ALLOWED_HOSTS = os.environ.get(
@@ -42,11 +55,17 @@ INSTALLED_APPS = [
     "company",
     "email_templates",
     "routines",
-]
+    "qbo",
+    "job_tasks.apps.JobTasksConfig",
 
+]
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
     "whitenoise.middleware.WhiteNoiseMiddleware",
+
+    # 🔁 QBO automatic token refresh
+    "qbo.middleware.QBOTokenRefreshMiddleware",
+
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
@@ -54,6 +73,7 @@ MIDDLEWARE = [
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
 ]
+
 
 ROOT_URLCONF = "phoenix_fire.urls"
 
@@ -68,7 +88,6 @@ TEMPLATES = [
                 "django.template.context_processors.request",
                 "django.contrib.auth.context_processors.auth",
                 "django.contrib.messages.context_processors.messages",
-                # your company context processor
                 "company.context_processors.client_profile",
             ],
         },
@@ -80,7 +99,6 @@ WSGI_APPLICATION = "phoenix_fire.wsgi.application"
 # =============================================================================
 # Database
 # =============================================================================
-# Render provides DATABASE_URL. Locally falls back to SQLite.
 DATABASES = {
     "default": dj_database_url.config(
         default=f"sqlite:///{BASE_DIR / 'db.sqlite3'}",
@@ -99,7 +117,6 @@ STATIC_ROOT = BASE_DIR / "staticfiles"
 # =============================================================================
 MEDIA_URL = "/media/"
 
-# Use Render persistent disk automatically if present
 if Path("/var/data").exists():
     MEDIA_ROOT = Path("/var/data/media")
 else:
@@ -109,11 +126,9 @@ else:
 # Storage (Django 4.2+)
 # =============================================================================
 STORAGES = {
-    # Uploaded files
     "default": {
         "BACKEND": "django.core.files.storage.FileSystemStorage",
     },
-    # Static files with WhiteNoise
     "staticfiles": {
         "BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage",
     },
@@ -129,6 +144,20 @@ if IS_RENDER and not DEBUG:
     CSRF_COOKIE_SECURE = True
 
 # =============================================================================
+# QuickBooks Online (QBO)
+# =============================================================================
+QBO_CLIENT_ID = os.environ.get("QBO_CLIENT_ID", "").strip()
+QBO_CLIENT_SECRET = os.environ.get("QBO_CLIENT_SECRET", "").strip()
+
+# "sandbox" or "production"
+QBO_ENVIRONMENT = os.environ.get("QBO_ENVIRONMENT", "sandbox").strip().lower() or "sandbox"
+
+QBO_REDIRECT_URI = os.environ.get(
+    "QBO_REDIRECT_URI",
+    "http://localhost:8000/qbo/callback/",
+).strip()
+
+# =============================================================================
 # Email / Microsoft Graph
 # =============================================================================
 DEFAULT_FROM_EMAIL = os.environ.get("DEFAULT_FROM_EMAIL", "joe@phoenixfire.com.au")
@@ -139,7 +168,6 @@ MS_CLIENT_SECRET = os.environ.get("MS_CLIENT_SECRET", "")
 
 MS_AUTHORITY = f"https://login.microsoftonline.com/{MS_TENANT_ID}"
 
-# MUST match Azure Redirect URI exactly
 MS_REDIRECT_URI = os.environ.get(
     "MS_REDIRECT_URI",
     "http://localhost:8000/quotations/microsoft/callback/",
@@ -147,6 +175,9 @@ MS_REDIRECT_URI = os.environ.get(
 
 MS_GRAPH_SCOPES = ["User.Read", "Mail.Send"]
 
+# =============================================================================
+# Logging
+# =============================================================================
 LOGGING = {
     "version": 1,
     "disable_existing_loggers": False,

@@ -5,12 +5,10 @@ from decimal import Decimal
 
 from django.conf import settings
 from django.db import models
+from django.db.models import Max
 from django.utils import timezone
 
 
-# =========================
-# Month Choices
-# =========================
 MONTH_CHOICES = [
     (1, "January"),
     (2, "February"),
@@ -27,9 +25,6 @@ MONTH_CHOICES = [
 ]
 
 
-# =========================
-# Service Routine
-# =========================
 class ServiceRoutine(models.Model):
     ROUTINE_TYPE_CHOICES = [
         ("annual", "Annual"),
@@ -44,9 +39,8 @@ class ServiceRoutine(models.Model):
         related_name="service_routines",
     )
 
-    # If your Quotation always has a site FK, keep this in sync with your actual Site model path.
     site = models.ForeignKey(
-        "properties.Property",   # <-- adjust if your site model path differs
+        "properties.Property",
         on_delete=models.PROTECT,
         related_name="service_routines",
     )
@@ -63,7 +57,25 @@ class ServiceRoutine(models.Model):
     )
 
     name = models.CharField(max_length=255, default="", blank=True)
-    notes = models.TextField(blank=True, default="")
+
+    # Notes split (replaces old "notes")
+    quotation_notes = models.TextField(blank=True, default="")
+    site_notes = models.TextField(blank=True, default="")
+    technician_notes = models.TextField(blank=True, default="")
+
+    # Values populated from quotation (single values)
+    annual_men_req = models.PositiveIntegerField(null=True, blank=True)
+    annual_man_hours = models.PositiveIntegerField(null=True, blank=True)
+
+    half_yearly_men_req = models.PositiveIntegerField(null=True, blank=True)
+    half_yearly_man_hours = models.PositiveIntegerField(null=True, blank=True)
+
+    monthly_men_req = models.PositiveIntegerField(null=True, blank=True)
+    monthly_man_hours = models.PositiveIntegerField(null=True, blank=True)
+
+    # Monthly Run / Week – user entry edit boxes (often a number)
+    monthly_run_notes = models.CharField(max_length=255, blank=True, default="")
+    monthly_week_notes = models.CharField(max_length=255, blank=True, default="")
 
     work_order_number = models.CharField(max_length=100, blank=True, default="")
 
@@ -84,9 +96,6 @@ class ServiceRoutine(models.Model):
         return f"{self.name or 'Service Routine'} ({self.get_routine_type_display()})"
 
 
-# =========================
-# Service Routine Item
-# =========================
 class ServiceRoutineItem(models.Model):
     routine = models.ForeignKey(
         ServiceRoutine,
@@ -94,7 +103,6 @@ class ServiceRoutineItem(models.Model):
         on_delete=models.CASCADE,
     )
 
-    # ✅ OPTIONAL EFSM code (so custom lines can exist without touching Code table)
     efsm_code = models.ForeignKey(
         "codes.Code",
         null=True,
@@ -103,7 +111,6 @@ class ServiceRoutineItem(models.Model):
         related_name="service_routine_items",
     )
 
-    # ✅ user-entered description for custom items (does NOT create/change EFSM codes)
     custom_description = models.CharField(
         max_length=255,
         blank=True,
@@ -113,8 +120,6 @@ class ServiceRoutineItem(models.Model):
     quantity = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal("0.00"))
     unit_price = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal("0.00"))
 
-    # Keeps link to quotation item when generated from quotation;
-    # for user-added routine-only lines, set this to None.
     source_quotation_item = models.ForeignKey(
         "quotations.QuotationItem",
         null=True,
@@ -123,10 +128,28 @@ class ServiceRoutineItem(models.Model):
         related_name="service_routine_items",
     )
 
+    # ✅ Persisted row order (keeps routine items stable across saves/updates)
+    position = models.PositiveIntegerField(default=0, db_index=True)
+
     created_at = models.DateTimeField(default=timezone.now)
 
     class Meta:
-        ordering = ["id"]
+        ordering = ["position", "id"]
+
+    def save(self, *args, **kwargs):
+        """
+        Auto-append new routine lines to the end when no position is supplied.
+        """
+        if self.routine_id and (self.position is None or int(self.position) == 0):
+            max_pos = (
+                ServiceRoutineItem.objects
+                .filter(routine_id=self.routine_id)
+                .exclude(pk=self.pk)
+                .aggregate(m=Max("position"))
+            )["m"] or 0
+            self.position = int(max_pos) + 1
+
+        super().save(*args, **kwargs)
 
     def __str__(self) -> str:
         return f"{self.display_code}: {self.display_description}"
@@ -139,12 +162,10 @@ class ServiceRoutineItem(models.Model):
 
     @property
     def display_code(self) -> str:
-        # Used by templates: show EFSM code if present, else "CUSTOM"
         return self.efsm_code.code if self.efsm_code else "CUSTOM"
 
     @property
     def display_description(self) -> str:
-        # Used by templates: show EFSM description if present, else user entry
         if self.efsm_code:
             return getattr(self.efsm_code, "fire_safety_measure", "") or self.custom_description or ""
         return self.custom_description or ""

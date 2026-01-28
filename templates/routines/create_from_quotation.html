@@ -51,9 +51,12 @@
       <div class="mb-3">
         {{ form.invoice_frequency.label_tag }}
         {{ form.invoice_frequency }}
-        {% if form.invoice_frequency.help_text %}
-          <div class="form-text">{{ form.invoice_frequency.help_text }}</div>
-        {% endif %}
+
+        {# Use a static help line to prevent any accidental huge output #}
+        <div class="form-text">
+          Controls how the quotation total is distributed across the created routines.
+        </div>
+
         {% if form.invoice_frequency.errors %}
           <div class="text-danger small mt-1">{{ form.invoice_frequency.errors }}</div>
         {% endif %}

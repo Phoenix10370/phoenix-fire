@@ -1,178 +1,166 @@
 {% extends "base.html" %}
 
 {% block content %}
+<div class="container-fluid">
+  <div class="d-flex align-items-center justify-content-between mb-3">
+    <div>
+      <h3 class="mb-0">{{ object.full_address }}</h3>
 
-<div class="d-flex justify-content-between align-items-start mb-3">
-  <div>
-    <h1 class="h3 mb-1">{{ object.building_name }}</h1>
-    <div class="text-muted">
-      <span class="me-2 fw-semibold">{{ object.site_id }}</span>
-      {{ object.street }}, {{ object.city }}{% if object.state %}, {{ object.state }}{% endif %}{% if object.post_code %} {{ object.post_code }}{% endif %}
+    </div>
+    <div class="d-flex gap-2">
+      <a href="{% url 'properties:update' object.pk %}" class="btn btn-primary">Edit</a>
+      <a href="{% url 'properties:delete' object.pk %}" class="btn btn-outline-danger">Delete</a>
     </div>
   </div>
 
-  <div class="d-flex gap-2">
-    <a class="btn btn-outline-secondary" href="{% url 'properties:update' object.pk %}">
-      <i class="bi bi-pencil me-1"></i>Edit
-    </a>
+  {% include "properties/property_tabs_header.html" %}
 
-    <a class="btn btn-outline-danger" href="{% url 'properties:delete' object.pk %}">
-      <i class="bi bi-trash me-1"></i>Delete
-    </a>
-  </div>
-</div>
 
-<ul class="nav nav-tabs mb-4">
-  <li class="nav-item">
-    <a class="nav-link {% if tab|default:'details' == 'details' %}active{% endif %}"
-       href="{% url 'properties:detail' object.pk %}">
-      Details
-    </a>
-  </li>
-
-  <li class="nav-item">
-    <a class="nav-link {% if tab == 'quotations' %}active{% endif %}"
-       href="{% url 'properties:quotations' object.pk %}">
-      Quotations
-    </a>
-  </li>
-
-  <li class="nav-item">
-    <a class="nav-link {% if tab == 'routines' %}active{% endif %}"
-       href="{% url 'properties:routines' object.pk %}">
-      Routines
-    </a>
-  </li>
-</ul>
-
-<div class="card shadow-sm mb-3">
-  <div class="card-body">
-
-    <!-- SECTION: PROPERTY -->
-    <h2 class="h6 text-uppercase text-muted mb-3">Property</h2>
-    <dl class="row mb-0">
-
-      <dt class="col-sm-3">Building Name</dt>
-      <dd class="col-sm-9">{{ object.building_name|default:"—" }}</dd>
-
-      <dt class="col-sm-3">Customer</dt>
-      <dd class="col-sm-9">
-        {% if object.customer %}
-          <a href="{% url 'customers:detail' object.customer.pk %}" target="_blank" rel="noopener noreferrer">
-            {{ object.customer.customer_name }}
-          </a>
-        {% else %}
-          <span class="text-muted">—</span>
-        {% endif %}
-      </dd>
-
-      <dt class="col-sm-3">Strata Plan</dt>
-      <dd class="col-sm-9">{{ object.strata_plan|default:"—" }}</dd>
-
-      <dt class="col-sm-3">SOR Site ID</dt>
-      <dd class="col-sm-9">{{ object.sor_site_id|default:"—" }}</dd>
-
-      <dt class="col-sm-3">Street</dt>
-      <dd class="col-sm-9">{{ object.street|default:"—" }}</dd>
-
-      <dt class="col-sm-3">City</dt>
-      <dd class="col-sm-9">{{ object.city|default:"—" }}</dd>
-
-      <dt class="col-sm-3">State</dt>
-      <dd class="col-sm-9">{{ object.state|default:"—" }}</dd>
-
-      <dt class="col-sm-3">Post Code</dt>
-      <dd class="col-sm-9">{{ object.post_code|default:"—" }}</dd>
-
-      <dt class="col-sm-3">Status</dt>
-      <dd class="col-sm-9">
-        {% if object.active_status %}
-          <span class="badge bg-success">Active</span>
-        {% else %}
-          <span class="badge bg-secondary">Inactive</span>
-        {% endif %}
-      </dd>
-
-      <dt class="col-sm-3">Address</dt>
-      <dd class="col-sm-9">
-        {{ object.street }}, {{ object.city }}{% if object.state %}, {{ object.state }}{% endif %}{% if object.post_code %} {{ object.post_code }}{% endif %}
-        <div class="mt-2">
-          <a class="btn btn-outline-secondary btn-sm"
-             href="https://www.google.com/maps/search/?api=1&query={{ object.street|urlencode }}+{{ object.city|urlencode }}+{{ object.state|urlencode }}+{{ object.post_code|urlencode }}"
-             target="_blank" rel="noopener noreferrer">
-            <i class="bi bi-geo-alt me-1"></i>Open in Maps
-          </a>
+  <!-- DETAILS TAB CONTENT -->
+  <div class="row g-3">
+    <div class="col-lg-8">
+      <div class="card shadow-sm mb-3">
+        <div class="card-header d-flex align-items-center justify-content-between">
+          <strong>Property</strong>
+          <span class="badge {% if object.active_status %}bg-success{% else %}bg-secondary{% endif %}">
+            {% if object.active_status %}Active{% else %}Inactive{% endif %}
+          </span>
         </div>
-      </dd>
-    </dl>
+        <div class="card-body">
+          <div class="row g-3">
+            <div class="col-md-6">
+              <strong>Building Name</strong>
+              <div>{{ object.building_name }}</div>
+            </div>
+            <div class="col-md-6">
+              <strong>Site ID</strong>
+              <div>{{ object.site_id }}</div>
+            </div>
 
-    <hr class="my-4">
+            <div class="col-md-6">
+              <strong>Strata Plan</strong>
+              <div>{{ object.strata_plan|default:"—" }}</div>
+            </div>
+            <div class="col-md-6">
+              <strong>SOR Site ID</strong>
+              <div>{{ object.sor_site_id|default:"—" }}</div>
+            </div>
+          </div>
 
-    <!-- SECTION: COORDINATOR + BUILDING -->
-    <h2 class="h6 text-uppercase text-muted mb-3">Coordinator & Building</h2>
-    <dl class="row mb-0">
-      <dt class="col-sm-3">Fire Coordinator</dt>
-      <dd class="col-sm-9">{{ object.fire_coordinator|default:"—" }}</dd>
+          <hr class="my-3"/>
 
-      <dt class="col-sm-3">Coordinator Email</dt>
-      <dd class="col-sm-9">{{ object.fire_coordinator_email|default:"—" }}</dd>
+          <!-- SECTION 2 -->
+          <div class="d-flex align-items-center mb-2">
+            <strong class="me-2">Details</strong>
+          </div>
 
-      <dt class="col-sm-3">Coordinator Phone</dt>
-      <dd class="col-sm-9">{{ object.fire_coordinator_phone|default:"—" }}</dd>
+          <div class="row g-3">
+            <div class="col-md-6">
+              <strong>Property Description</strong>
+              <div>{{ object.get_property_description_display|default:"—" }}</div>
+            </div>
+            <div class="col-md-6">
+              <strong>AFSS #</strong>
+              <div>{{ object.afss_number|default:"—" }}</div>
+            </div>
 
-      <dt class="col-sm-3">AFSS Due Date</dt>
-      <dd class="col-sm-9">
-        {% if object.afss_due_date %}
-          {{ object.afss_due_date }}
-        {% else %}
-          <span class="text-muted">—</span>
-        {% endif %}
-      </dd>
+            <div class="col-md-6">
+              <strong>Levels Above Ground</strong>
+              <div>{{ object.levels_above_ground|default:"—" }}</div>
+            </div>
+            <div class="col-md-6">
+              <strong>Number of Residential</strong>
+              <div>{{ object.number_of_residential|default:"—" }}</div>
+            </div>
 
-      <dt class="col-sm-3">Levels Above Ground</dt>
-      <dd class="col-sm-9">{{ object.levels_above_ground|default:"—" }}</dd>
+            <div class="col-md-6">
+              <strong>Levels Below Ground</strong>
+              <div>{{ object.levels_below_ground|default:"—" }}</div>
+            </div>
+            <div class="col-md-6">
+              <strong>Number of Commercial</strong>
+              <div>{{ object.number_of_commercial|default:"—" }}</div>
+            </div>
 
-      <dt class="col-sm-3">Levels Below Ground</dt>
-      <dd class="col-sm-9">{{ object.levels_below_ground|default:"—" }}</dd>
-    </dl>
+            <div class="col-md-6">
+              <strong>AFSS Due Date</strong>
+              <div>{{ object.afss_due_date|date:"d-M-y"|default:"—" }}</div>
+            </div>
+            <div class="col-md-6">
+              <strong>Certification Date</strong>
+              <div>{{ object.certification_date|date:"d-MM-y"|default:"—" }}</div>
+            </div>
+          </div>
+        </div>
+      </div>
 
-    <hr class="my-4">
+     
 
-    <!-- SECTION: ACCESS + CONTACT -->
-    <h2 class="h6 text-uppercase text-muted mb-3">Access & Contact</h2>
-    <dl class="row mb-0">
-      <dt class="col-sm-3">Access Details</dt>
-      <dd class="col-sm-9">{{ object.access_details|default:"—"|linebreaksbr }}</dd>
+      <div class="card shadow-sm mb-3">
+        <div class="card-header"><strong>Notes</strong></div>
+        <div class="card-body">
+          <div class="row g-3">
+            <div class="col-md-6">
+              <strong>Site Notes</strong>
+              <div style="white-space: pre-wrap;">{{ object.site_notes|default:"—" }}</div>
+            </div>
+            <div class="col-md-6">
+              <strong>Technician Notes</strong>
+              <div style="white-space: pre-wrap;">{{ object.technician_notes|default:"—" }}</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
 
-      <dt class="col-sm-3">Access Code</dt>
-      <dd class="col-sm-9">{{ object.access_code|default:"—" }}</dd>
+    <div class="col-lg-4">
+      <div class="card shadow-sm mb-3">
+        <div class="card-header"><strong>Contacts</strong></div>
+        <div class="card-body">
+          <div class="mb-3">
+            <strong>Customer</strong>
+            <div>{{ object.customer|default:"—" }}</div>
+          </div>
+          <div class="mb-3">
+            <strong>Fire Coordinator</strong>
+            <div>{{ object.fire_coordinator|default:"—" }}</div>
+          </div>
+          <div class="mb-3">
+            <strong>Email</strong>
+            <div>{{ object.fire_coordinator_email|default:"—" }}</div>
+          </div>
+          <div class="mb-3">
+            <strong>Phone</strong>
+            <div>{{ object.fire_coordinator_phone|default:"—" }}</div>
+          </div>
 
-      <dt class="col-sm-3">Site Contact</dt>
-      <dd class="col-sm-9">{{ object.site_contact|default:"—" }}</dd>
+          <hr/>
 
-      <dt class="col-sm-3">Contact Phone</dt>
-      <dd class="col-sm-9">{{ object.contact_phone|default:"—" }}</dd>
-    </dl>
+          <div class="mb-3">
+            <strong>Site Contact</strong>
+            <div>{{ object.site_contact|default:"—" }}</div>
+          </div>
+          <div>
+            <strong>Contact Phone</strong>
+            <div>{{ object.contact_phone|default:"—" }}</div>
+          </div>
+        </div>
+      </div>
 
-    <hr class="my-4">
-
-    <!-- SECTION: NOTES -->
-    <h2 class="h6 text-uppercase text-muted mb-3">Notes</h2>
-    <dl class="row mb-0">
-      <dt class="col-sm-3">Site Notes</dt>
-      <dd class="col-sm-9">{{ object.site_notes|default:""|linebreaksbr }}</dd>
-
-      <dt class="col-sm-3">Technician Notes</dt>
-      <dd class="col-sm-9">{{ object.technician_notes|default:""|linebreaksbr }}</dd>
-    </dl>
-
+      <div class="card shadow-sm mb-3">
+        <div class="card-header"><strong>Access</strong></div>
+        <div class="card-body">
+          <div class="mb-3">
+            <strong>Access Details</strong>
+            <div>{{ object.get_access_details_display|default:"—" }}</div>
+          </div>
+          <div>
+            <strong>Access Code / Notes</strong>
+            <div>{{ object.access_code|default:"—" }}</div>
+          </div>
+        </div>
+      </div>
+    </div>
   </div>
 </div>
-
-<a class="btn btn-primary"
-   href="{% url 'quotations:create_for_property' object.pk %}">
-  <i class="bi bi-file-earmark-text me-1"></i>
-  Create Service Quotation
-</a>
-
 {% endblock %}

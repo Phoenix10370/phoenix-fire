@@ -1,49 +1,221 @@
-import base64
-import requests
+# quotations/models.py
+from __future__ import annotations
+
+from decimal import Decimal
+
+from django.conf import settings
+from django.db import models, transaction
+from django.db.models import Max
+from django.utils import timezone
+
+from properties.models import Property
+from codes.models import Code
 
 
-GRAPH_SENDMAIL_URL = "https://graph.microsoft.com/v1.0/me/sendMail"
+class Quotation(models.Model):
+    PREFIX = "Q-"
+    PAD = 5
+
+    number = models.CharField(max_length=20, unique=True, editable=False, blank=True)
+
+    site = models.ForeignKey(
+        Property,
+        on_delete=models.PROTECT,
+        related_name="quotations",
+    )
+
+    created_at = models.DateTimeField(default=timezone.now)
+    notes = models.TextField(blank=True)
+
+    STATUS_CHOICES = [
+        ("draft", "Draft"),
+        ("sent", "Sent"),
+        ("accepted", "Accepted"),
+        ("rejected", "Rejected"),
+    ]
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default="draft")
+
+    # ✅ Acceptance / rejection tracking + work order number
+    accepted_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="quotations_accepted",
+    )
+
+    # ✅ manual display name (typed on accept screen)
+    accepted_by_name = models.CharField(max_length=120, blank=True, default="")
+
+    # ✅ date-only (no time)
+    accepted_date = models.DateField(null=True, blank=True)
+
+    rejected_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="quotations_rejected",
+    )
+    rejected_at = models.DateTimeField(null=True, blank=True)
+
+    work_order_number = models.CharField(max_length=50, null=True, blank=True)
+
+    # =========================================================
+    # ✅ Service Calculator persistence fields
+    # =========================================================
+    calc_men_annual = models.PositiveIntegerField(default=0)
+    calc_hours_annual = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal("0.00"))
+    calc_price_annual = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal("0.00"))
+    calc_visits_annual = models.PositiveIntegerField(default=1)
+
+    calc_men_half = models.PositiveIntegerField(default=0)
+    calc_hours_half = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal("0.00"))
+    calc_price_half = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal("0.00"))
+    calc_visits_half = models.PositiveIntegerField(default=1)
+
+    calc_men_month = models.PositiveIntegerField(default=0)
+    calc_hours_month = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal("0.00"))
+    calc_price_month = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal("0.00"))
+    calc_visits_month = models.PositiveIntegerField(default=12)
+
+    calc_afss_charge = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal("0.00"))
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    @classmethod
+    def _next_number(cls):
+        with transaction.atomic():
+            max_num = (
+                cls.objects.select_for_update()
+                .filter(number__startswith=cls.PREFIX)
+                .aggregate(m=Max("number"))
+            )["m"]
+            next_int = 1 if not max_num else int(max_num.replace(cls.PREFIX, "")) + 1
+            return f"{cls.PREFIX}{next_int:0{cls.PAD}d}"
+
+    def save(self, *args, **kwargs):
+        if not self.number:
+            self.number = self._next_number()
+        super().save(*args, **kwargs)
+
+    @property
+    def customer(self):
+        return self.site.customer
+
+    # =========================
+    # Activity Log helper
+    # =========================
+    def log(self, action: str, user=None, message: str = "") -> None:
+        QuotationLog.objects.create(
+            quotation=self,
+            actor=user if getattr(user, "is_authenticated", False) else None,
+            action=action,
+            message=message or "",
+        )
+
+    # =========================
+    # State transitions
+    # =========================
+    def mark_accepted(self, user, accepted_date=None, accepted_by_name="", work_order_number=None):
+        self.status = "accepted"
+        self.accepted_by = user if getattr(user, "is_authenticated", False) else None
+
+        self.accepted_date = accepted_date or timezone.localdate()
+        self.accepted_by_name = (accepted_by_name or "").strip()
+
+        self.rejected_by = None
+        self.rejected_at = None
+
+        if work_order_number is not None:
+            self.work_order_number = work_order_number
+
+    def mark_rejected(self, user):
+        self.status = "rejected"
+        self.rejected_by = user if getattr(user, "is_authenticated", False) else None
+        self.rejected_at = timezone.now()
+
+        self.accepted_by = None
+        self.accepted_date = None
+        self.accepted_by_name = ""
+
+    def __str__(self):
+        return self.number
 
 
-def send_graph_email(access_token: str, subject: str, body_html: str, to_emails: list[str], cc_emails: list[str] | None,
-                     attachment_name: str, attachment_bytes: bytes):
-    headers = {
-        "Authorization": f"Bearer {access_token}",
-        "Content-Type": "application/json",
-    }
+class QuotationLog(models.Model):
+    ACTION_CHOICES = [
+        ("created", "Created"),
+        ("modified", "Modified"),
+        ("sent", "Sent"),
+        ("accepted", "Accepted"),
+        ("rejected", "Rejected"),
+        ("status_changed", "Status Changed"),
+        ("note_changed", "Notes Changed"),
+    ]
 
-    to_recipients = [{"emailAddress": {"address": e}} for e in to_emails if e]
-    cc_recipients = [{"emailAddress": {"address": e}} for e in (cc_emails or []) if e]
+    quotation = models.ForeignKey(
+        Quotation,
+        on_delete=models.CASCADE,
+        related_name="logs",
+    )
 
-    payload = {
-        "message": {
-            "subject": subject or "",
-            "body": {
-                "contentType": "HTML",
-                "content": body_html or "",
-            },
-            "toRecipients": to_recipients,
-        },
-        "saveToSentItems": True,
-    }
+    actor = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="quotation_logs",
+    )
 
-    if cc_recipients:
-        payload["message"]["ccRecipients"] = cc_recipients
+    action = models.CharField(max_length=30, choices=ACTION_CHOICES)
+    message = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
 
-    if attachment_bytes:
-        payload["message"]["attachments"] = [
-            {
-                "@odata.type": "#microsoft.graph.fileAttachment",
-                "name": attachment_name,
-                "contentType": "application/pdf",
-                "contentBytes": base64.b64encode(attachment_bytes).decode("utf-8"),
-            }
-        ]
+    class Meta:
+        ordering = ["-created_at"]
 
-    r = requests.post(GRAPH_SENDMAIL_URL, headers=headers, json=payload, timeout=30)
+    def __str__(self):
+        who = str(self.actor) if self.actor else "System"
+        return f"{self.quotation.number} - {self.action} by {who} @ {self.created_at}"
 
-    # Graph returns 202 Accepted on success
-    if r.status_code not in (202, 200):
-        raise RuntimeError(f"Graph sendMail failed: {r.status_code} {r.text}")
 
-    return True
+class QuotationItem(models.Model):
+    quotation = models.ForeignKey(
+        Quotation,
+        on_delete=models.CASCADE,
+        related_name="items",
+    )
+    efsm_code = models.ForeignKey(Code, on_delete=models.PROTECT)
+
+    quantity = models.PositiveIntegerField(default=1)
+    unit_price = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+
+    # ✅ Persisted order (prevents reorder on save / reload)
+    position = models.PositiveIntegerField(default=0, db_index=True)
+
+    class Meta:
+        ordering = ["position", "id"]
+
+    def save(self, *args, **kwargs):
+        """
+        Auto-append new lines to the end if no position is provided reinforces stable order.
+        """
+        if self.quotation_id and (self.position is None or int(self.position) == 0):
+            max_pos = (
+                QuotationItem.objects
+                .filter(quotation_id=self.quotation_id)
+                .exclude(pk=self.pk)
+                .aggregate(m=Max("position"))
+            )["m"] or 0
+            self.position = int(max_pos) + 1
+
+        super().save(*args, **kwargs)
+
+    @property
+    def line_total(self):
+        return (self.quantity or 0) * (self.unit_price or 0)
+
+    def __str__(self):
+        return f"{self.quotation.number} - {self.efsm_code.code}"

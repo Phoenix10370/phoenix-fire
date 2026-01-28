@@ -35,7 +35,6 @@ class Quotation(models.Model):
     ]
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default="draft")
 
-    # ✅ Acceptance / rejection tracking + work order number
     accepted_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         null=True,
@@ -43,11 +42,7 @@ class Quotation(models.Model):
         on_delete=models.SET_NULL,
         related_name="quotations_accepted",
     )
-
-    # ✅ manual display name (typed on accept screen)
     accepted_by_name = models.CharField(max_length=120, blank=True, default="")
-
-    # ✅ date-only (no time)
     accepted_date = models.DateField(null=True, blank=True)
 
     rejected_by = models.ForeignKey(
@@ -61,10 +56,6 @@ class Quotation(models.Model):
 
     work_order_number = models.CharField(max_length=50, null=True, blank=True)
 
-    # =========================================================
-    # ✅ Service Calculator persistence fields (NEW)
-    # These store the calculator values so they reload on edit.
-    # =========================================================
     calc_men_annual = models.PositiveIntegerField(default=0)
     calc_hours_annual = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal("0.00"))
     calc_price_annual = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal("0.00"))
@@ -105,9 +96,6 @@ class Quotation(models.Model):
     def customer(self):
         return self.site.customer
 
-    # =========================
-    # Activity Log helper
-    # =========================
     def log(self, action: str, user=None, message: str = "") -> None:
         QuotationLog.objects.create(
             quotation=self,
@@ -116,24 +104,13 @@ class Quotation(models.Model):
             message=message or "",
         )
 
-    # =========================
-    # State transitions
-    # =========================
     def mark_accepted(self, user, accepted_date=None, accepted_by_name="", work_order_number=None):
         self.status = "accepted"
         self.accepted_by = user if getattr(user, "is_authenticated", False) else None
-
-        # ✅ date-only
         self.accepted_date = accepted_date or timezone.localdate()
-
-        # ✅ typed name (optional)
         self.accepted_by_name = (accepted_by_name or "").strip()
-
-        # clear rejection fields if switching
         self.rejected_by = None
         self.rejected_at = None
-
-        # Work order updates only if provided
         if work_order_number is not None:
             self.work_order_number = work_order_number
 
@@ -141,8 +118,6 @@ class Quotation(models.Model):
         self.status = "rejected"
         self.rejected_by = user if getattr(user, "is_authenticated", False) else None
         self.rejected_at = timezone.now()
-
-        # clear acceptance fields if switching
         self.accepted_by = None
         self.accepted_date = None
         self.accepted_by_name = ""
@@ -199,8 +174,24 @@ class QuotationItem(models.Model):
     quantity = models.PositiveIntegerField(default=1)
     unit_price = models.DecimalField(max_digits=10, decimal_places=2, default=0)
 
+    # ✅ Persisted UI order (so saving never re-sorts by EFSM code)
+    position = models.PositiveIntegerField(default=0, db_index=True)
+
     class Meta:
-        ordering = ["efsm_code__code"]
+        ordering = ["position", "id"]
+
+    def save(self, *args, **kwargs):
+        # Auto-append new lines to the end if no position supplied
+        if self.quotation_id and (self.position is None or int(self.position) == 0):
+            max_pos = (
+                QuotationItem.objects
+                .filter(quotation_id=self.quotation_id)
+                .exclude(pk=self.pk)
+                .aggregate(m=Max("position"))
+            )["m"] or 0
+            self.position = int(max_pos) + 1
+
+        super().save(*args, **kwargs)
 
     @property
     def line_total(self):
@@ -208,3 +199,74 @@ class QuotationItem(models.Model):
 
     def __str__(self):
         return f"{self.quotation.number} - {self.efsm_code.code}"
+
+
+# =========================
+# COMMENTS / CORRESPONDENCE
+# =========================
+
+def quotation_correspondence_upload_to(instance: "QuotationCorrespondence", filename: str) -> str:
+    # Keep it simple + sortable by date, and grouped by quotation number.
+    # Example: quotation_correspondence/Q-00012/2026/01/28/mydoc.pdf
+    safe_number = (instance.quotation.number or "quotation").replace("/", "-")
+    today = timezone.localdate()
+    return f"quotation_correspondence/{safe_number}/{today:%Y/%m/%d}/{filename}"
+
+
+class QuotationComment(models.Model):
+    quotation = models.ForeignKey(
+        Quotation,
+        on_delete=models.CASCADE,
+        related_name="comments",
+    )
+
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    comment = models.TextField()
+
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="quotation_comments",
+    )
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    def __str__(self) -> str:
+        return f"{self.quotation.number} comment @ {self.created_at}"
+
+
+class QuotationCorrespondence(models.Model):
+    quotation = models.ForeignKey(
+        Quotation,
+        on_delete=models.CASCADE,
+        related_name="correspondence",
+    )
+
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    uploaded_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="quotation_correspondence_uploaded",
+    )
+
+    document = models.FileField(upload_to=quotation_correspondence_upload_to)
+    original_name = models.CharField(max_length=255, blank=True, default="")
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    def save(self, *args, **kwargs):
+        if self.document and not self.original_name:
+            # Keep the display name stable even if storage renames the file.
+            self.original_name = self.document.name.split("/")[-1]
+        super().save(*args, **kwargs)
+
+    def __str__(self) -> str:
+        return f"{self.quotation.number} doc: {self.original_name or 'document'}"

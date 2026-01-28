@@ -13,6 +13,17 @@ class Property(models.Model):
         ("other", "Other"),
     ]
 
+    PROPERTY_DESCRIPTION_CHOICES = [
+        ("residential", "Residential"),
+        ("commercial", "Commercial"),
+        ("mixed", "Mixed Residential / Commercial"),
+        ("industrial", "Industrial"),
+        ("housing", "Housing"),
+        ("medical", "Medical"),
+        ("government", "Government"),
+        ("rural", "Rural"),
+    ]
+
     site_id = models.CharField(
         max_length=8,
         unique=True,
@@ -21,7 +32,6 @@ class Property(models.Model):
         db_index=True,
     )
 
-    # ✅ NEW FIELDS
     strata_plan = models.CharField(max_length=100, blank=True)
     sor_site_id = models.CharField(max_length=100, blank=True)
 
@@ -40,6 +50,17 @@ class Property(models.Model):
         null=True,
         blank=True,
     )
+
+    # ✅ NEW SECTION 2 FIELDS
+    property_description = models.CharField(
+        max_length=30,
+        choices=PROPERTY_DESCRIPTION_CHOICES,
+        blank=True,
+    )
+    number_of_residential = models.PositiveIntegerField(null=True, blank=True)
+    number_of_commercial = models.PositiveIntegerField(null=True, blank=True)
+    afss_number = models.CharField(max_length=100, blank=True)
+    certification_date = models.DateField(null=True, blank=True)
 
     fire_coordinator = models.CharField(max_length=150, blank=True)
     fire_coordinator_email = models.EmailField(blank=True)
@@ -66,6 +87,11 @@ class Property(models.Model):
     PREFIX = "PTY"
     PAD = 5
 
+    class Meta:
+        verbose_name = "Property"
+        verbose_name_plural = "Properties"
+        ordering = ["building_name", "city", "site_id"]
+
     @classmethod
     def _next_site_id(cls) -> str:
         with transaction.atomic():
@@ -82,6 +108,30 @@ class Property(models.Model):
         if not self.site_id:
             self.site_id = self._next_site_id()
         super().save(*args, **kwargs)
+
+    @property
+    def full_address(self) -> str:
+        parts = [self.street.strip(), self.city.strip()]
+
+        state_pc = " ".join(
+            p
+            for p in [
+                self.state.strip() if self.state else "",
+                self.post_code.strip() if self.post_code else "",
+            ]
+            if p
+        ).strip()
+
+        if state_pc:
+            parts.append(state_pc)
+
+        return ", ".join([p for p in parts if p])
+
+    @property
+    def display_name(self) -> str:
+        if self.site_id:
+            return f"{self.building_name} ({self.site_id})"
+        return self.building_name
 
     def __str__(self):
         return self.building_name

@@ -1,0 +1,202 @@
+{% extends "base.html" %}
+{% block content %}
+
+<div class="d-flex align-items-center justify-content-between mb-3">
+  <div>
+    <h1 class="h3 mb-1">{{ job_task.title }}</h1>
+    <div class="text-muted">Job Task #{{ job_task.id }}</div>
+  </div>
+
+  <div class="d-flex gap-2">
+    <a href="{% url 'job_tasks:edit' job_task.pk %}" class="btn btn-primary">Edit</a>
+    <a href="{% url 'job_tasks:list' %}" class="btn btn-outline-secondary">Back to list</a>
+  </div>
+</div>
+
+<div class="row g-3">
+  <!-- LEFT -->
+  <div class="col-lg-8">
+
+    <!-- Task -->
+    <div class="card mb-3">
+      <div class="card-header"><strong>Task</strong></div>
+      <div class="card-body">
+        <div class="mb-2">
+          <strong>Status:</strong>
+          <span class="badge text-bg-secondary">{{ job_task.get_status_display }}</span>
+        </div>
+
+        <div class="mb-2">
+          <strong>Service Date:</strong>
+          {% if job_task.service_date %}{{ job_task.service_date }}{% else %}<span class="text-muted">—</span>{% endif %}
+        </div>
+
+        <div class="mb-2">
+          <strong>Due Date:</strong>
+          {% if job_task.due_date %}{{ job_task.due_date }}{% else %}<span class="text-muted">—</span>{% endif %}
+        </div>
+
+        <div class="mb-2">
+          <strong>Service Type:</strong>
+          {% if job_task.service_type %}{{ job_task.service_type }}{% else %}<span class="text-muted">—</span>{% endif %}
+        </div>
+
+        <div class="mb-2">
+          <strong>Service Technician:</strong>
+          {% if job_task.service_technician %}{{ job_task.service_technician }}{% else %}<span class="text-muted">—</span>{% endif %}
+        </div>
+
+        <div class="mb-3">
+          <strong>Additional Technicians:</strong>
+          {% if job_task.additional_technicians.all %}
+            <div class="mt-1">
+              {% for tech in job_task.additional_technicians.all %}
+                <span class="badge text-bg-light border">{{ tech }}</span>
+              {% empty %}
+                <span class="text-muted">—</span>
+              {% endfor %}
+            </div>
+          {% else %}
+            <span class="text-muted">—</span>
+          {% endif %}
+        </div>
+
+        <hr>
+
+        <div class="mb-1"><strong>Description</strong></div>
+        <div class="text-muted" style="white-space: pre-wrap;">{{ job_task.description|default:"—" }}</div>
+      </div>
+    </div>
+
+    <!-- Job Details (Items) -->
+    <div class="card mb-3">
+      <div class="card-header"><strong>Job Details</strong></div>
+      <div class="card-body p-0">
+        {% if job_task.items.all %}
+          <div class="table-responsive">
+            <table class="table table-sm mb-0 align-middle">
+              <thead class="table-light">
+                <tr>
+                  <th style="width:140px;">Code</th>
+                  <th>Description</th>
+                  <th class="text-end" style="width:90px;">Qty</th>
+                  <th class="text-end" style="width:130px;">Unit Price</th>
+                  <th class="text-end" style="width:130px;">Line Total</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for it in job_task.items.all %}
+                  <tr>
+                    <td>{{ it.code|default:"" }}</td>
+                    <td>{{ it.description|default:"—" }}</td>
+                    <td class="text-end">{{ it.quantity }}</td>
+                    <td class="text-end">
+                      {% if it.unit_price %}${{ it.unit_price }}{% else %}<span class="text-muted">—</span>{% endif %}
+                    </td>
+                    <td class="text-end">
+                      {% if it.line_total %}${{ it.line_total }}{% else %}<span class="text-muted">—</span>{% endif %}
+                    </td>
+                  </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        {% else %}
+          <div class="p-3 text-muted">No job items found.</div>
+        {% endif %}
+      </div>
+    </div>
+
+    <!-- Values / Costs -->
+    <div class="card">
+      <div class="card-header"><strong>Values &amp; Costs</strong></div>
+      <div class="card-body">
+        <div class="d-flex justify-content-between">
+          <div><strong>Subtotal</strong></div>
+          <div>{% if job_task.subtotal %}${{ job_task.subtotal }}{% else %}<span class="text-muted">—</span>{% endif %}</div>
+        </div>
+        <div class="d-flex justify-content-between">
+          <div><strong>GST</strong></div>
+          <div>{% if job_task.gst %}${{ job_task.gst }}{% else %}<span class="text-muted">—</span>{% endif %}</div>
+        </div>
+        <hr class="my-2">
+        <div class="d-flex justify-content-between">
+          <div><strong>Total</strong></div>
+          <div class="fw-semibold">{% if job_task.total %}${{ job_task.total }}{% else %}<span class="text-muted">—</span>{% endif %}</div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- RIGHT -->
+  <div class="col-lg-4">
+
+    <!-- Links -->
+    <div class="card mb-3">
+      <div class="card-header"><strong>Links</strong></div>
+      <div class="card-body">
+        <div class="mb-2">
+          <strong>Property:</strong>
+          {% if job_task.site %}
+            <a href="{% url 'properties:detail' job_task.site_id %}">
+              {{ job_task.site }}
+            </a>
+          {% else %}
+            <span class="text-muted">—</span>
+          {% endif %}
+        </div>
+
+        <div class="mb-2"><strong>Customer:</strong> {{ job_task.customer|default:"—" }}</div>
+
+        <div class="mb-2">
+          <strong>Routine:</strong>
+          {% if job_task.service_routine %}
+            #{{ job_task.service_routine_id }}
+          {% else %}
+            <span class="text-muted">—</span>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+
+    <!-- Property Details -->
+    <div class="card mb-3">
+      <div class="card-header"><strong>Property Notes</strong></div>
+      <div class="card-body">
+        {% if job_task.site %}
+          <div class="mb-3">
+            <div class="text-muted small">Site Notes</div>
+            <div>{{ job_task.site.site_notes|default:"—" }}</div>
+          </div>
+
+          <div class="mb-0">
+            <div class="text-muted small">Technician Notes</div>
+            <div>{{ job_task.site.technician_notes|default:"—" }}</div>
+          </div>
+
+          <hr>
+
+          <a class="btn btn-sm btn-outline-secondary w-100"
+             href="{% url 'properties:detail' job_task.site_id %}">
+            View full Property Details / Access
+          </a>
+        {% else %}
+          <div class="text-muted">No property linked.</div>
+        {% endif %}
+      </div>
+    </div>
+
+    <!-- Meta -->
+    <div class="card">
+      <div class="card-header"><strong>Meta</strong></div>
+      <div class="card-body">
+        <div class="mb-2"><strong>Created:</strong> {{ job_task.created_at }}</div>
+        <div class="mb-0"><strong>Updated:</strong> {{ job_task.updated_at }}</div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+{% endblock %}

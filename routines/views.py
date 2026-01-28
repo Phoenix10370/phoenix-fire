@@ -1,10 +1,12 @@
+# routines/views.py
 from decimal import Decimal
 
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.db import transaction
-from django.db.models import Prefetch
+from django.db.models import Prefetch, F
+from django.db.models.expressions import OrderBy
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse_lazy
 from django.views.decorators.http import require_http_methods
@@ -18,19 +20,27 @@ from .services import (
     cascade_update_routine_months_for_quotation,
 )
 
+from job_tasks.services import create_job_task_from_routine
 
-# =========================
-# DELETE ALL ROUTINES FOR A QUOTATION (testing/reset)
-# =========================
+
+def _ordered_routine_items_qs():
+    # Order by quotation position first; put marker/invoice lines (NULL source) last.
+    return (
+        ServiceRoutineItem.objects
+        .select_related("efsm_code", "source_quotation_item")
+        .order_by(
+            OrderBy(F("source_quotation_item__position"), nulls_last=True),
+            "id",
+        )
+    )
+
+
 @login_required
 @require_http_methods(["POST"])
 def delete_routines_for_quotation(request, quotation_id: int):
     quotation = get_object_or_404(Quotation, pk=quotation_id)
 
-    # Count ONLY ServiceRoutine rows (not cascaded children)
     routine_count = ServiceRoutine.objects.filter(quotation=quotation).count()
-
-    # Delete routines (cascades to items, but we do not report them)
     ServiceRoutine.objects.filter(quotation=quotation).delete()
 
     messages.success(request, f"Deleted {routine_count} service routine records.")
@@ -42,20 +52,19 @@ def delete_routines_for_quotation(request, quotation_id: int):
     return redirect("quotations:detail", pk=quotation.pk)
 
 
-# =========================
-# LIST VIEW (PUBLIC)
-# =========================
 class ServiceRoutineListView(ListView):
     model = ServiceRoutine
     template_name = "routines/service_routine_list.html"
     context_object_name = "routines"
-    paginate_by = None
+    paginate_by = None  # keep your current behavior
 
     def get_queryset(self):
         return (
             ServiceRoutine.objects
             .select_related("quotation", "site", "site__customer")
-            .prefetch_related("items", "items__efsm_code")
+            .prefetch_related(
+                Prefetch("items", queryset=_ordered_routine_items_qs())
+            )
             .order_by("-created_at")
         )
 
@@ -66,9 +75,6 @@ class ServiceRoutineListView(ListView):
         return ctx
 
 
-# =========================
-# CREATE FROM QUOTATION
-# =========================
 @login_required
 @require_http_methods(["GET", "POST"])
 @transaction.atomic
@@ -106,24 +112,17 @@ def create_from_quotation(request, quotation_id: int):
     )
 
 
-# =========================
-# DETAIL VIEW
-# =========================
 @login_required
 def detail(request, pk: int):
     routine = get_object_or_404(
         ServiceRoutine.objects
         .select_related("quotation", "site", "site__customer")
         .prefetch_related(
-            Prefetch(
-                "items",
-                queryset=ServiceRoutineItem.objects.select_related("efsm_code"),
-            )
+            Prefetch("items", queryset=_ordered_routine_items_qs())
         ),
         pk=pk,
     )
 
-    # Prev / Next navigation within the same quotation
     routines_qs = (
         ServiceRoutine.objects
         .filter(quotation=routine.quotation)
@@ -140,7 +139,9 @@ def detail(request, pk: int):
     prev_routine = routines_list[current_index0 - 1] if current_index0 > 0 else None
     next_routine = routines_list[current_index0 + 1] if current_index0 < total_count - 1 else None
 
-    # Totals (Subtotal / GST / Total)
+    first_routine = routines_list[0] if routines_list else None
+    last_routine = routines_list[-1] if routines_list else None
+
     subtotal = Decimal("0.00")
     for item in routine.items.all():
         qty = item.quantity or 0
@@ -151,7 +152,6 @@ def detail(request, pk: int):
     gst = (subtotal * Decimal("0.10")).quantize(Decimal("0.01"))
     total = (subtotal + gst).quantize(Decimal("0.01"))
 
-    # Inline add-item form (routine-only)
     add_item_form = AddServiceRoutineItemForm()
 
     return render(
@@ -166,15 +166,45 @@ def detail(request, pk: int):
             "add_item_form": add_item_form,
             "prev_routine": prev_routine,
             "next_routine": next_routine,
+            "first_routine": first_routine,
+            "last_routine": last_routine,
             "current_index": current_index0 + 1,
             "total_count": total_count,
         },
     )
 
 
-# =========================
-# ADD ROUTINE ITEM (NOT LINKED TO QUOTATION)
-# =========================
+@login_required
+@require_http_methods(["POST"])
+def apply_monthly_notes_to_all(request, pk: int):
+    routine = get_object_or_404(ServiceRoutine.objects.select_related("quotation"), pk=pk)
+
+    run_val = (request.POST.get("monthly_run_notes") or "").strip()
+    week_val = (request.POST.get("monthly_week_notes") or "").strip()
+
+    ServiceRoutine.objects.filter(quotation=routine.quotation).update(
+        monthly_run_notes=run_val,
+        monthly_week_notes=week_val,
+    )
+
+    messages.success(request, "Monthly Run / Monthly Week applied to all related routines.")
+    return redirect("routines:detail", pk=routine.pk)
+
+
+@login_required
+@require_http_methods(["POST"])
+def create_job_task(request, pk: int):
+    routine = get_object_or_404(
+        ServiceRoutine.objects.select_related("quotation", "site", "site__customer"),
+        pk=pk,
+    )
+
+    job_task = create_job_task_from_routine(routine=routine)
+
+    messages.success(request, f"Job Task #{job_task.pk} created from Service Routine #{routine.pk}.")
+    return redirect("job_tasks:detail", pk=job_task.pk)
+
+
 @login_required
 @require_http_methods(["POST"])
 def add_item(request, pk: int):
@@ -184,7 +214,7 @@ def add_item(request, pk: int):
     if form.is_valid():
         item = form.save(commit=False)
         item.routine = routine
-        item.source_quotation_item = None  # routine-only line
+        item.source_quotation_item = None
         item.save()
         messages.success(request, "Item added to this service routine.")
     else:
@@ -193,9 +223,6 @@ def add_item(request, pk: int):
     return redirect("routines:detail", pk=routine.pk)
 
 
-# =========================
-# DELETE ROUTINE ITEM
-# =========================
 @login_required
 @require_http_methods(["POST"])
 def delete_item(request, pk: int, item_id: int):
@@ -207,9 +234,6 @@ def delete_item(request, pk: int, item_id: int):
     return redirect("routines:detail", pk=routine.pk)
 
 
-# =========================
-# INLINE MONTH UPDATE
-# =========================
 @login_required
 @require_http_methods(["POST"])
 def update_month_due(request, pk: int):
@@ -238,22 +262,35 @@ def update_month_due(request, pk: int):
     return redirect("routines:detail", pk=routine.pk)
 
 
-# =========================
-# EDIT VIEW
-# =========================
 class ServiceRoutineUpdateView(LoginRequiredMixin, UpdateView):
     model = ServiceRoutine
-    fields = ["name", "month_due", "notes", "work_order_number"]
     template_name = "routines/service_routine_form.html"
+
+    # Hide/remove Name from editing
+    fields = [
+        "month_due",
+        "work_order_number",
+
+        "monthly_run_notes",
+        "monthly_week_notes",
+
+        "annual_men_req",
+        "annual_man_hours",
+        "half_yearly_men_req",
+        "half_yearly_man_hours",
+        "monthly_men_req",
+        "monthly_man_hours",
+
+        "quotation_notes",
+        "site_notes",
+        "technician_notes",
+    ]
 
     def get_success_url(self):
         messages.success(self.request, "Service routine updated.")
         return reverse_lazy("routines:detail", kwargs={"pk": self.object.pk})
 
 
-# =========================
-# DELETE SINGLE ROUTINE
-# =========================
 class ServiceRoutineDeleteView(LoginRequiredMixin, DeleteView):
     model = ServiceRoutine
     template_name = "routines/service_routine_confirm_delete.html"

@@ -4,25 +4,177 @@
 {% include "properties/property_tabs_header.html" %}
 
 <div class="card shadow-sm">
-  <div class="card-header fw-semibold">Routines</div>
-  <div class="card-body">
-
-    {% if routines %}
-      <div class="list-group">
-        {% for r in routines %}
-          <a class="list-group-item list-group-item-action d-flex justify-content-between align-items-center"
-             href="{% url 'routines:detail' r.pk %}">
-            <span>
-              {% if r.name %}{{ r.name }}{% else %}Routine #{{ r.pk }}{% endif %}
-            </span>
-            <span class="badge bg-secondary">Open</span>
-          </a>
-        {% endfor %}
-      </div>
-    {% else %}
-      <p class="text-muted mb-0">No routines for this property.</p>
-    {% endif %}
-
+  <div class="card-header d-flex align-items-center justify-content-between">
+    <span class="fw-semibold">Routines</span>
+    <span class="text-muted small">
+      {% if routines %}{{ routines|length }}{% else %}0{% endif %}
+    </span>
   </div>
+
+  <form method="post"
+        action="{% url 'properties:bulk_delete_routines' object.pk %}"
+        id="bulkDeleteForm"
+        onsubmit="return confirmBulkDelete();">
+    {% csrf_token %}
+
+    <div class="card-body border-bottom bg-light d-flex flex-wrap gap-2 justify-content-between align-items-center">
+      <div class="d-flex flex-wrap gap-2 align-items-center">
+        <div class="form-check">
+          <input class="form-check-input" type="checkbox" id="selectAll">
+          <label class="form-check-label" for="selectAll">Select all</label>
+        </div>
+
+        <span class="text-muted small" id="selectedCount">0 selected</span>
+      </div>
+
+      <div class="d-flex gap-2">
+        <input type="hidden" name="select_all" id="selectAllHidden" value="0">
+        <button type="submit" class="btn btn-sm btn-outline-danger" id="deleteSelectedBtn" disabled>
+          Delete selected
+        </button>
+      </div>
+    </div>
+
+    <div class="table-responsive">
+      <table class="table table-hover align-middle mb-0">
+        <thead class="table-light">
+          <tr>
+            <th style="width: 44px;" class="text-center"></th>
+            <th>Routine</th>
+            <th style="width: 160px;">Service Month</th>
+            <th style="width: 160px;">Service Type</th>
+            <th class="text-center" style="width: 90px;">Items</th>
+            <th class="text-end" style="width: 220px;">Actions</th>
+          </tr>
+        </thead>
+
+        <tbody>
+          {% for r in routines %}
+            <tr>
+              <td class="text-center">
+                <input class="form-check-input routine-checkbox"
+                       type="checkbox"
+                       name="routine_ids"
+                       value="{{ r.pk }}"
+                       aria-label="Select routine {{ r.pk }}">
+              </td>
+
+              <td>
+                <div class="fw-semibold">
+                  <a href="{% url 'routines:detail' r.pk %}" class="text-decoration-none">
+                    {% if r.name %}
+                      {{ r.name }}
+                    {% else %}
+                      Routine #{{ r.pk }}
+                    {% endif %}
+                  </a>
+                </div>
+
+                <div class="text-muted small">
+                  ID: {{ r.pk }}
+                  {% if r.created_at %} • Created: {{ r.created_at|date:"d M Y" }}{% endif %}
+                </div>
+
+                {% if r.quotation %}
+                  <div class="text-muted small">
+                    Quotation:
+                    <a href="{% url 'quotations:detail' r.quotation.pk %}">
+                      {{ r.quotation.number }}
+                    </a>
+                  </div>
+                {% endif %}
+              </td>
+
+              <td>
+                {% if r.get_month_due_display %}
+                  {{ r.get_month_due_display }}
+                {% else %}
+                  <span class="text-muted">—</span>
+                {% endif %}
+              </td>
+
+              <td>
+                {% if r.get_routine_type_display %}
+                  {{ r.get_routine_type_display }}
+                {% else %}
+                  <span class="text-muted">—</span>
+                {% endif %}
+              </td>
+
+              <td class="text-center">
+                <span class="badge bg-secondary">{{ r.items.count }}</span>
+              </td>
+
+              <td class="text-end">
+                <a href="{% url 'routines:detail' r.pk %}" class="btn btn-sm btn-outline-primary">View</a>
+                <a href="{% url 'routines:edit' r.pk %}" class="btn btn-sm btn-outline-secondary">Edit</a>
+                <a href="{% url 'routines:delete' r.pk %}" class="btn btn-sm btn-outline-danger">Delete</a>
+              </td>
+            </tr>
+          {% empty %}
+            <tr>
+              <td colspan="6" class="text-center text-muted py-4">
+                No routines for this property.
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </form>
 </div>
+
+<script>
+(function () {
+  const selectAll = document.getElementById("selectAll");
+  const selectAllHidden = document.getElementById("selectAllHidden");
+  const checkboxes = Array.from(document.querySelectorAll(".routine-checkbox"));
+  const selectedCountEl = document.getElementById("selectedCount");
+  const deleteBtn = document.getElementById("deleteSelectedBtn");
+
+  function updateUI() {
+    const selected = checkboxes.filter(cb => cb.checked).length;
+
+    if (selectedCountEl) selectedCountEl.textContent = selected + " selected";
+    if (deleteBtn) deleteBtn.disabled = (selected === 0 && !(selectAll && selectAll.checked));
+
+    if (selectAllHidden) {
+      selectAllHidden.value = (selectAll && selectAll.checked) ? "1" : "0";
+    }
+  }
+
+  if (selectAll) {
+    selectAll.addEventListener("change", function () {
+      const checked = selectAll.checked;
+      checkboxes.forEach(cb => { cb.checked = checked; });
+      updateUI();
+    });
+  }
+
+  checkboxes.forEach(cb => cb.addEventListener("change", function () {
+    if (selectAll) {
+      const allChecked = checkboxes.length > 0 && checkboxes.every(x => x.checked);
+      const anyChecked = checkboxes.some(x => x.checked);
+      selectAll.checked = allChecked;
+      if (!anyChecked) selectAll.checked = false;
+    }
+    updateUI();
+  }));
+
+  window.confirmBulkDelete = function () {
+    if (selectAll && selectAll.checked) {
+      return confirm("Delete ALL routines for this property? This cannot be undone.");
+    }
+    const selected = checkboxes.filter(cb => cb.checked).length;
+    if (selected <= 0) {
+      alert("Select at least one routine to delete.");
+      return false;
+    }
+    return confirm("Delete " + selected + " selected routine(s)? This cannot be undone.");
+  };
+
+  updateUI();
+})();
+</script>
+
 {% endblock %}

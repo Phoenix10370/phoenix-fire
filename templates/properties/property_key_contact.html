@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container-fluid">
+  <div class="d-flex align-items-center justify-content-between mb-3">
+    <div>
+      <h3 class="mb-0">{{ object.display_name }}</h3>
+      <div class="text-muted small">
+        {{ object.full_address }}
+        {% if object.customer %} • {{ object.customer }}{% endif %}
+      </div>
+    </div>
+    <div class="d-flex gap-2">
+      <a href="{% url 'properties:list' %}" class="btn btn-outline-secondary">Back</a>
+      <a href="{% url 'properties:update' object.pk %}" class="btn btn-primary">Edit</a>
+      <a href="{% url 'properties:delete' object.pk %}" class="btn btn-outline-danger">Delete</a>
+    </div>
+  </div>
+
+  {% include "properties/_property_tabs.html" %}
+
+  <div class="row g-3">
+    <div class="col-lg-6">
+      <div class="card shadow-sm">
+        <div class="card-header"><strong>Key - Contact</strong></div>
+        <div class="card-body">
+          <div class="text-muted">
+            This tab is ready. If you want “key contacts” stored separately (recommended), we’ll add a
+            PropertyKeyContact model and manage it here.
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-lg-6">
+      <div class="card shadow-sm">
+        <div class="card-header"><strong>Current Site Contact (from Property)</strong></div>
+        <div class="card-body">
+          <div class="mb-3">
+            <div class="text-muted small">Site Contact</div>
+            <div>{{ object.site_contact|default:"—" }}</div>
+          </div>
+          <div>
+            <div class="text-muted small">Contact Phone</div>
+            <div>{{ object.contact_phone|default:"—" }}</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

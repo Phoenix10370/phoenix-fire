@@ -11,7 +11,7 @@
   </a>
 </div>
 
-<!-- SEARCH BAR (¼ WIDTH + LIVE) -->
+<!-- SEARCH BAR -->
 <div class="row mb-3">
   <div class="col-md-3">
     <input
@@ -33,9 +33,9 @@
       <thead class="table-light">
         <tr>
           <th style="width:140px;">Site ID</th>
-          <th style="width:500px;">Property</th>
-          <th style="width:650px;">Customer</th>
-          <th style="width:120px;">Status</th>
+          <th style="width:800px;">Property</th>
+          <th style="width:550px;">Customer</th>
+          <th style="width:80px;">Status</th>
           <th class="text-end" style="width:300px;">Actions</th>
         </tr>
       </thead>
@@ -50,17 +50,70 @@
           data-delete-url="{% url 'properties:delete' item.pk %}"
           aria-label="Property row {{ item.site_id }}"
         >
+          <!-- SITE ID -->
           <td class="fw-semibold">
+            <a
+              href="{% url 'properties:detail' item.pk %}"
+              class="text-decoration-none"
+              aria-label="View property {{ item.site_id }}"
+            >
               {{ item.site_id }}
+            </a>
           </td>
 
+          <!-- PROPERTY -->
           <td>
-            {{ item.building_name }}<br>
-            <small class="text-muted">
+            <div class="fw-medium fs-6 lh-sm">
               {{ item.street }}, {{ item.city }}
               {% if item.state %}, {{ item.state }}{% endif %}
               {% if item.post_code %} {{ item.post_code }}{% endif %}
-            </small>
+            </div>
+
+            <div class="d-flex align-items-center gap-1 flex-wrap mt-1">
+              {% if item.property_description %}
+                <span class="badge text-bg-info">
+                  {{ item.get_property_description_display }}
+                </span>
+              {% endif %}
+
+              {% if item.strata_plan %}
+                <span
+                  class="badge text-bg-secondary"
+                  data-bs-toggle="tooltip"
+                  title="Strata Plan"
+                >
+                  Strata Plan: {{ item.strata_plan }}
+                </span>
+              {% endif %}
+            </div>
+
+            <div class="small text-muted mt-1 d-flex flex-wrap gap-3">
+              {% if item.number_of_residential %}
+                <span>
+                  <i class="bi bi-house-door me-1"></i>{{ item.number_of_residential }}
+                </span>
+              {% endif %}
+
+              {% if item.number_of_commercial %}
+                <span>
+                  <i class="bi bi-building me-1"></i>{{ item.number_of_commercial }}
+                </span>
+              {% endif %}
+
+              {% if item.afss_due_date %}
+                <span>
+                  <i class="bi bi-calendar-event me-1"></i>
+                  Due: {{ item.afss_due_date|date:"d-M-y" }}
+                </span>
+              {% endif %}
+
+              {% if item.certification_date %}
+                <span>
+                  <i class="bi bi-patch-check me-1"></i>
+                  Cert: {{ item.certification_date|date:"d-M-y" }}
+                </span>
+              {% endif %}
+            </div>
           </td>
 
           <!-- CUSTOMER -->
@@ -74,22 +127,14 @@
                   class="text-decoration-none"
                   target="_blank"
                   rel="noopener noreferrer"
-                  data-bs-toggle="tooltip"
-                  title="Open customer details in new tab"
                 >
                   {{ item.customer.customer_name }}
                 </a>
 
                 {% if item.customer.customer_type %}
-                  {% if item.customer.customer_type == "Strata" %}
-                    <span class="badge text-bg-info">Strata</span>
-                  {% elif item.customer.customer_type == "Government" %}
-                    <span class="badge text-bg-primary">Government</span>
-                  {% elif item.customer.customer_type == "Housing" %}
-                    <span class="badge text-bg-warning">Housing</span>
-                  {% else %}
-                    <span class="badge text-bg-secondary">{{ item.customer.customer_type }}</span>
-                  {% endif %}
+                  <span class="badge text-bg-secondary">
+                    {{ item.customer.customer_type }}
+                  </span>
                 {% endif %}
               </div>
             {% else %}
@@ -97,6 +142,7 @@
             {% endif %}
           </td>
 
+          <!-- STATUS -->
           <td>
             {% if item.active_status %}
               <span class="badge bg-success">Active</span>
@@ -105,56 +151,28 @@
             {% endif %}
           </td>
 
-          <!-- ACTIONS (OLD STYLE) -->
+          <!-- ACTIONS (MATCH ROUTINES STYLE) -->
           <td class="text-end">
-
-            <!-- MAP -->
             <a
-              class="btn btn-outline-secondary btn-sm"
-              href="https://www.google.com/maps/search/?api=1&query={{ item.street|urlencode }}+{{ item.city|urlencode }}+{{ item.state|urlencode }}+{{ item.post_code|urlencode }}"
-              target="_blank"
-              rel="noopener noreferrer"
-              data-bs-toggle="tooltip"
-              title="Open property in Google Maps"
-              aria-label="Open property in Google Maps"
-            >
-              <i class="bi bi-geo-alt"></i>
-            </a>
-
-            <!-- VIEW -->
-            <a
-              class="btn btn-outline-primary btn-sm"
               href="{% url 'properties:detail' item.pk %}"
-              data-bs-toggle="tooltip"
-              title="View property details (V)"
-              aria-label="View property details"
+              class="btn btn-sm btn-outline-primary"
             >
-              <i class="bi bi-eye"></i>
+              View
             </a>
 
-            <!-- EDIT -->
             <a
-              class="btn btn-outline-warning btn-sm"
               href="{% url 'properties:update' item.pk %}"
-              data-bs-toggle="tooltip"
-              title="Edit property (E)"
-              aria-label="Edit property"
+              class="btn btn-sm btn-outline-secondary"
             >
-              <i class="bi bi-pencil"></i>
+              Edit
             </a>
 
-            <!-- DELETE (CONFIRM POPOVER -> UNDO TOAST) -->
-            <button
-              type="button"
-              class="btn btn-outline-danger btn-sm delete-btn"
-              data-bs-toggle="popover"
-              data-delete-url="{% url 'properties:delete' item.pk %}"
-              title="Confirm delete"
-              aria-label="Delete property"
+            <a
+              href="{% url 'properties:delete' item.pk %}"
+              class="btn btn-sm btn-outline-danger"
             >
-              <i class="bi bi-trash"></i>
-            </button>
-
+              Delete
+            </a>
           </td>
         </tr>
         {% empty %}
@@ -168,208 +186,5 @@
     </table>
   </div>
 </div>
-
-<!-- UNDO TOAST (floating, no layout change) -->
-<div class="position-fixed bottom-0 end-0 p-3" style="z-index: 1080;">
-  <div id="undoToast" class="toast" role="alert" aria-live="assertive" aria-atomic="true">
-    <div class="toast-header">
-      <i class="bi bi-exclamation-triangle me-2"></i>
-      <strong class="me-auto">Delete</strong>
-      <small class="text-muted">Pending</small>
-      <button type="button" class="btn-close" data-bs-dismiss="toast" aria-label="Close"></button>
-    </div>
-    <div class="toast-body d-flex align-items-center justify-content-between gap-3">
-      <span>Delete queued. Undo?</span>
-      <button type="button" id="undoBtn" class="btn btn-sm btn-outline-secondary">
-        Undo
-      </button>
-    </div>
-  </div>
-</div>
-
-<script>
-  document.addEventListener("DOMContentLoaded", () => {
-    // Bootstrap must exist now (loaded from base.html)
-    if (typeof bootstrap === "undefined") {
-      console.error("Bootstrap JS not loaded. Tooltips/popovers/toast cannot run.");
-      return;
-    }
-
-    const searchInput = document.getElementById("property-search");
-    const tableBody = document.getElementById("property-table-body");
-
-    // Selected row for keyboard shortcuts
-    let selectedRow = null;
-
-    // Undo toast state
-    let pendingDeleteTimer = null;
-    let pendingDeleteUrl = null;
-
-    const undoToastEl = document.getElementById("undoToast");
-    const undoToast = new bootstrap.Toast(undoToastEl, { autohide: false });
-    const undoBtn = document.getElementById("undoBtn");
-
-    function clearPendingDelete() {
-      if (pendingDeleteTimer) {
-        clearTimeout(pendingDeleteTimer);
-        pendingDeleteTimer = null;
-      }
-      pendingDeleteUrl = null;
-    }
-
-    function queueDelete(url) {
-      clearPendingDelete();
-      pendingDeleteUrl = url;
-
-      undoToast.show();
-
-      pendingDeleteTimer = setTimeout(() => {
-        undoToast.hide();
-        window.location.href = pendingDeleteUrl;
-      }, 4000);
-    }
-
-    undoBtn.addEventListener("click", () => {
-      clearPendingDelete();
-      undoToast.hide();
-    });
-
-    function initTooltips() {
-      document.querySelectorAll('[data-bs-toggle="tooltip"]').forEach(el => {
-        const inst = bootstrap.Tooltip.getInstance(el);
-        if (inst) inst.dispose();
-
-        new bootstrap.Tooltip(el, {
-          trigger: "hover focus",        // keyboard + mobile long-press friendly
-          delay: { show: 250, hide: 100 }
-        });
-      });
-    }
-
-    function hideAllDeletePopovers() {
-      document.querySelectorAll("button.delete-btn").forEach(btn => {
-        const inst = bootstrap.Popover.getInstance(btn);
-        if (inst) inst.hide();
-      });
-    }
-
-    function initDeletePopovers() {
-      document.querySelectorAll("button.delete-btn").forEach(btn => {
-        const inst = bootstrap.Popover.getInstance(btn);
-        if (inst) inst.dispose();
-
-        const url = btn.getAttribute("data-delete-url");
-
-        new bootstrap.Popover(btn, {
-          trigger: "click",
-          container: "body",   // avoids clipping inside table/card
-          html: true,
-          sanitize: true,
-          content: `
-            <div class="d-flex gap-2">
-              <button type="button" class="btn btn-sm btn-outline-secondary js-popover-cancel">
-                Cancel
-              </button>
-              <a href="${url}" class="btn btn-sm btn-danger js-delete-confirm">
-                Yes, delete
-              </a>
-            </div>
-          `
-        });
-      });
-    }
-
-    function initRowSelection() {
-      document.querySelectorAll("tr.property-row").forEach(row => {
-        row.addEventListener("click", (e) => {
-          if (e.target.closest("a, button")) return;
-          selectRow(row);
-        });
-        row.addEventListener("focus", () => selectRow(row));
-      });
-    }
-
-    function selectRow(row) {
-      if (selectedRow && selectedRow !== row) selectedRow.classList.remove("table-active");
-      selectedRow = row;
-      selectedRow.classList.add("table-active");
-    }
-
-    // Popover Cancel / Confirm (delegated)
-    document.addEventListener("click", (e) => {
-      const cancelBtn = e.target.closest(".js-popover-cancel");
-      if (cancelBtn) {
-        e.preventDefault();
-        hideAllDeletePopovers();
-        return;
-      }
-
-      const confirmLink = e.target.closest(".js-delete-confirm");
-      if (confirmLink) {
-        e.preventDefault();
-        hideAllDeletePopovers();
-        queueDelete(confirmLink.getAttribute("href"));
-        return;
-      }
-
-      // Click outside closes popovers
-      if (!e.target.closest(".popover") && !e.target.closest("button.delete-btn")) {
-        hideAllDeletePopovers();
-      }
-    });
-
-    // Keyboard shortcuts: V=view, E=edit, Delete=delete (selected row)
-    document.addEventListener("keydown", (e) => {
-      const tag = (e.target && e.target.tagName) ? e.target.tagName.toLowerCase() : "";
-      if (tag === "input" || tag === "textarea" || e.target.isContentEditable) return;
-      if (!selectedRow) return;
-
-      const viewUrl = selectedRow.getAttribute("data-view-url");
-      const editUrl = selectedRow.getAttribute("data-edit-url");
-      const deleteUrl = selectedRow.getAttribute("data-delete-url");
-
-      if (e.key === "v" || e.key === "V") {
-        e.preventDefault();
-        window.location.href = viewUrl;
-      } else if (e.key === "e" || e.key === "E") {
-        e.preventDefault();
-        window.location.href = editUrl;
-      } else if (e.key === "Delete") {
-        e.preventDefault();
-        queueDelete(deleteUrl);
-      }
-    });
-
-    function initAllUI() {
-      initTooltips();
-      initDeletePopovers();
-      initRowSelection();
-    }
-
-    // Live search
-    let debounceTimer = null;
-    searchInput.addEventListener("input", function () {
-      clearTimeout(debounceTimer);
-
-      debounceTimer = setTimeout(() => {
-        fetch(`{% url 'properties:list' %}?q=${encodeURIComponent(searchInput.value)}`, {
-          headers: { "X-Requested-With": "XMLHttpRequest" }
-        })
-          .then(r => r.text())
-          .then(html => {
-            const doc = new DOMParser().parseFromString(html, "text/html");
-            const newBody = doc.querySelector("#property-table-body");
-            if (newBody) {
-              tableBody.innerHTML = newBody.innerHTML;
-              selectedRow = null;
-              initAllUI();
-            }
-          });
-      }, 250);
-    });
-
-    initAllUI();
-  });
-</script>
 
 {% endblock %}

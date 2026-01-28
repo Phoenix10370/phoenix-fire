@@ -1,0 +1,112 @@
+{% extends "base.html" %}
+{% block content %}
+
+{# --- property tabs (same as quotations/routines/etc) --- #}
+{% include "properties/property_tabs_header.html" with object=object tab=tab %}
+
+<div class="d-flex align-items-center justify-content-between mb-3">
+  <div>
+    <h2 class="h4 mb-1">Job Tasks</h2>
+    <div class="text-muted small">
+      {{ object.full_address|default:object }}
+    </div>
+  </div>
+
+  <div class="d-flex gap-2">
+    <a class="btn btn-outline-secondary" href="{% url 'job_tasks:create' %}">
+      + New Job Task
+    </a>
+  </div>
+</div>
+
+<div class="card shadow-sm mb-3">
+  <div class="card-body">
+    <form method="get" class="row g-2 align-items-end">
+      <div class="col-12 col-md-8">
+        <label class="form-label small text-muted mb-1">Search</label>
+        <input type="text"
+               name="q"
+               value="{{ q }}"
+               class="form-control"
+               placeholder="Title or description...">
+      </div>
+
+      <div class="col-12 col-md-4 d-flex gap-2">
+        <button class="btn btn-primary w-100" type="submit">Search</button>
+        <a class="btn btn-outline-secondary w-100"
+           href="{% url 'job_tasks:list_for_property' object.pk %}">
+          Reset
+        </a>
+      </div>
+    </form>
+  </div>
+</div>
+
+<div class="card shadow-sm">
+  <div class="card-header bg-light fw-semibold d-flex justify-content-between align-items-center">
+    <span>Job Tasks</span>
+    <span class="text-muted small">{{ job_tasks|length }} total</span>
+  </div>
+
+  <div class="table-responsive">
+    <table class="table table-hover align-middle mb-0">
+      <thead class="table-light">
+        <tr>
+          <th style="width:90px;">Task</th>
+          <th>Title</th>
+          <th style="width:140px;">Status</th>
+          <th style="width:140px;">Due</th>
+          <th class="text-end" style="width:220px;">Actions</th>
+        </tr>
+      </thead>
+
+      <tbody>
+        {% for jt in job_tasks %}
+          <tr>
+            <td class="fw-semibold">#{{ jt.pk }}</td>
+
+            <td>
+              <div class="fw-semibold">{{ jt.title }}</div>
+              {% if jt.service_routine %}
+                <div class="text-muted small">
+                  From Routine
+                  <a href="{% url 'routines:detail' jt.service_routine_id %}">
+                    #{{ jt.service_routine_id }}
+                  </a>
+                </div>
+              {% endif %}
+            </td>
+
+            <td>
+              <span class="badge text-bg-secondary">{{ jt.get_status_display }}</span>
+            </td>
+
+            <td>
+              {% if jt.due_date %}
+                {{ jt.due_date }}
+              {% else %}
+                <span class="text-muted">—</span>
+              {% endif %}
+            </td>
+
+            <td class="text-end">
+              <div class="d-inline-flex gap-2">
+                <a href="{% url 'job_tasks:detail' jt.pk %}" class="btn btn-sm btn-outline-primary">View</a>
+                <a href="{% url 'job_tasks:edit' jt.pk %}" class="btn btn-sm btn-outline-secondary">Edit</a>
+                <a href="{% url 'job_tasks:delete' jt.pk %}" class="btn btn-sm btn-outline-danger">Delete</a>
+              </div>
+            </td>
+          </tr>
+        {% empty %}
+          <tr>
+            <td colspan="5" class="text-center text-muted py-4">
+              No job tasks for this property.
+            </td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+{% endblock %}
