@@ -1,6 +1,8 @@
 {% extends "base.html" %}
 
 {% block content %}
+<script src="https://unpkg.com/htmx.org@1.9.12"></script>
+
 <div class="d-flex justify-content-between align-items-center mb-3">
   <h1 class="h3 mb-0">Create Service Routines</h1>
 
@@ -27,6 +29,10 @@
   </div>
 {% endif %}
 
+<div id="routine-preview">
+  {% include "routines/_create_from_quotation_preview.html" with preview=preview routines_exist=routines_exist form=form %}
+</div>
+
 <div class="card shadow-sm">
   <div class="card-header bg-light fw-semibold">
     Create Service Routines
@@ -37,12 +43,21 @@
       Choose the <strong>Annual Due Month</strong> and an <strong>Invoice Frequency</strong>.
     </p>
 
-    <form method="post" action="{% url 'routines:create_from_quotation' quotation.pk %}">
+    <form id="create-routines-form"
+          method="post"
+          action="{% url 'routines:create_from_quotation' quotation.pk %}">
       {% csrf_token %}
 
       <div class="mb-3">
         {{ form.annual_due_month.label_tag }}
-        {{ form.annual_due_month }}
+        <div
+          hx-get="{% url 'routines:create_from_quotation_preview' quotation.pk %}"
+          hx-trigger="change"
+          hx-include="#create-routines-form"
+          hx-target="#routine-preview"
+          hx-swap="innerHTML">
+          {{ form.annual_due_month }}
+        </div>
         {% if form.annual_due_month.errors %}
           <div class="text-danger small mt-1">{{ form.annual_due_month.errors }}</div>
         {% endif %}
@@ -50,9 +65,15 @@
 
       <div class="mb-3">
         {{ form.invoice_frequency.label_tag }}
-        {{ form.invoice_frequency }}
+        <div
+          hx-get="{% url 'routines:create_from_quotation_preview' quotation.pk %}"
+          hx-trigger="change"
+          hx-include="#create-routines-form"
+          hx-target="#routine-preview"
+          hx-swap="innerHTML">
+          {{ form.invoice_frequency }}
+        </div>
 
-        {# Use a static help line to prevent any accidental huge output #}
         <div class="form-text">
           Controls how the quotation total is distributed across the created routines.
         </div>
@@ -62,10 +83,11 @@
         {% endif %}
       </div>
 
-      <div class="d-flex gap-2">
+      <div class="d-flex flex-wrap gap-2">
         <button type="submit" class="btn btn-primary" {% if routines_exist %}disabled{% endif %}>
           Create Service Routines
         </button>
+
         <a href="{% url 'quotations:detail' quotation.pk %}" class="btn btn-outline-secondary">
           Cancel
         </a>

@@ -132,6 +132,18 @@ def _upsert_measure_line(
     )
 
 
+def _prune_stale_measure_lines(*, quotation: Quotation, q_items) -> None:
+    """
+    Remove ServiceRoutineItem rows created from quotation items that no longer exist on the quotation.
+    Prevents orphaned routine lines after quotation edits.
+    """
+    current_qi_ids = {qi.id for qi in q_items}
+    ServiceRoutineItem.objects.filter(
+        routine__quotation=quotation,
+        source_quotation_item__isnull=False,
+    ).exclude(source_quotation_item_id__in=current_qi_ids).delete()
+
+
 def _add_measures_to_routines(
     *,
     q_items,
@@ -153,7 +165,10 @@ def _add_measures_to_routines(
     target_ids = {r.id for r in target_routines if r}
 
     for qi in q_items:
-        v = getattr(qi.efsm_code, "visits_per_year", 1) or 1
+        code = getattr(qi, "efsm_code", None)
+        v = getattr(code, "visits_per_year", 1) if code else 1
+        v = v or 1
+
         try:
             v_int = int(v)
         except Exception:
@@ -173,7 +188,11 @@ def _add_measures_to_routines(
             routine_targets = [r for r in routine_targets if r and r.id in target_ids]
 
         base_price = _money(qi.unit_price or 0)
-        unit_price = base_price if price_multiplier is None else (base_price * price_multiplier).quantize(Decimal("0.01"))
+        unit_price = (
+            base_price
+            if price_multiplier is None
+            else (base_price * price_multiplier).quantize(Decimal("0.01"))
+        )
 
         for r in routine_targets:
             _upsert_measure_line(routine=r, qi=qi, unit_price=unit_price)
@@ -273,6 +292,105 @@ def _routine_defaults_from_quotation(*, quotation: Quotation, created_by, notes_
 
 
 # --------------------
+# Preview (no DB writes)
+# --------------------
+
+def preview_service_routines_from_quotation(
+    *,
+    quotation: Quotation,
+    annual_due_month: int,
+    invoice_frequency: str,
+) -> list[dict]:
+    """
+    Returns a preview of routines that WOULD be created.
+    No database writes.
+    """
+    annual_month = int(annual_due_month)
+    biannual_month = _add_months(annual_month, 6)
+
+    q_items = list(
+        quotation.items
+        .select_related("efsm_code")
+        .order_by("position", "id")
+        .all()
+    )
+
+    if not q_items:
+        return []
+
+    # Determine max visits/year to know what schedule types will exist
+    max_visits = 1
+    for qi in q_items:
+        code = getattr(qi, "efsm_code", None)
+        v = getattr(code, "visits_per_year", 1) if code else 1
+        v = v or 1
+
+        try:
+            max_visits = max(max_visits, int(v))
+        except Exception:
+            pass
+
+    preview: list[dict] = []
+
+    # Base schedule routines (depend on max_visits)
+    preview.append({
+        "type": "Annual",
+        "month": annual_month,
+        "rule": "Always created",
+    })
+
+    if max_visits >= 2:
+        preview.append({
+            "type": "Bi-Annual",
+            "month": biannual_month,
+            "rule": "Created when any item has 2+ visits/year",
+        })
+
+    if max_visits >= 3:
+        excluded = {annual_month, biannual_month}
+        months = _month_cycle_excluding(annual_month, excluded)
+        for m in months:
+            preview.append({
+                "type": "Monthly",
+                "month": m,
+                "rule": "Created when any item has 3+ visits/year",
+            })
+
+    # Quarterly invoicing routines (only appear for quarterly invoicing)
+    if invoice_frequency == "quarterly":
+        for i in range(4):
+            m = _add_months(annual_month, i * 3)
+            preview.append({
+                "type": "Quarterly",
+                "month": m,
+                "rule": "Quarterly invoicing periods (4)",
+            })
+
+    # Attach invoice behaviour summary (shown in UI)
+    invoice_frequency = (invoice_frequency or "").strip()
+    if invoice_frequency == "annual":
+        behaviour = "Invoice value goes to Annual routine only."
+    elif invoice_frequency == "bi_annual":
+        behaviour = "Invoice value split 50/50 across Annual + Bi-Annual."
+    elif invoice_frequency == "monthly":
+        behaviour = "Invoice value split evenly across all routines (1/12 each)."
+    elif invoice_frequency == "quarterly":
+        behaviour = "Quarterly routines carry the invoice values (marker lines). Other lines remain $0.00."
+    elif invoice_frequency == "calculator":
+        behaviour = "Calculator mode: invoice values based on calculator sections + AFSS."
+    else:
+        behaviour = "Invoice frequency uses default behaviour."
+
+    for row in preview:
+        row["invoice_behaviour"] = behaviour
+        row["max_visits"] = max_visits
+
+    return preview
+
+
+
+
+# --------------------
 # Main routine creator
 # --------------------
 
@@ -287,9 +405,17 @@ def create_service_routines_from_quotation(
     quotation = Quotation.objects.select_for_update().get(pk=quotation.pk)
 
     # IMPORTANT: q_items MUST come out in the saved UI order
-    q_items = list(quotation.items.select_related("efsm_code").all())
+    q_items = list(
+        quotation.items
+        .select_related("efsm_code")
+        .order_by("position", "id")
+        .all()
+    )
     if not q_items:
         return list(quotation.service_routines.all())
+
+    # Remove routine lines for quotation items that no longer exist
+    _prune_stale_measure_lines(quotation=quotation, q_items=q_items)
 
     annual_month = int(annual_due_month)
     biannual_month = _add_months(annual_month, 6)
@@ -424,7 +550,6 @@ def create_service_routines_from_quotation(
     total_value = _quotation_items_subtotal(q_items)
 
     if invoice_frequency == "annual":
-        # 1) Ensure scheduled lines exist everywhere at $0.00
         _add_measures_to_routines(
             q_items=q_items,
             target_routines=routines,
@@ -434,7 +559,6 @@ def create_service_routines_from_quotation(
             biannual_r=biannual_r,
             monthly_rs=monthly_rs,
         )
-        # 2) Put FULL value onto Annual routine only (all items)
         _add_measures_to_routines(
             q_items=q_items,
             target_routines=[annual_r],
@@ -447,7 +571,6 @@ def create_service_routines_from_quotation(
         return list(quotation.service_routines.all())
 
     if invoice_frequency == "bi_annual":
-        # 1) Ensure scheduled lines exist everywhere at $0.00
         _add_measures_to_routines(
             q_items=q_items,
             target_routines=routines,
@@ -457,7 +580,6 @@ def create_service_routines_from_quotation(
             biannual_r=biannual_r,
             monthly_rs=monthly_rs,
         )
-        # 2) Split 50/50 across Annual + Biannual (all items)
         half = Decimal("0.50")
         _add_measures_to_routines(
             q_items=q_items,
@@ -481,7 +603,6 @@ def create_service_routines_from_quotation(
         return list(quotation.service_routines.all())
 
     if invoice_frequency == "monthly":
-        # Your requirement: all routines total value is one-twelfth
         twelfth = (Decimal("1.00") / Decimal("12.00"))
         _add_measures_to_routines(
             q_items=q_items,
@@ -495,7 +616,6 @@ def create_service_routines_from_quotation(
         return list(quotation.service_routines.all())
 
     if invoice_frequency == "quarterly":
-        # QUARTERLY: leave exactly as-is (do not break it)
         _add_measures_to_routines(
             q_items=q_items,
             target_routines=routines,

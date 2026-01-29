@@ -7,6 +7,7 @@ from django.contrib.auth.mixins import LoginRequiredMixin
 from django.db import transaction
 from django.db.models import Prefetch, F, Q
 from django.db.models.expressions import OrderBy
+from django.http import HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse_lazy
 from django.views.decorators.http import require_http_methods
@@ -18,6 +19,7 @@ from .models import ServiceRoutine, ServiceRoutineItem
 from .services import (
     create_service_routines_from_quotation,
     cascade_update_routine_months_for_quotation,
+    preview_service_routines_from_quotation,
 )
 
 from job_tasks.services import create_job_task_from_routine
@@ -108,7 +110,6 @@ class ServiceRoutineListView(ListView):
     template_name = "routines/service_routine_list.html"
     context_object_name = "routines"
 
-    # Keep your current behavior; set to an int (e.g. 25) if you want pagination
     paginate_by = None
 
     def _get_int_param(self, key: str):
@@ -169,6 +170,64 @@ class ServiceRoutineListView(ListView):
 
 
 @login_required
+@require_http_methods(["GET"])
+def create_from_quotation_preview(request, quotation_id: int):
+    """
+    HTMX endpoint: returns ONLY the preview partial.
+    No DB writes.
+    """
+    quotation = get_object_or_404(Quotation, pk=quotation_id)
+    routines_exist = quotation.service_routines.exists()
+
+    # If routines exist, preview is irrelevant (creation is blocked)
+    if routines_exist:
+        form = CreateServiceRoutinesFromQuotationForm()
+        return render(
+            request,
+            "routines/_create_from_quotation_preview.html",
+            {
+                "preview": [],
+                "routines_exist": True,
+                "form": form,
+            },
+        )
+
+
+
+    # Read querystring values from the form
+    annual_due_month = request.GET.get("annual_due_month") or ""
+    invoice_frequency = request.GET.get("invoice_frequency") or "calculator"
+
+    # Fallbacks in case of weird input
+    try:
+        annual_due_month_int = int(annual_due_month)
+    except (TypeError, ValueError):
+        annual_due_month_int = 1
+
+    preview = preview_service_routines_from_quotation(
+        quotation=quotation,
+        annual_due_month=annual_due_month_int,
+        invoice_frequency=str(invoice_frequency),
+    )
+
+    form = CreateServiceRoutinesFromQuotationForm(initial={
+        "annual_due_month": annual_due_month_int,
+        "invoice_frequency": str(invoice_frequency),
+    })
+
+    return render(
+        request,
+        "routines/_create_from_quotation_preview.html",
+        {
+            "preview": preview,
+            "routines_exist": False,
+            "form": form,
+        },
+    )
+
+
+
+@login_required
 @require_http_methods(["GET", "POST"])
 @transaction.atomic
 def create_from_quotation(request, quotation_id: int):
@@ -180,6 +239,14 @@ def create_from_quotation(request, quotation_id: int):
 
     routines_exist = quotation.service_routines.exists()
 
+    # Server-side enforcement: block POST if routines already exist
+    if request.method == "POST" and routines_exist:
+        messages.error(
+            request,
+            "Service routines already exist for this quotation. Delete existing routines first to re-create them.",
+        )
+        return redirect("routines:create_from_quotation", quotation_id=quotation.pk)
+
     if request.method == "POST":
         form = CreateServiceRoutinesFromQuotationForm(request.POST)
         if form.is_valid():
@@ -189,10 +256,26 @@ def create_from_quotation(request, quotation_id: int):
                 invoice_frequency=form.cleaned_data["invoice_frequency"],
                 user=request.user,
             )
-            messages.success(request, "Service routines created or updated.")
+            messages.success(request, "Service routines created.")
             return redirect("quotations:detail", pk=quotation.pk)
     else:
         form = CreateServiceRoutinesFromQuotationForm()
+
+    # Initial preview for non-HTMX first page load (optional, but nice)
+    preview = []
+    if not routines_exist:
+        initial_month = form.initial.get("annual_due_month") or form.fields["annual_due_month"].choices[0][0]
+        initial_freq = form.initial.get("invoice_frequency") or "calculator"
+        try:
+            initial_month_int = int(initial_month)
+        except (TypeError, ValueError):
+            initial_month_int = 1
+
+        preview = preview_service_routines_from_quotation(
+            quotation=quotation,
+            annual_due_month=initial_month_int,
+            invoice_frequency=str(initial_freq),
+        )
 
     return render(
         request,
@@ -201,6 +284,7 @@ def create_from_quotation(request, quotation_id: int):
             "quotation": quotation,
             "form": form,
             "routines_exist": routines_exist,
+            "preview": preview,
         },
     )
 
