@@ -1,0 +1,39 @@
+{% if routines_exist %}
+  {# Creation is disabled when routines already exist. Hide preview. #}
+{% else %}
+  {% if preview %}
+    <div class="alert alert-info mb-3">
+      <div class="fw-semibold mb-2">What will be created</div>
+
+      {% if preview.0.invoice_behaviour %}
+        <div class="small text-muted mb-2">
+          {{ preview.0.invoice_behaviour }}
+        </div>
+      {% endif %}
+
+      <div class="mb-2">
+        <span class="badge bg-secondary me-1">Total: {{ preview|length }}</span>
+      </div>
+
+      <ul class="mb-0">
+        {% for r in preview %}
+          <li class="mb-1">
+            <strong>{{ r.type }}</strong>
+            — due <strong>
+              {% for value,label in form.fields.annual_due_month.choices %}
+                {% if value|add:0 == r.month %}
+                  {{ label }}
+                {% endif %}
+              {% endfor %}
+            </strong>
+            <span class="text-muted small">({{ r.rule }})</span>
+          </li>
+        {% endfor %}
+      </ul>
+
+      <div class="form-text mt-2">
+        Preview only — nothing is saved until you click <strong>Create Service Routines</strong>.
+      </div>
+    </div>
+  {% endif %}
+{% endif %}
