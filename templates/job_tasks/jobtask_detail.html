@@ -4,11 +4,18 @@
 <div class="d-flex align-items-center justify-content-between mb-3">
   <div>
     <h1 class="h3 mb-1">{{ job_task.title }}</h1>
-    <div class="text-muted">Job Task #{{ job_task.id }}</div>
   </div>
 
-  <div class="d-flex gap-2">
+  <div class="d-flex gap-2 align-items-center">
     <a href="{% url 'job_tasks:edit' job_task.pk %}" class="btn btn-primary">Edit</a>
+
+    <form method="post"
+          action="{% url 'job_tasks:delete' job_task.pk %}"
+          onsubmit="return confirm('Are you sure you want to delete this Job Task? This cannot be undone.');">
+      {% csrf_token %}
+      <button type="submit" class="btn btn-outline-danger">Delete</button>
+    </form>
+
     <a href="{% url 'job_tasks:list' %}" class="btn btn-outline-secondary">Back to list</a>
   </div>
 </div>
@@ -19,7 +26,10 @@
 
     <!-- Task -->
     <div class="card mb-3">
-      <div class="card-header"><strong>Task</strong></div>
+      <div class="card-header d-flex justify-content-between align-items-center">
+        <strong>Task</strong>
+        <strong class="h6 mb-0">JOB TASK #{{ job_task.id }}</strong>
+      </div>
       <div class="card-body">
         <div class="mb-2">
           <strong>Status:</strong>
@@ -32,8 +42,8 @@
         </div>
 
         <div class="mb-2">
-          <strong>Due Date:</strong>
-          {% if job_task.due_date %}{{ job_task.due_date }}{% else %}<span class="text-muted">—</span>{% endif %}
+          <strong>Service Time:</strong>
+          {% if job_task.service_time %}{{ job_task.service_time }}{% else %}<span class="text-muted">—</span>{% endif %}
         </div>
 
         <div class="mb-2">
@@ -46,7 +56,7 @@
           {% if job_task.service_technician %}{{ job_task.service_technician }}{% else %}<span class="text-muted">—</span>{% endif %}
         </div>
 
-        <div class="mb-3">
+        <div class="mb-0">
           <strong>Additional Technicians:</strong>
           {% if job_task.additional_technicians.all %}
             <div class="mt-1">
@@ -60,15 +70,10 @@
             <span class="text-muted">—</span>
           {% endif %}
         </div>
-
-        <hr>
-
-        <div class="mb-1"><strong>Description</strong></div>
-        <div class="text-muted" style="white-space: pre-wrap;">{{ job_task.description|default:"—" }}</div>
       </div>
     </div>
 
-    <!-- Job Details (Items) -->
+    <!-- Job Details -->
     <div class="card mb-3">
       <div class="card-header"><strong>Job Details</strong></div>
       <div class="card-body p-0">
@@ -90,12 +95,8 @@
                     <td>{{ it.code|default:"" }}</td>
                     <td>{{ it.description|default:"—" }}</td>
                     <td class="text-end">{{ it.quantity }}</td>
-                    <td class="text-end">
-                      {% if it.unit_price %}${{ it.unit_price }}{% else %}<span class="text-muted">—</span>{% endif %}
-                    </td>
-                    <td class="text-end">
-                      {% if it.line_total %}${{ it.line_total }}{% else %}<span class="text-muted">—</span>{% endif %}
-                    </td>
+                    <td class="text-end">${{ it.unit_price }}</td>
+                    <td class="text-end">${{ it.line_total }}</td>
                   </tr>
                 {% endfor %}
               </tbody>
@@ -107,22 +108,39 @@
       </div>
     </div>
 
-    <!-- Values / Costs -->
-    <div class="card">
-      <div class="card-header"><strong>Values &amp; Costs</strong></div>
-      <div class="card-body">
-        <div class="d-flex justify-content-between">
-          <div><strong>Subtotal</strong></div>
-          <div>{% if job_task.subtotal %}${{ job_task.subtotal }}{% else %}<span class="text-muted">—</span>{% endif %}</div>
+    <!-- Technician Comments + Total Value -->
+    <div class="row g-3">
+      <div class="col-lg-6">
+        <div class="card mb-3">
+          <div class="card-header"><strong>Technician Comments</strong></div>
+          <div class="card-body">
+            {% if job_task.technician_comments %}
+              <div style="white-space: pre-wrap;">{{ job_task.technician_comments }}</div>
+            {% else %}
+              <span class="text-muted">—</span>
+            {% endif %}
+          </div>
         </div>
-        <div class="d-flex justify-content-between">
-          <div><strong>GST</strong></div>
-          <div>{% if job_task.gst %}${{ job_task.gst }}{% else %}<span class="text-muted">—</span>{% endif %}</div>
-        </div>
-        <hr class="my-2">
-        <div class="d-flex justify-content-between">
-          <div><strong>Total</strong></div>
-          <div class="fw-semibold">{% if job_task.total %}${{ job_task.total }}{% else %}<span class="text-muted">—</span>{% endif %}</div>
+      </div>
+
+      <div class="col-lg-6">
+        <div class="card mb-3">
+          <div class="card-header"><strong>Total Value</strong></div>
+          <div class="card-body">
+            <div class="d-flex justify-content-between">
+              <div><strong>Value</strong></div>
+              <div>${{ value }}</div>
+            </div>
+            <div class="d-flex justify-content-between">
+              <div><strong>GST</strong></div>
+              <div>${{ gst }}</div>
+            </div>
+            <hr class="my-2">
+            <div class="d-flex justify-content-between">
+              <div><strong>Total Value</strong></div>
+              <div class="fw-semibold">${{ total_value }}</div>
+            </div>
+          </div>
         </div>
       </div>
     </div>
@@ -149,7 +167,7 @@
 
         <div class="mb-2"><strong>Customer:</strong> {{ job_task.customer|default:"—" }}</div>
 
-        <div class="mb-2">
+        <div class="mb-0">
           <strong>Routine:</strong>
           {% if job_task.service_routine %}
             #{{ job_task.service_routine_id }}
@@ -160,7 +178,7 @@
       </div>
     </div>
 
-    <!-- Property Details -->
+    <!-- Property Notes -->
     <div class="card mb-3">
       <div class="card-header"><strong>Property Notes</strong></div>
       <div class="card-body">
@@ -174,16 +192,48 @@
             <div class="text-muted small">Technician Notes</div>
             <div>{{ job_task.site.technician_notes|default:"—" }}</div>
           </div>
-
-          <hr>
-
-          <a class="btn btn-sm btn-outline-secondary w-100"
-             href="{% url 'properties:detail' job_task.site_id %}">
-            View full Property Details / Access
-          </a>
         {% else %}
           <div class="text-muted">No property linked.</div>
         {% endif %}
+      </div>
+    </div>
+
+    <!-- Client / Admin -->
+    <div class="card mb-3">
+      <div class="card-header"><strong>Client / Admin</strong></div>
+      <div class="card-body">
+        <div class="mb-2">
+          <strong>Client Acknowledgement:</strong>
+          {% if job_task.client_acknowledgement %}
+            {{ job_task.client_acknowledgement }}
+          {% else %}
+            <span class="text-muted">—</span>
+          {% endif %}
+        </div>
+        <div class="mb-2">
+          <strong>Acknowledgement Date:</strong>
+          {% if job_task.acknowledgement_date %}
+            {{ job_task.acknowledgement_date }}
+          {% else %}
+            <span class="text-muted">—</span>
+          {% endif %}
+        </div>
+        <div class="mb-2">
+          <strong>Work Order No.:</strong>
+          {% if job_task.work_order_no %}
+            {{ job_task.work_order_no }}
+          {% else %}
+            <span class="text-muted">—</span>
+          {% endif %}
+        </div>
+        <div class="mb-0">
+          <strong>Admin Comments:</strong>
+          {% if job_task.admin_comments %}
+            <div style="white-space: pre-wrap;">{{ job_task.admin_comments }}</div>
+          {% else %}
+            <span class="text-muted">—</span>
+          {% endif %}
+        </div>
       </div>
     </div>
 

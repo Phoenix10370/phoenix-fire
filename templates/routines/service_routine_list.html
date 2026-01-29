@@ -5,6 +5,7 @@
   <h1 class="h3 mb-0">Service Routines</h1>
 </div>
 
+{% with q_value=request.GET.q|default_if_none:"" month_value=request.GET.month|default_if_none:"" type_value=request.GET.type|default_if_none:"" %}
 <!-- FILTERS (server-side via GET) -->
 <div class="card shadow-sm mb-3">
   <div class="card-body py-3">
@@ -37,7 +38,7 @@
         <select name="type" class="form-select">
           <option value="">All types</option>
           {% for value,label in type_choices %}
-            <option value="{{ value }}" {% if type_value == value %}selected{% endif %}>
+            <option value="{{ value }}" {% if type_value == value|stringformat:"s" %}selected{% endif %}>
               {{ label }}
             </option>
           {% endfor %}
@@ -60,156 +61,286 @@
   </div>
 </div>
 
-<!-- TABLE -->
+<!-- BULK ACTIONS + TABLE -->
 <div class="card shadow-sm">
-  <div class="table-responsive">
-    <table class="table table-hover align-middle mb-0">
-      <thead class="table-light">
-        <tr>
-          <th>Client</th>
-          <th>Address</th>
-          <th>Routine</th>
-          <th style="width: 160px;">Service Month</th>
-          <th style="width: 160px;">Service Type</th>
-          <th class="text-center" style="width: 90px;">Items</th>
-          <th class="text-end" style="width: 220px;">Actions</th>
-        </tr>
-      </thead>
 
-      <tbody>
-        {% for r in routines %}
-          <tr>
-            <td>
-              <div class="fw-semibold">
-                {% if r.site.customer %}
-                  {{ r.site.customer.customer_name }}
-                {% else %}
-                  <span class="text-muted">—</span>
-                {% endif %}
-              </div>
-              <div class="text-muted small">
-                {% if r.site.building_name %}
-                  {{ r.site.building_name }}
-                {% else %}
-                  <span class="text-muted">—</span>
-                {% endif %}
-              </div>
-            </td>
+  <div class="card-header bg-white">
+    <div class="d-flex flex-wrap gap-2 align-items-center">
+      <div class="d-flex align-items-center gap-2">
+        <div class="form-check mb-0">
+          <input class="form-check-input" type="checkbox" id="selectAll">
+          <label class="form-check-label" for="selectAll">
+            Select All (this page)
+          </label>
+        </div>
 
-            <td>
-              <div>
-                {% if r.site.street %}
-                  {{ r.site.street }}
-                {% else %}
-                  <span class="text-muted">—</span>
-                {% endif %}
-              </div>
-              <div class="text-muted small">
-                {% if r.site.city %}
-                  {{ r.site.city }}
-                {% else %}
-                  <span class="text-muted">—</span>
-                {% endif %}
-              </div>
-            </td>
+        <div class="dropdown">
+          <button class="btn btn-sm btn-outline-secondary dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+            Selection
+          </button>
+          <ul class="dropdown-menu">
+            <li><button class="dropdown-item" type="button" id="selectAllBtn">Select all on page</button></li>
+            <li><button class="dropdown-item" type="button" id="clearAllBtn">Clear selection</button></li>
+          </ul>
+        </div>
 
-            <td>
-              <div class="fw-semibold">
-                {% if r.name %}
-                  {{ r.name }}
-                {% else %}
-                  <span class="text-muted">—</span>
-                {% endif %}
-              </div>
-              <div class="text-muted small">
-                Quotation:
-                {% if r.quotation %}
-                  <a href="{% url 'quotations:detail' r.quotation.pk %}">
-                    {{ r.quotation.number }}
-                  </a>
-                {% else %}
-                  <span class="text-muted">—</span>
-                {% endif %}
-              </div>
-            </td>
+        <span class="text-muted small" id="selectedCountText">0 selected</span>
+      </div>
 
-            <td>{{ r.get_month_due_display }}</td>
-            <td>{{ r.get_routine_type_display }}</td>
-
-            <td class="text-center">
-              <span class="badge bg-secondary">{{ r.items.count }}</span>
-            </td>
-
-            <td class="text-end">
-              <a href="{% url 'routines:detail' r.pk %}" class="btn btn-sm btn-outline-primary">View</a>
-              <a href="{% url 'routines:edit' r.pk %}" class="btn btn-sm btn-outline-secondary">Edit</a>
-              <a href="{% url 'routines:delete' r.pk %}" class="btn btn-sm btn-outline-danger">Delete</a>
-            </td>
-          </tr>
-        {% empty %}
-          <tr>
-            <td colspan="7" class="text-center text-muted py-4">
-              No service routines found.
-            </td>
-          </tr>
-        {% endfor %}
-      </tbody>
-
-    </table>
+      <div class="ms-auto dropdown">
+        <button class="btn btn-sm btn-primary dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+          Bulk Actions
+        </button>
+        <ul class="dropdown-menu dropdown-menu-end">
+          <li>
+            <button class="dropdown-item" type="button" data-action="create_job_tasks">
+              Create Job Tasks for checked
+            </button>
+          </li>
+          <li><hr class="dropdown-divider"></li>
+          <li>
+            <button class="dropdown-item text-danger" type="button" data-action="delete">
+              Bulk Delete checked Routines
+            </button>
+          </li>
+        </ul>
+      </div>
+    </div>
   </div>
 
-  {# Pagination (preserve q/month/type) #}
-  {% if is_paginated %}
-    <div class="card-footer bg-white">
-      <nav class="d-flex justify-content-between align-items-center">
-        <div class="text-muted small">
-          Page <strong>{{ page_obj.number }}</strong> of {{ page_obj.paginator.num_pages }}
-        </div>
+  <form id="bulkForm" method="post" action="{% url 'routines:bulk_action' %}">
+    {% csrf_token %}
+    <input type="hidden" name="action" id="bulkActionInput" value="">
 
-        <div class="btn-group" role="group" aria-label="Pagination">
-          {# First #}
-          {% if page_obj.number > 1 %}
-            <a class="btn btn-sm btn-outline-secondary"
-               href="?page=1{% if q_value %}&q={{ q_value|urlencode }}{% endif %}{% if month_value %}&month={{ month_value|urlencode }}{% endif %}{% if type_value %}&type={{ type_value|urlencode }}{% endif %}">
-              « First
-            </a>
-          {% else %}
-            <span class="btn btn-sm btn-outline-secondary disabled">« First</span>
-          {% endif %}
+    <div class="table-responsive">
+      <table class="table table-hover align-middle mb-0">
+        <thead class="table-light">
+          <tr>
+            <th class="text-center" style="width: 48px;">
+              #
+            </th>
+            <th>Client</th>
+            <th>Address</th>
+            <th>Routine</th>
+            <th style="width: 160px;">Service Month</th>
+            <th style="width: 160px;">Service Type</th>
+            <th class="text-center" style="width: 90px;">Items</th>
+            <th class="text-end" style="width: 220px;">Actions</th>
+          </tr>
+        </thead>
 
-          {# Prev #}
-          {% if page_obj.has_previous %}
-            <a class="btn btn-sm btn-outline-secondary"
-               href="?page={{ page_obj.previous_page_number }}{% if q_value %}&q={{ q_value|urlencode }}{% endif %}{% if month_value %}&month={{ month_value|urlencode }}{% endif %}{% if type_value %}&type={{ type_value|urlencode }}{% endif %}">
-              ‹ Prev
-            </a>
-          {% else %}
-            <span class="btn btn-sm btn-outline-secondary disabled">‹ Prev</span>
-          {% endif %}
+        <tbody>
+          {% for r in routines %}
+            <tr>
+              <td class="text-center">
+                <input
+                  class="form-check-input routine-checkbox"
+                  type="checkbox"
+                  name="routine_ids"
+                  value="{{ r.pk }}"
+                  aria-label="Select routine {{ r.pk }}">
+              </td>
 
-          {# Next #}
-          {% if page_obj.has_next %}
-            <a class="btn btn-sm btn-outline-secondary"
-               href="?page={{ page_obj.next_page_number }}{% if q_value %}&q={{ q_value|urlencode }}{% endif %}{% if month_value %}&month={{ month_value|urlencode }}{% endif %}{% if type_value %}&type={{ type_value|urlencode }}{% endif %}">
-              Next ›
-            </a>
-          {% else %}
-            <span class="btn btn-sm btn-outline-secondary disabled">Next ›</span>
-          {% endif %}
+              <td>
+                <div class="fw-semibold">
+                  {% if r.site.customer %}
+                    {{ r.site.customer.customer_name }}
+                  {% else %}
+                    <span class="text-muted">—</span>
+                  {% endif %}
+                </div>
+                <div class="text-muted small">
+                  {% if r.site.building_name %}
+                    {{ r.site.building_name }}
+                  {% else %}
+                    <span class="text-muted">—</span>
+                  {% endif %}
+                </div>
+              </td>
 
-          {# Last #}
-          {% if page_obj.number < page_obj.paginator.num_pages %}
-            <a class="btn btn-sm btn-outline-secondary"
-               href="?page={{ page_obj.paginator.num_pages }}{% if q_value %}&q={{ q_value|urlencode }}{% endif %}{% if month_value %}&month={{ month_value|urlencode }}{% endif %}{% if type_value %}&type={{ type_value|urlencode }}{% endif %}">
-              Last »
-            </a>
-          {% else %}
-            <span class="btn btn-sm btn-outline-secondary disabled">Last »</span>
-          {% endif %}
-        </div>
-      </nav>
+              <td>
+                <div>
+                  {% if r.site.street %}
+                    {{ r.site.street }}
+                  {% else %}
+                    <span class="text-muted">—</span>
+                  {% endif %}
+                </div>
+                <div class="text-muted small">
+                  {% if r.site.city %}
+                    {{ r.site.city }}
+                  {% else %}
+                    <span class="text-muted">—</span>
+                  {% endif %}
+                </div>
+              </td>
+
+              <td>
+                <div class="fw-semibold">
+                  {% if r.name %}
+                    {{ r.name }}
+                  {% else %}
+                    <span class="text-muted">—</span>
+                  {% endif %}
+                </div>
+                <div class="text-muted small">
+                  Quotation:
+                  {% if r.quotation %}
+                    <a href="{% url 'quotations:detail' r.quotation.pk %}">
+                      {{ r.quotation.number }}
+                    </a>
+                  {% else %}
+                    <span class="text-muted">—</span>
+                  {% endif %}
+                </div>
+              </td>
+
+              <td>{{ r.get_month_due_display }}</td>
+              <td>{{ r.get_routine_type_display }}</td>
+
+              <td class="text-center">
+                <span class="badge bg-secondary">{{ r.items.count }}</span>
+              </td>
+
+              <td class="text-end">
+                <a href="{% url 'routines:detail' r.pk %}" class="btn btn-sm btn-outline-primary">View</a>
+                <a href="{% url 'routines:edit' r.pk %}" class="btn btn-sm btn-outline-secondary">Edit</a>
+                <a href="{% url 'routines:delete' r.pk %}" class="btn btn-sm btn-outline-danger">Delete</a>
+              </td>
+            </tr>
+          {% empty %}
+            <tr>
+              <td colspan="8" class="text-center text-muted py-4">
+                No service routines found.
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+
+      </table>
     </div>
+  </form>
+
+  {# Pagination (preserve filters) #}
+  {% if is_paginated %}
+    {% with qs=request.GET.urlencode %}
+      <div class="card-footer bg-white">
+        <nav class="d-flex justify-content-between align-items-center">
+          <div class="text-muted small">
+            Page <strong>{{ page_obj.number }}</strong> of {{ page_obj.paginator.num_pages }}
+          </div>
+
+          <div class="btn-group" role="group" aria-label="Pagination">
+            {% if page_obj.number > 1 %}
+              <a class="btn btn-sm btn-outline-secondary" href="?page=1{% if qs %}&{{ qs }}{% endif %}">« First</a>
+            {% else %}
+              <span class="btn btn-sm btn-outline-secondary disabled">« First</span>
+            {% endif %}
+
+            {% if page_obj.has_previous %}
+              <a class="btn btn-sm btn-outline-secondary" href="?page={{ page_obj.previous_page_number }}{% if qs %}&{{ qs }}{% endif %}">‹ Prev</a>
+            {% else %}
+              <span class="btn btn-sm btn-outline-secondary disabled">‹ Prev</span>
+            {% endif %}
+
+            {% if page_obj.has_next %}
+              <a class="btn btn-sm btn-outline-secondary" href="?page={{ page_obj.next_page_number }}{% if qs %}&{{ qs }}{% endif %}">Next ›</a>
+            {% else %}
+              <span class="btn btn-sm btn-outline-secondary disabled">Next ›</span>
+            {% endif %}
+
+            {% if page_obj.number < page_obj.paginator.num_pages %}
+              <a class="btn btn-sm btn-outline-secondary" href="?page={{ page_obj.paginator.num_pages }}{% if qs %}&{{ qs }}{% endif %}">Last »</a>
+            {% else %}
+              <span class="btn btn-sm btn-outline-secondary disabled">Last »</span>
+            {% endif %}
+          </div>
+        </nav>
+      </div>
+    {% endwith %}
   {% endif %}
 </div>
 
+<script>
+  (function () {
+    const selectAll = document.getElementById("selectAll");
+    const checkboxes = () => Array.from(document.querySelectorAll(".routine-checkbox"));
+    const selectedCountText = document.getElementById("selectedCountText");
+    const bulkForm = document.getElementById("bulkForm");
+    const bulkActionInput = document.getElementById("bulkActionInput");
+
+    const updateSelectedCount = () => {
+      const boxes = checkboxes();
+      const checkedCount = boxes.filter(cb => cb.checked).length;
+      selectedCountText.textContent = `${checkedCount} selected`;
+
+      if (boxes.length === 0) {
+        selectAll.checked = false;
+        selectAll.indeterminate = false;
+        return;
+      }
+
+      if (checkedCount === 0) {
+        selectAll.checked = false;
+        selectAll.indeterminate = false;
+      } else if (checkedCount === boxes.length) {
+        selectAll.checked = true;
+        selectAll.indeterminate = false;
+      } else {
+        selectAll.checked = false;
+        selectAll.indeterminate = true;
+      }
+    };
+
+    const setAll = (checked) => {
+      checkboxes().forEach(cb => cb.checked = checked);
+      updateSelectedCount();
+    };
+
+    // Header checkbox
+    selectAll.addEventListener("change", function () {
+      setAll(this.checked);
+    });
+
+    // Row checkbox changes
+    document.addEventListener("change", function (e) {
+      if (e.target && e.target.classList.contains("routine-checkbox")) {
+        updateSelectedCount();
+      }
+    });
+
+    // Selection dropdown
+    const selectAllBtn = document.getElementById("selectAllBtn");
+    const clearAllBtn = document.getElementById("clearAllBtn");
+
+    if (selectAllBtn) selectAllBtn.addEventListener("click", () => setAll(true));
+    if (clearAllBtn) clearAllBtn.addEventListener("click", () => setAll(false));
+
+    // Bulk Actions
+    document.querySelectorAll('[data-action]').forEach(btn => {
+      btn.addEventListener("click", () => {
+        const action = btn.getAttribute("data-action");
+        const ids = checkboxes().filter(cb => cb.checked).map(cb => cb.value);
+
+        if (ids.length === 0) {
+          alert("Please select at least one routine.");
+          return;
+        }
+
+        if (action === "delete") {
+          const ok = confirm(`Delete ${ids.length} selected routine(s)? This cannot be undone.`);
+          if (!ok) return;
+        }
+
+        bulkActionInput.value = action;
+        bulkForm.submit();
+      });
+    });
+
+    // initial
+    updateSelectedCount();
+  })();
+</script>
+
+{% endwith %}
 {% endblock %}

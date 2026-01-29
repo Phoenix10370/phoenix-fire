@@ -1,4 +1,5 @@
 from decimal import Decimal
+from datetime import time
 
 from django.conf import settings
 from django.db import models
@@ -20,14 +21,13 @@ class JobServiceType(models.Model):
 
 class JobTask(models.Model):
     STATUS_CHOICES = [
-        ("open", "Open"),
+        ("open", "Unscheduled"),
         ("scheduled", "Scheduled"),
         ("in_progress", "In Progress"),
         ("done", "Done"),
         ("cancelled", "Cancelled"),
     ]
 
-    # ✅ Use "site" to match the rest of your project and avoid @property conflict
     site = models.ForeignKey(
         "properties.Property",
         on_delete=models.SET_NULL,
@@ -53,14 +53,21 @@ class JobTask(models.Model):
     )
 
     title = models.CharField(max_length=200)
-    description = models.TextField(blank=True, default="")
+    description = models.TextField(blank=True, default="")  # kept for DB compatibility
 
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default="open")
 
-    # ✅ 1) Service Date
+    # Service Date (blank unless user sets)
     service_date = models.DateField(null=True, blank=True)
 
-    # ✅ 2) Service Type (modifiable drop-down)
+    # ✅ NEW: start/finish time
+    start_time = models.TimeField(null=True, blank=True)
+    finish_time = models.TimeField(null=True, blank=True)
+
+    # ✅ Keep legacy display field (safe + avoids breaking old code/templates)
+    # This will be auto-updated from start/finish when present.
+    service_time = models.CharField(max_length=100, blank=True, default="")
+
     service_type = models.ForeignKey(
         "job_tasks.JobServiceType",
         on_delete=models.SET_NULL,
@@ -69,7 +76,6 @@ class JobTask(models.Model):
         related_name="job_tasks",
     )
 
-    # ✅ 3) Service Technician
     service_technician = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.SET_NULL,
@@ -78,14 +84,27 @@ class JobTask(models.Model):
         related_name="job_tasks_primary",
     )
 
-    # ✅ 4) Additional Technicians (multi-select)
     additional_technicians = models.ManyToManyField(
         settings.AUTH_USER_MODEL,
         blank=True,
         related_name="job_tasks_additional",
     )
 
-    due_date = models.DateField(null=True, blank=True)
+    CLIENT_ACK_CHOICES = [
+        ("yes", "Yes"),
+        ("no", "No"),
+    ]
+    client_acknowledgement = models.CharField(
+        max_length=10,
+        choices=CLIENT_ACK_CHOICES,
+        blank=True,
+        default="",
+    )
+    acknowledgement_date = models.DateField(null=True, blank=True)
+    work_order_no = models.CharField(max_length=100, blank=True, default="")
+    admin_comments = models.TextField(blank=True, default="")
+
+    technician_comments = models.TextField(blank=True, default="")
 
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -95,6 +114,45 @@ class JobTask(models.Model):
 
     def __str__(self) -> str:
         return f"{self.title} (#{self.pk})"
+
+    @staticmethod
+    def _fmt_time_dot(t: time) -> str:
+        """
+        Format time like 8.30am
+        """
+        if not t:
+            return ""
+        hour = t.hour % 12
+        hour = 12 if hour == 0 else hour
+        ampm = "am" if t.hour < 12 else "pm"
+        return f"{hour}.{t.minute:02d}{ampm}"
+
+    def save(self, *args, **kwargs):
+        """
+        ✅ Auto rules:
+        - If service_date is set and status is Unscheduled -> Scheduled
+        - If service_date is cleared and status is Scheduled -> Unscheduled
+        - If start+finish exist -> update service_time display string
+        """
+        if self.service_date and self.status == "open":
+            self.status = "scheduled"
+        if not self.service_date and self.status == "scheduled":
+            self.status = "open"
+
+        if self.start_time and self.finish_time:
+            self.service_time = f"{self._fmt_time_dot(self.start_time)}-{self._fmt_time_dot(self.finish_time)}"
+        elif not self.start_time and not self.finish_time:
+            # leave existing service_time alone (in case older data is stored there)
+            pass
+        else:
+            # one is set but not the other
+            # keep a partial display to avoid confusion
+            if self.start_time and not self.finish_time:
+                self.service_time = f"{self._fmt_time_dot(self.start_time)}-"
+            elif self.finish_time and not self.start_time:
+                self.service_time = f"-{self._fmt_time_dot(self.finish_time)}"
+
+        super().save(*args, **kwargs)
 
     def subtotal_amount(self) -> Decimal:
         subtotal = Decimal("0.00")

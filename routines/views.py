@@ -5,7 +5,7 @@ from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.db import transaction
-from django.db.models import Prefetch, F
+from django.db.models import Prefetch, F, Q
 from django.db.models.expressions import OrderBy
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse_lazy
@@ -37,6 +37,57 @@ def _ordered_routine_items_qs():
 
 @login_required
 @require_http_methods(["POST"])
+@transaction.atomic
+def bulk_action(request):
+    """
+    Bulk actions for routines list.
+    action:
+      - delete
+      - create_job_tasks
+    """
+    action = (request.POST.get("action") or "").strip()
+    ids = request.POST.getlist("routine_ids")
+
+    # Normalize ids to ints safely
+    routine_ids = []
+    for raw in ids:
+        try:
+            routine_ids.append(int(raw))
+        except (TypeError, ValueError):
+            continue
+
+    if not routine_ids:
+        messages.error(request, "No routines selected.")
+        return redirect("routines:list")
+
+    qs = (
+        ServiceRoutine.objects
+        .filter(pk__in=routine_ids)
+        .select_related("quotation", "site", "site__customer")
+        .prefetch_related(Prefetch("items", queryset=_ordered_routine_items_qs()))
+        .order_by("id")
+    )
+
+    if action == "delete":
+        count = qs.count()
+        qs.delete()
+        messages.success(request, f"Deleted {count} service routine(s).")
+        return redirect("routines:list")
+
+    if action == "create_job_tasks":
+        created = 0
+        for routine in qs:
+            create_job_task_from_routine(routine=routine)
+            created += 1
+        messages.success(request, f"Created {created} Job Task(s) from selected service routines.")
+        return redirect("routines:list")
+
+    messages.error(request, "Invalid bulk action.")
+    return redirect("routines:list")
+
+
+@login_required
+@require_http_methods(["POST"])
 def delete_routines_for_quotation(request, quotation_id: int):
     quotation = get_object_or_404(Quotation, pk=quotation_id)
 
@@ -56,22 +107,64 @@ class ServiceRoutineListView(ListView):
     model = ServiceRoutine
     template_name = "routines/service_routine_list.html"
     context_object_name = "routines"
-    paginate_by = None  # keep your current behavior
+
+    # Keep your current behavior; set to an int (e.g. 25) if you want pagination
+    paginate_by = None
+
+    def _get_int_param(self, key: str):
+        raw = (self.request.GET.get(key) or "").strip()
+        if not raw:
+            return None
+        try:
+            return int(raw)
+        except (TypeError, ValueError):
+            return None
+
+    def _get_str_param(self, key: str):
+        return (self.request.GET.get(key) or "").strip()
 
     def get_queryset(self):
-        return (
+        qs = (
             ServiceRoutine.objects
             .select_related("quotation", "site", "site__customer")
-            .prefetch_related(
-                Prefetch("items", queryset=_ordered_routine_items_qs())
-            )
+            .prefetch_related(Prefetch("items", queryset=_ordered_routine_items_qs()))
             .order_by("-created_at")
         )
+
+        q = self._get_str_param("q")
+        month = self._get_int_param("month")
+        routine_type = self._get_str_param("type")
+
+        if month is not None:
+            qs = qs.filter(month_due=month)
+
+        if routine_type:
+            try:
+                qs = qs.filter(routine_type=int(routine_type))
+            except (TypeError, ValueError):
+                qs = qs.filter(routine_type=routine_type)
+
+        if q:
+            qs = qs.filter(
+                Q(name__icontains=q)
+                | Q(site__building_name__icontains=q)
+                | Q(site__street__icontains=q)
+                | Q(site__city__icontains=q)
+                | Q(site__state__icontains=q)
+                | Q(site__post_code__icontains=q)
+                | Q(site__customer__customer_name__icontains=q)
+                | Q(quotation__number__icontains=q)
+            ).distinct()
+
+        return qs
 
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
         ctx["month_choices"] = ServiceRoutine._meta.get_field("month_due").choices
         ctx["type_choices"] = ServiceRoutine._meta.get_field("routine_type").choices
+        ctx["q_value"] = self._get_str_param("q")
+        ctx["month_value"] = self.request.GET.get("month") or ""
+        ctx["type_value"] = self.request.GET.get("type") or ""
         return ctx
 
 
@@ -117,9 +210,7 @@ def detail(request, pk: int):
     routine = get_object_or_404(
         ServiceRoutine.objects
         .select_related("quotation", "site", "site__customer")
-        .prefetch_related(
-            Prefetch("items", queryset=_ordered_routine_items_qs())
-        ),
+        .prefetch_related(Prefetch("items", queryset=_ordered_routine_items_qs())),
         pk=pk,
     )
 
@@ -266,7 +357,6 @@ class ServiceRoutineUpdateView(LoginRequiredMixin, UpdateView):
     model = ServiceRoutine
     template_name = "routines/service_routine_form.html"
 
-    # Hide/remove Name from editing
     fields = [
         "month_due",
         "work_order_number",

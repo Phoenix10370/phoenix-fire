@@ -86,25 +86,31 @@ class QuotationItemForm(forms.ModelForm):
         qty = _to_int(qty_raw, 0)
         unit = _to_decimal(unit_raw, Decimal("0.00"))
 
-        # No EFSM selected: allow a truly empty row; but block "half-filled" rows
+        # No EFSM selected: allow empty row; but block "half-filled" rows
         if efsm is None:
             typed_qty = qty_raw not in (None, "", "0")
             typed_unit = unit_raw not in (None, "", "0", "0.0", "0.00")
-            meaningful = (typed_qty and qty not in (0, 1)) or (typed_unit and unit != Decimal("0.00"))
 
+            # If they typed a meaningful value but didn't choose an EFSM, force them to choose or delete
+            meaningful = (typed_qty and qty not in (0, 1)) or (typed_unit and unit != Decimal("0.00"))
             if meaningful:
                 raise ValidationError("Select an EFSM code for this row, or delete the row.")
 
-            # treat as empty
+            # treat as empty row
             cleaned["quantity"] = None
             cleaned["unit_price"] = None
             return cleaned
 
-        # EFSM selected: normalize defaults
+        # EFSM selected: ALWAYS normalize quantity/unit so DB never gets NULL
         if qty <= 0:
             cleaned["quantity"] = 1
+        else:
+            cleaned["quantity"] = qty
+
         if unit_raw in (None, ""):
             cleaned["unit_price"] = Decimal("0.00")
+        else:
+            cleaned["unit_price"] = unit
 
         return cleaned
 
@@ -112,7 +118,7 @@ class QuotationItemForm(forms.ModelForm):
 class BaseQuotationItemFormSet(BaseInlineFormSet):
     """
     Save items in the exact order they appear in the browser by writing `position`
-    sequentially in form order. Version-safe delete handling.
+    sequentially in form order. Also harden against NULL quantity/unit_price.
     """
 
     def save(self, commit=True):
@@ -121,7 +127,7 @@ class BaseQuotationItemFormSet(BaseInlineFormSet):
 
         saved_instances = []
 
-        # 1) delete flagged rows (no deleted_objects dependency)
+        # 1) delete flagged rows
         if self.can_delete:
             for form in self.forms:
                 if not hasattr(form, "cleaned_data"):
@@ -149,9 +155,24 @@ class BaseQuotationItemFormSet(BaseInlineFormSet):
             inst.position = pos
             pos += 1
 
-            if inst.quantity in (None, 0):
+            # ✅ HARDEN: never allow NULL/blank quantity (DB is NOT NULL)
+            try:
+                q = inst.quantity
+                if q in (None, "", 0):
+                    inst.quantity = 1
+                else:
+                    inst.quantity = int(q)
+            except Exception:
                 inst.quantity = 1
-            if inst.unit_price is None:
+
+            # ✅ HARDEN: never allow NULL/blank unit_price
+            try:
+                up = inst.unit_price
+                if up in (None, ""):
+                    inst.unit_price = Decimal("0.00")
+                else:
+                    inst.unit_price = Decimal(str(up))
+            except Exception:
                 inst.unit_price = Decimal("0.00")
 
             if commit:
@@ -159,7 +180,6 @@ class BaseQuotationItemFormSet(BaseInlineFormSet):
 
             saved_instances.append(inst)
 
-        # IMPORTANT: no self.save_m2m() here (inline formsets may not have it)
         return saved_instances
 
 

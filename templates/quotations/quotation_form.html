@@ -86,7 +86,7 @@
   {% endwith %}
 {% endif %}
 
-<form method="post">
+<form method="post" id="quote-form">
   {% csrf_token %}
 
   {# ✅ error output so "save does nothing" never happens silently #}
@@ -503,34 +503,6 @@
           return { results: data.results, pagination: { more: data.more } };
         },
         cache: true
-      },
-      templateResult: function(item) {
-        if (!item || item.loading) return item.text;
-        if (item.code && item.measure) {
-          return $("<span><strong>" + item.code + "</strong> — " + item.measure + "</span>");
-        }
-        return item.text;
-      },
-      templateSelection: function(item) {
-        if (!item) return "";
-        if (item.code && item.measure) {
-          return item.code + " — " + item.measure;
-        }
-        return item.text || "";
-      }
-    });
-
-    $el.on("select2:select", function(e) {
-      var data = e.params && e.params.data ? e.params.data : null;
-      if (!data) return;
-
-      if (data.code && data.measure) {
-        var optionText = data.code + " — " + data.measure;
-        var $opt = $(this).find('option[value="' + data.id + '"]');
-        if ($opt.length) {
-          $opt.text(optionText);
-        }
-        $(this).trigger("change.select2");
       }
     });
   }
@@ -554,6 +526,19 @@
     }, 0);
   }
 
+  // ✅ Only write `position` by DOM order. Never renumber indices.
+  function updatePositions(prefix) {
+    var pos = 1;
+    $("#line-items tr.line-item").each(function() {
+      var $row = $(this);
+      if (isRowDeleted($row)) return;
+
+      var $pos = $row.find('input[name$="-position"]');
+      if ($pos.length) $pos.val(String(pos));
+      pos += 1;
+    });
+  }
+
   function addEFSMLineItem(prefix) {
     var totalInput = document.getElementById("id_" + prefix + "-TOTAL_FORMS");
     var index = parseInt(totalInput.value, 10);
@@ -573,102 +558,39 @@
       openEFSMSelect2($newSelect);
     }, 0);
 
-    renumberFormset(prefix);
+    updatePositions(prefix);
     updateEFSMTotals();
   }
 
-  function isExistingFormRow($row) {
-    var $id = $row.find('input[type="hidden"][name$="-id"]');
-    return ($id.length && String($id.val() || "").trim() !== "");
-  }
-
-  function deleteEFSMLine($row) {
-    if (isExistingFormRow($row)) {
-      var $del = $row.find('input[type="checkbox"][name$="-DELETE"]');
-      if ($del.length) {
-        $del.prop("checked", true);
-        $row.addClass("is-deleted").hide();
-      } else {
-        $row.addClass("is-deleted").hide();
-      }
-    } else {
-      $row.remove();
-      renumberFormset("{{ formset.prefix }}");
+  function deleteEFSMLine($row, prefix) {
+    // ✅ Never remove a row from DOM. Always tick DELETE and hide.
+    var $del = $row.find('input[type="checkbox"][name$="-DELETE"]');
+    if ($del.length) {
+      $del.prop("checked", true);
     }
+
+    // Optional: clear visible inputs to avoid confusion
+    $row.addClass("is-deleted").hide();
+
+    updatePositions(prefix);
     updateEFSMTotals();
   }
 
-  // -----------------------------
-  // Reorder / Renumber Formset
-  // -----------------------------
-  function renumberFormset(prefix) {
-    // ✅ IMPORTANT: preserve DOM order exactly.
-    // The database order is already correct (position field).
-    // We only renumber indices so Django formset saves correctly.
-
-    var $tbody = $("#line-items");
-    var $rows = $tbody.find("tr.line-item").not(".is-deleted");
-
-    $rows.each(function (i) {
-      var $row = $(this);
-
-      $row.find(":input, label").each(function () {
-        var $el = $(this);
-
-        var name = $el.attr("name");
-        if (name) {
-          var reName = new RegExp("^" + prefix + "-\\d+-");
-          $el.attr("name", name.replace(reName, prefix + "-" + i + "-"));
-        }
-
-        var id = $el.attr("id");
-        if (id) {
-          var reId = new RegExp("^id_" + prefix + "-\\d+-");
-          $el.attr("id", id.replace(reId, "id_" + prefix + "-" + i + "-"));
-        }
-
-        var f = $el.attr("for");
-        if (f) {
-          var reFor = new RegExp("^id_" + prefix + "-\\d+-");
-          $el.attr("for", f.replace(reFor, "id_" + prefix + "-" + i + "-"));
-        }
-      });
-    });
-
-    $("#id_" + prefix + "-TOTAL_FORMS").val($rows.length);
-
-    // Re-init select2 after id/name changes
-    $tbody.find(".efsm-select").each(function () {
-      var $s = $(this);
-      if ($s.hasClass("select2-hidden-accessible")) $s.select2("destroy");
-    });
-    initAllEFSMSelects($tbody);
-  }
-
-  function canSwap($rowA, $rowB) {
-    if (!$rowA.length || !$rowB.length) return false;
-    return true;
-  }
-
-  function moveRowUp($row) {
+  function moveRowUp($row, prefix) {
     var $prev = $row.prevAll(".line-item:not(.is-deleted)").first();
     if (!$prev.length) return;
 
-    if (!canSwap($row, $prev)) return;
-
     $row.insertBefore($prev);
-    renumberFormset("{{ formset.prefix }}");
+    updatePositions(prefix);
     updateEFSMTotals();
   }
 
-  function moveRowDown($row) {
+  function moveRowDown($row, prefix) {
     var $next = $row.nextAll(".line-item:not(.is-deleted)").first();
     if (!$next.length) return;
 
-    if (!canSwap($next, $row)) return;
-
     $row.insertAfter($next);
-    renumberFormset("{{ formset.prefix }}");
+    updatePositions(prefix);
     updateEFSMTotals();
   }
 
@@ -729,8 +651,8 @@
       bindEFSMRowEvents($(this));
     });
 
-    // ✅ DO NOT call renumberFormset() on load.
-    // Django already renders the correct persisted order.
+    // ✅ set positions on load (safe)
+    updatePositions(prefix);
     updateEFSMTotals();
 
     $("#add-line").on("click", function () {
@@ -738,15 +660,15 @@
     });
 
     $("#line-items").on("click", ".js-delete-line", function () {
-      deleteEFSMLine($(this).closest("tr.line-item"));
+      deleteEFSMLine($(this).closest("tr.line-item"), prefix);
     });
 
     $("#line-items").on("click", ".js-move-up", function () {
-      moveRowUp($(this).closest("tr.line-item"));
+      moveRowUp($(this).closest("tr.line-item"), prefix);
     });
 
     $("#line-items").on("click", ".js-move-down", function () {
-      moveRowDown($(this).closest("tr.line-item"));
+      moveRowDown($(this).closest("tr.line-item"), prefix);
     });
 
     $(".calc-input").on("input", function() {
@@ -767,6 +689,11 @@
     $(document).on("click", ".select2-selection", function () {
       var $select = $(this).closest(".select2-container").prev("select.efsm-select");
       openEFSMSelect2($select);
+    });
+
+    // ✅ before submit, ensure positions match UI order
+    $("#quote-form").on("submit", function() {
+      updatePositions(prefix);
     });
   });
 </script>

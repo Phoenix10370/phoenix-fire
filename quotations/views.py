@@ -93,6 +93,61 @@ CALC_UPDATE_FIELDS = [
 
 
 # =========================
+# Formset diagnostics (NEW)
+# =========================
+def _formset_post_diagnostics(formset, post):
+    """
+    Identify which submitted form index is missing `id` even though Django expects one.
+    This pinpoints the exact "bad row" when you see: {'id': ['This field is required.']}
+    """
+    prefix = formset.prefix
+    try:
+        total = int(post.get(f"{prefix}-TOTAL_FORMS", 0))
+    except Exception:
+        total = 0
+    try:
+        initial = int(post.get(f"{prefix}-INITIAL_FORMS", 0))
+    except Exception:
+        initial = 0
+
+    bad = []
+
+    # For indices < INITIAL_FORMS, Django expects a non-empty id
+    for i in range(total):
+        id_key = f"{prefix}-{i}-id"
+        del_key = f"{prefix}-{i}-DELETE"
+        efsm_key = f"{prefix}-{i}-efsm_code"
+        qty_key = f"{prefix}-{i}-quantity"
+        unit_key = f"{prefix}-{i}-unit_price"
+        pos_key = f"{prefix}-{i}-position"
+
+        id_val = (post.get(id_key) or "").strip()
+        del_val = (post.get(del_key) or "").strip()
+        efsm_val = (post.get(efsm_key) or "").strip()
+        qty_val = (post.get(qty_key) or "").strip()
+        unit_val = (post.get(unit_key) or "").strip()
+        pos_val = (post.get(pos_key) or "").strip()
+
+        if i < initial and id_val == "":
+            bad.append({
+                "index": i,
+                "missing": id_key,
+                "DELETE": del_val,
+                "efsm_code": efsm_val,
+                "quantity": qty_val,
+                "unit_price": unit_val,
+                "position": pos_val,
+            })
+
+    return {
+        "prefix": prefix,
+        "TOTAL_FORMS": total,
+        "INITIAL_FORMS": initial,
+        "missing_id_rows": bad,
+    }
+
+
+# =========================
 # List / Detail
 # =========================
 class QuotationListView(ListView):
@@ -316,14 +371,13 @@ def efsm_autocomplete(request):
 # =========================
 # CREATE / UPDATE
 # =========================
+@login_required
 def quotation_create_for_property(request, property_id):
     prop = get_object_or_404(Property.objects.select_related("customer"), pk=property_id)
     quote = Quotation(site=prop)
 
     if request.method == "POST":
         form = QuotationForm(request.POST, instance=quote)
-
-        # ✅ If quote doesn't exist yet, formset can't query items. Use default.
         formset = QuotationItemFormSet(request.POST, instance=quote)
 
         if form.is_valid() and formset.is_valid():
@@ -334,21 +388,25 @@ def quotation_create_for_property(request, property_id):
 
             quote.save()
 
-            # ✅ NOW that quote exists, force queryset ordering for any internal lookups
-            formset = QuotationItemFormSet(
-                request.POST,
-                instance=quote,
-                queryset=quote.items.order_by("position", "id"),
-            )
-            if formset.is_valid():
-                formset.save()
-
             _apply_calc_post_to_quote(quote, request.POST)
             quote.save(update_fields=CALC_UPDATE_FIELDS)
+
+            formset.instance = quote
+            formset.save()
 
             quote.log("created", request.user, "Quotation created.")
             messages.success(request, f"Quotation {quote.number} saved successfully.")
             return redirect("quotations:list")
+
+        # NEW: show which row is missing id (super helpful)
+        diag = _formset_post_diagnostics(formset, request.POST)
+        if diag["missing_id_rows"]:
+            messages.error(
+                request,
+                "Formset POST diagnostics: "
+                f"prefix={diag['prefix']} TOTAL_FORMS={diag['TOTAL_FORMS']} INITIAL_FORMS={diag['INITIAL_FORMS']} "
+                f"missing_id_rows={diag['missing_id_rows']}"
+            )
 
         _apply_calc_post_to_quote(quote, request.POST)
         messages.error(request, "Quotation was NOT saved. Please fix the errors below.")
@@ -370,13 +428,12 @@ def quotation_create_for_property(request, property_id):
     )
 
 
+@login_required
 def quotation_update(request, pk):
     quote = get_object_or_404(Quotation.objects.select_related("site"), pk=pk)
 
     if request.method == "POST":
         form = QuotationForm(request.POST, instance=quote)
-
-        # ✅ FORCE stable ordering when binding POST
         formset = QuotationItemFormSet(
             request.POST,
             instance=quote,
@@ -399,13 +456,21 @@ def quotation_update(request, pk):
             messages.success(request, f"Quotation {quote.number} updated successfully.")
             return redirect("quotations:list")
 
+        # NEW: show which row is missing id (super helpful)
+        diag = _formset_post_diagnostics(formset, request.POST)
+        if diag["missing_id_rows"]:
+            messages.error(
+                request,
+                "Formset POST diagnostics: "
+                f"prefix={diag['prefix']} TOTAL_FORMS={diag['TOTAL_FORMS']} INITIAL_FORMS={diag['INITIAL_FORMS']} "
+                f"missing_id_rows={diag['missing_id_rows']}"
+            )
+
         _apply_calc_post_to_quote(quote, request.POST)
         messages.error(request, "Quotation was NOT updated. Please fix the errors below.")
 
     else:
         form = QuotationForm(instance=quote)
-
-        # ✅ FORCE stable ordering on GET as well (edit page rendering)
         formset = QuotationItemFormSet(
             instance=quote,
             queryset=quote.items.order_by("position", "id"),

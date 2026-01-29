@@ -41,8 +41,6 @@ button.btn-back {
   font-size: 1.05rem;
 }
 
-
-
     .btn-back:hover {
       filter: brightness(0.95);
     }
@@ -89,59 +87,88 @@ button.btn-back {
 
     <div class="collapse navbar-collapse" id="mainNav">
 
+      {% with rp=request.resolver_match %}
+      {% with ns=rp.namespace|default_if_none:"" urlname=rp.url_name|default_if_none:"" %}
+
       <!-- LEFT NAV -->
       <ul class="navbar-nav me-auto">
 
         <li class="nav-item">
-          <a class="nav-link" href="{% url 'dashboard' %}">Dashboard</a>
+          <a class="nav-link {% if urlname == 'dashboard' %}active{% endif %}" href="{% url 'dashboard' %}">Dashboard</a>
         </li>
 
         <!-- CUSTOMERS DROPDOWN -->
         <li class="nav-item dropdown">
-          <a class="nav-link dropdown-toggle" href="#" id="customersDropdown"
+          <a class="nav-link dropdown-toggle {% if ns == 'customers' %}active{% endif %}" href="#" id="customersDropdown"
              role="button" data-bs-toggle="dropdown" aria-expanded="false">
             Customers
           </a>
           <ul class="dropdown-menu" aria-labelledby="customersDropdown">
             <li>
-              <a class="dropdown-item" href="{% url 'customers:list' %}">
+              <a class="dropdown-item {% if ns == 'customers' and urlname == 'list' %}active{% endif %}" href="{% url 'customers:list' %}">
                 <i class="bi bi-people me-2"></i>Customer List
               </a>
             </li>
             <li>
-              <a class="dropdown-item" href="{% url 'customers:create' %}">
+              <a class="dropdown-item {% if ns == 'customers' and urlname == 'create' %}active{% endif %}" href="{% url 'customers:create' %}">
                 <i class="bi bi-person-plus me-2"></i>Add Customer
               </a>
             </li>
             <li><hr class="dropdown-divider"></li>
             <li>
-              <a class="dropdown-item" href="{% url 'customers:import' %}">
+              <a class="dropdown-item {% if ns == 'customers' and urlname == 'import' %}active{% endif %}" href="{% url 'customers:import' %}">
                 <i class="bi bi-upload me-2"></i>Import Customers (CSV)
               </a>
             </li>
           </ul>
         </li>
 
-        <li class="nav-item">
-          <a class="nav-link" href="{% url 'properties:list' %}">Properties</a>
-        </li>
+        <!-- PROPERTIES DROPDOWN (includes Routines / Job Tasks / Quotations) -->
+        <li class="nav-item dropdown">
+          <a class="nav-link dropdown-toggle {% if ns == 'properties' or ns == 'routines' or ns == 'job_tasks' or ns == 'quotations' %}active{% endif %}"
+             href="#"
+             id="propertiesDropdown"
+             role="button"
+             data-bs-toggle="dropdown"
+             aria-expanded="false">
+            Properties
+          </a>
+          <ul class="dropdown-menu" aria-labelledby="propertiesDropdown">
+            <li>
+              <a class="dropdown-item {% if ns == 'properties' and urlname == 'list' %}active{% endif %}"
+                 href="{% url 'properties:list' %}">
+                <i class="bi bi-buildings me-2"></i>Property List
+              </a>
+            </li>
 
-        <li class="nav-item">
-          <a class="nav-link" href="{% url 'routines:list' %}">Routines</a>
-        </li>
+            <li><hr class="dropdown-divider"></li>
 
-        <!-- ✅ NEW: JOB TASKS -->
-        <li class="nav-item">
-          <a class="nav-link" href="{% url 'job_tasks:list' %}">Job Tasks</a>
-        </li>
+            <li>
+              <a class="dropdown-item {% if ns == 'routines' and urlname == 'list' %}active{% endif %}"
+                 href="{% url 'routines:list' %}">
+                <i class="bi bi-arrow-repeat me-2"></i>Routines
+              </a>
+            </li>
 
-        <li class="nav-item">
-          <a class="nav-link" href="{% url 'quotations:list' %}">Quotations</a>
+            <li>
+              <a class="dropdown-item {% if ns == 'job_tasks' and urlname == 'list' %}active{% endif %}"
+                 href="{% url 'job_tasks:list' %}">
+                <i class="bi bi-clipboard-check me-2"></i>Job Tasks
+              </a>
+            </li>
+
+            <li>
+              <a class="dropdown-item {% if ns == 'quotations' and urlname == 'list' %}active{% endif %}"
+                 href="{% url 'quotations:list' %}">
+                <i class="bi bi-receipt me-2"></i>Quotations
+              </a>
+            </li>
+          </ul>
         </li>
 
         <!-- SETTINGS -->
         <li class="nav-item dropdown">
-          <a class="nav-link dropdown-toggle" href="#" id="settingsDropdown"
+          <a class="nav-link dropdown-toggle {% if ns == 'codes' or ns == 'company' or ns == 'email_templates' %}active{% endif %}" href="#" id="settingsDropdown"
              role="button" data-bs-toggle="dropdown" aria-expanded="false">
             Settings
           </a>
@@ -150,25 +177,25 @@ button.btn-back {
             <li class="dropdown-header text-uppercase small text-muted">Codes</li>
 
             <li>
-              <a class="dropdown-item" href="{% url 'codes:efsm_list' %}">
+              <a class="dropdown-item {% if ns == 'codes' and urlname == 'efsm_list' %}active{% endif %}" href="{% url 'codes:efsm_list' %}">
                 <i class="bi bi-shield-check me-2"></i>EFSM Codes
               </a>
             </li>
 
             <li>
-              <a class="dropdown-item" href="{% url 'codes:defect_list' %}">
+              <a class="dropdown-item {% if ns == 'codes' and urlname == 'defect_list' %}active{% endif %}" href="{% url 'codes:defect_list' %}">
                 <i class="bi bi-exclamation-triangle me-2"></i>Defect Codes
               </a>
             </li>
 
             <li>
-              <a class="dropdown-item" href="{% url 'codes:asset_list' %}">
+              <a class="dropdown-item {% if ns == 'codes' and urlname == 'asset_list' %}active{% endif %}" href="{% url 'codes:asset_list' %}">
                 <i class="bi bi-box-seam me-2"></i>Asset Codes
               </a>
             </li>
 
             <li>
-              <a class="dropdown-item" href="{% url 'codes:dropdown_list_list' %}">
+              <a class="dropdown-item {% if ns == 'codes' and urlname == 'dropdown_list_list' %}active{% endif %}" href="{% url 'codes:dropdown_list_list' %}">
                 <i class="bi bi-list-check me-2"></i>Dropdown Lists
               </a>
             </li>
@@ -178,13 +205,13 @@ button.btn-back {
             <li class="dropdown-header text-uppercase small text-muted">Main Database</li>
 
             <li>
-              <a class="dropdown-item" href="{% url 'company:client_profile' %}">
+              <a class="dropdown-item {% if ns == 'company' and urlname == 'client_profile' %}active{% endif %}" href="{% url 'company:client_profile' %}">
                 <i class="bi bi-building me-2"></i>Client
               </a>
             </li>
 
             <li>
-              <a class="dropdown-item" href="{% url 'email_templates:list' %}">
+              <a class="dropdown-item {% if ns == 'email_templates' and urlname == 'list' %}active{% endif %}" href="{% url 'email_templates:list' %}">
                 <i class="bi bi-envelope-paper me-2"></i>Email Templates
               </a>
             </li>
@@ -193,6 +220,9 @@ button.btn-back {
         </li>
 
       </ul>
+
+      {% endwith %}
+      {% endwith %}
 
       <!-- RIGHT NAV -->
       <ul class="navbar-nav">
