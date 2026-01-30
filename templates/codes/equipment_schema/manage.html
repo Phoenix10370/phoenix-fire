@@ -1,0 +1,100 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="container" style="max-width: 1000px;">
+
+  <div class="d-flex align-items-center justify-content-between mb-3">
+    <div>
+      <h1 class="h3 mb-1">{{ title }}</h1>
+      {% if equipment.parent %}
+        <div class="text-muted">
+          <strong>Category:</strong> {{ equipment.parent.label }} &nbsp;|&nbsp;
+          <strong>Equipment:</strong> {{ equipment.label }}
+        </div>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- Add Field -->
+  <div class="card mb-3">
+    <div class="card-body">
+      <form method="post" class="row g-2 align-items-end">
+        {% csrf_token %}
+        <input type="hidden" name="action" value="add_field">
+        <div class="col-md-8">
+          <label class="form-label"><strong>Add new field</strong></label>
+          <input type="text" class="form-control" name="field_label" placeholder="e.g. Manufacturer">
+        </div>
+        <div class="col-md-4">
+          <button class="btn btn-primary w-100" type="submit">Add Field</button>
+        </div>
+      </form>
+      <div class="form-text mt-2">
+        This adds a new <strong>field definition</strong> for this equipment (not property/job values).
+      </div>
+    </div>
+  </div>
+
+  <!-- Existing fields -->
+  {% for row in rows %}
+    <div class="card mb-3">
+      <div class="card-header d-flex align-items-center justify-content-between">
+        <div>
+          <strong>{{ row.field.label }}</strong>
+          {% if row.is_active %}
+            <span class="badge bg-success ms-2">Enabled</span>
+          {% else %}
+            <span class="badge bg-secondary ms-2">Disabled</span>
+          {% endif %}
+        </div>
+
+        <form method="post" class="m-0">
+          {% csrf_token %}
+          <input type="hidden" name="action" value="toggle_field">
+          <input type="hidden" name="eof_id" value="{{ row.id }}">
+          <button class="btn btn-sm btn-outline-secondary" type="submit">
+            {% if row.is_active %}Disable{% else %}Enable{% endif %}
+          </button>
+        </form>
+      </div>
+
+      <div class="card-body">
+        <div class="mb-2"><strong>Allowed values</strong></div>
+
+        {% if row.values %}
+          <ul class="list-group mb-3">
+            {% for v in row.values %}
+              <li class="list-group-item d-flex justify-content-between align-items-center">
+                <span>{{ v }}</span>
+                <form method="post" class="m-0">
+                  {% csrf_token %}
+                  <input type="hidden" name="action" value="remove_value">
+                  <input type="hidden" name="eof_id" value="{{ row.id }}">
+                  <input type="hidden" name="value" value="{{ v }}">
+                  <button class="btn btn-sm btn-outline-danger" type="submit">Remove</button>
+                </form>
+              </li>
+            {% endfor %}
+          </ul>
+        {% else %}
+          <div class="text-muted mb-3">No values yet.</div>
+        {% endif %}
+
+        <form method="post" class="row g-2">
+          {% csrf_token %}
+          <input type="hidden" name="action" value="add_value">
+          <input type="hidden" name="eof_id" value="{{ row.id }}">
+          <div class="col-md-8">
+            <input type="text" class="form-control" name="value" placeholder="Add a value">
+          </div>
+          <div class="col-md-4">
+            <button class="btn btn-outline-primary w-100" type="submit">+ Add value</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  {% empty %}
+    <div class="alert alert-info">No fields found for this equipment yet.</div>
+  {% endfor %}
+
+</div>
+{% endblock %}

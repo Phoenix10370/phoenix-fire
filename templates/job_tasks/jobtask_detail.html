@@ -21,231 +21,347 @@
 </div>
 
 <div class="row g-3">
-  <!-- LEFT -->
   <div class="col-lg-8">
 
-    <!-- Task -->
-    <div class="card mb-3">
-      <div class="card-header d-flex justify-content-between align-items-center">
-        <strong>Task</strong>
-        <strong class="h6 mb-0">JOB TASK #{{ job_task.id }}</strong>
+    <!-- Tabs -->
+    <ul class="nav nav-tabs mb-3">
+      <li class="nav-item">
+        <button class="nav-link active"
+                data-bs-toggle="tab"
+                data-bs-target="#tab-details">
+          Details
+        </button>
+      </li>
+      <li class="nav-item">
+        <button class="nav-link"
+                data-bs-toggle="tab"
+                data-bs-target="#tab-assets">
+          Property Assets
+        </button>
+      </li>
+    </ul>
+
+    <div class="tab-content">
+
+      <!-- DETAILS TAB -->
+      <div class="tab-pane fade show active" id="tab-details">
+        {% include "job_tasks/_jobtask_details_core.html" %}
       </div>
-      <div class="card-body">
-        <div class="mb-2">
-          <strong>Status:</strong>
-          <span class="badge text-bg-secondary">{{ job_task.get_status_display }}</span>
-        </div>
 
-        <div class="mb-2">
-          <strong>Service Date:</strong>
-          {% if job_task.service_date %}{{ job_task.service_date }}{% else %}<span class="text-muted">—</span>{% endif %}
-        </div>
+      <!-- PROPERTY ASSETS TAB -->
+      <div class="tab-pane fade" id="tab-assets">
 
-        <div class="mb-2">
-          <strong>Service Time:</strong>
-          {% if job_task.service_time %}{{ job_task.service_time }}{% else %}<span class="text-muted">—</span>{% endif %}
-        </div>
+        <div class="row g-3">
 
-        <div class="mb-2">
-          <strong>Service Type:</strong>
-          {% if job_task.service_type %}{{ job_task.service_type }}{% else %}<span class="text-muted">—</span>{% endif %}
-        </div>
+          <!-- ADD ASSET (FROM JOB TASK) -->
+          <div class="col-12 col-lg-5">
+            <div class="card shadow-sm">
+              <div class="card-header">
+                <strong>Add Asset</strong>
+              </div>
+              <div class="card-body">
 
-        <div class="mb-2">
-          <strong>Service Technician:</strong>
-          {% if job_task.service_technician %}{{ job_task.service_technician }}{% else %}<span class="text-muted">—</span>{% endif %}
-        </div>
+                {% if not job_task.site_id %}
+                  <div class="alert alert-warning mb-0">
+                    This job task has no property linked. Link a property before adding assets.
+                  </div>
+                {% else %}
 
-        <div class="mb-0">
-          <strong>Additional Technicians:</strong>
-          {% if job_task.additional_technicians.all %}
-            <div class="mt-1">
-              {% for tech in job_task.additional_technicians.all %}
-                <span class="badge text-bg-light border">{{ tech }}</span>
-              {% empty %}
-                <span class="text-muted">—</span>
-              {% endfor %}
+                  <form method="post" action="{% url 'job_tasks:add_property_asset' job_task.pk %}">
+                    {% csrf_token %}
+
+                    <input type="hidden" name="asset_code_ct_id" value="{{ assetcode_ct_id }}">
+
+                    <div class="mb-3">
+                      <label class="form-label"><strong>Category</strong></label>
+                      <select id="jt_asset_category" class="form-select">
+                        <option value="">-- Select --</option>
+                        {% for c in asset_categories %}
+                          <option value="{{ c.id }}">{{ c.label }}</option>
+                        {% endfor %}
+                      </select>
+                      {% if not categories_list %}
+                        <div class="form-text text-warning">
+                          Could not find DropdownList “Asset Categories”. Check Settings → Dropdown Lists.
+                        </div>
+                      {% endif %}
+                    </div>
+
+                    <div class="mb-3">
+                      <label class="form-label"><strong>Equipment</strong></label>
+                      <select id="jt_asset_equipment" class="form-select" disabled>
+                        <option value="">-- Select --</option>
+                        {% for e in asset_equipment %}
+                          <option value="{{ e.id }}" data-parent="{{ e.parent_id|default_if_none:'' }}">{{ e.label }}</option>
+                        {% endfor %}
+                      </select>
+                      {% if not equipment_list %}
+                        <div class="form-text text-warning">
+                          Could not find DropdownList “Asset Equipment”. Check Settings → Dropdown Lists.
+                        </div>
+                      {% endif %}
+                    </div>
+
+                    <div class="mb-3">
+                      <label class="form-label"><strong>Asset Code</strong></label>
+                      <select id="jt_asset_code_select" name="asset_code_id" class="form-select" required disabled>
+                        <option value="">-- Select --</option>
+                        {% for ac in asset_codes %}
+                          <option value="{{ ac.id }}"
+                                  data-category="{{ ac.category_id }}"
+                                  data-equipment="{{ ac.equipment_id }}">
+                            {{ ac.code }} — {{ ac.category.label }} / {{ ac.equipment.label }}
+                          </option>
+                        {% endfor %}
+                      </select>
+                      <div class="form-text">
+                        Select Category → Equipment → Asset Code.
+                      </div>
+                    </div>
+
+                    <hr class="my-3">
+
+                    <div class="mb-3">
+                      <label class="form-label"><strong>Block</strong></label>
+                      <input type="text" name="block" class="form-control">
+                    </div>
+
+                    <div class="mb-3">
+                      <label class="form-label"><strong>Level</strong></label>
+                      <input type="text" name="level" class="form-control">
+                    </div>
+
+                    <div class="mb-3">
+                      <label class="form-label"><strong>Location</strong></label>
+                      <input type="text" name="location" class="form-control">
+                    </div>
+
+                    <div class="mb-3">
+                      <label class="form-label"><strong>Optional Fields (JSON)</strong></label>
+                      <textarea
+                        name="attributes_json"
+                        class="form-control"
+                        rows="3"
+                        placeholder='{"manufacturer":"Tyco","size":"100mm"}'
+                      ></textarea>
+                      <div class="form-text">
+                        Temporary input. Next step: render dropdowns per AssetCode.
+                      </div>
+                    </div>
+
+                    <button type="submit" class="btn btn-primary">
+                      Add Asset
+                    </button>
+
+                  </form>
+
+                  <script>
+                    (function () {
+                      const categoryEl = document.getElementById("jt_asset_category");
+                      const equipmentEl = document.getElementById("jt_asset_equipment");
+                      const assetCodeEl = document.getElementById("jt_asset_code_select");
+
+                      if (!categoryEl || !equipmentEl || !assetCodeEl) return;
+
+                      const allEquipmentOptions = Array.from(equipmentEl.querySelectorAll("option"))
+                        .filter(o => o.value !== "");
+
+                      const allAssetCodeOptions = Array.from(assetCodeEl.querySelectorAll("option"))
+                        .filter(o => o.value !== "");
+
+                      function resetSelect(selectEl, placeholderText) {
+                        selectEl.value = "";
+                        Array.from(selectEl.querySelectorAll("option")).forEach((opt, idx) => {
+                          if (idx === 0) {
+                            opt.hidden = false;
+                          } else {
+                            opt.hidden = true;
+                          }
+                        });
+                        if (placeholderText) {
+                          selectEl.querySelector("option").textContent = placeholderText;
+                        }
+                      }
+
+                      function enableSelect(selectEl, enabled) {
+                        selectEl.disabled = !enabled;
+                      }
+
+                      function filterEquipmentByCategory(categoryId) {
+                        resetSelect(equipmentEl, "-- Select --");
+                        resetSelect(assetCodeEl, "-- Select --");
+                        enableSelect(assetCodeEl, false);
+
+                        if (!categoryId) {
+                          enableSelect(equipmentEl, false);
+                          return;
+                        }
+
+                        let shown = 0;
+                        allEquipmentOptions.forEach(opt => {
+                          const parent = opt.getAttribute("data-parent") || "";
+                          const match = (parent === "" || parent === categoryId);
+                          opt.hidden = !match;
+                          if (match) shown += 1;
+                        });
+
+                        enableSelect(equipmentEl, true);
+
+                        if (shown === 0) {
+                          allEquipmentOptions.forEach(opt => opt.hidden = false);
+                        }
+                      }
+
+                      function filterAssetCodes(categoryId, equipmentId) {
+                        resetSelect(assetCodeEl, "-- Select --");
+
+                        if (!categoryId || !equipmentId) {
+                          enableSelect(assetCodeEl, false);
+                          return;
+                        }
+
+                        let shown = 0;
+                        allAssetCodeOptions.forEach(opt => {
+                          const oc = opt.getAttribute("data-category");
+                          const oe = opt.getAttribute("data-equipment");
+                          const match = (oc === categoryId && oe === equipmentId);
+                          opt.hidden = !match;
+                          if (match) shown += 1;
+                        });
+
+                        enableSelect(assetCodeEl, true);
+
+                        if (shown === 0) {
+                          enableSelect(assetCodeEl, false);
+                          assetCodeEl.querySelector("option").textContent = "No Asset Codes for this selection";
+                        }
+                      }
+
+                      resetSelect(equipmentEl, "-- Select --");
+                      resetSelect(assetCodeEl, "-- Select --");
+                      enableSelect(equipmentEl, false);
+                      enableSelect(assetCodeEl, false);
+
+                      categoryEl.addEventListener("change", function () {
+                        filterEquipmentByCategory(categoryEl.value || "");
+                      });
+
+                      equipmentEl.addEventListener("change", function () {
+                        filterAssetCodes(categoryEl.value || "", equipmentEl.value || "");
+                      });
+                    })();
+                  </script>
+
+                {% endif %}
+
+              </div>
             </div>
-          {% else %}
-            <span class="text-muted">—</span>
-          {% endif %}
+          </div>
+
+          <!-- LIST + LINK EXISTING -->
+          <div class="col-12 col-lg-7">
+            <div class="card mb-3">
+              <div class="card-header d-flex justify-content-between">
+                <strong>Property Assets</strong>
+                <span class="text-muted small">
+                  {{ job_task.property_assets.count }} linked
+                </span>
+              </div>
+
+              <div class="card-body">
+
+                {% if job_task.property_assets.exists %}
+                  <div class="table-responsive mb-3">
+                    <table class="table table-sm align-middle mb-0">
+                      <thead class="table-light">
+                        <tr>
+                          <th>Asset</th>
+                          <th>Block</th>
+                          <th>Level</th>
+                          <th>Location</th>
+                          <th class="text-end"></th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {% for a in job_task.property_assets.all %}
+                          <tr>
+                            <td>
+                              <strong>{{ a.get_asset_display }}</strong>
+                              {% if a.attributes %}
+                                <div class="text-muted small">{{ a.attributes }}</div>
+                              {% endif %}
+                            </td>
+                            <td>{{ a.block }}</td>
+                            <td>{{ a.level }}</td>
+                            <td>{{ a.location }}</td>
+                            <td class="text-end">
+                              <form method="post"
+                                    action="{% url 'job_tasks:unlink_property_asset' job_task.pk a.pk %}"
+                                    onsubmit="return confirm('Unlink this asset from the job task?');">
+                                {% csrf_token %}
+                                <button class="btn btn-sm btn-outline-danger">
+                                  Unlink
+                                </button>
+                              </form>
+                            </td>
+                          </tr>
+                        {% endfor %}
+                      </tbody>
+                    </table>
+                  </div>
+                {% else %}
+                  <div class="text-muted mb-3">
+                    No assets linked yet.
+                  </div>
+                {% endif %}
+
+                {% if available_property_assets %}
+                  <form method="post"
+                        action="{% url 'job_tasks:link_property_assets' job_task.pk %}">
+                    {% csrf_token %}
+
+                    <label class="form-label"><strong>Link existing property assets</strong></label>
+
+                    {% for a in available_property_assets %}
+                      <div class="form-check">
+                        <input class="form-check-input"
+                               type="checkbox"
+                               name="asset_ids"
+                               value="{{ a.id }}"
+                               id="asset{{ a.id }}">
+                        <label class="form-check-label" for="asset{{ a.id }}">
+                          {{ a.get_asset_display }} — {{ a.location|default:"—" }}
+                        </label>
+                      </div>
+                    {% endfor %}
+
+                    <button class="btn btn-sm btn-outline-primary mt-2">
+                      Link selected assets
+                    </button>
+                  </form>
+                {% endif %}
+
+                <hr class="my-3">
+
+                {% if job_task.site_id %}
+                  <a href="{% url 'properties:assets' job_task.site_id %}"
+                     class="btn btn-sm btn-outline-secondary">
+                    Manage assets at property
+                  </a>
+                {% endif %}
+
+              </div>
+            </div>
+          </div>
+
         </div>
+
       </div>
     </div>
-
-    <!-- Job Details -->
-    <div class="card mb-3">
-      <div class="card-header"><strong>Job Details</strong></div>
-      <div class="card-body p-0">
-        {% if job_task.items.all %}
-          <div class="table-responsive">
-            <table class="table table-sm mb-0 align-middle">
-              <thead class="table-light">
-                <tr>
-                  <th style="width:140px;">Code</th>
-                  <th>Description</th>
-                  <th class="text-end" style="width:90px;">Qty</th>
-                  <th class="text-end" style="width:130px;">Unit Price</th>
-                  <th class="text-end" style="width:130px;">Line Total</th>
-                </tr>
-              </thead>
-              <tbody>
-                {% for it in job_task.items.all %}
-                  <tr>
-                    <td>{{ it.code|default:"" }}</td>
-                    <td>{{ it.description|default:"—" }}</td>
-                    <td class="text-end">{{ it.quantity }}</td>
-                    <td class="text-end">${{ it.unit_price }}</td>
-                    <td class="text-end">${{ it.line_total }}</td>
-                  </tr>
-                {% endfor %}
-              </tbody>
-            </table>
-          </div>
-        {% else %}
-          <div class="p-3 text-muted">No job items found.</div>
-        {% endif %}
-      </div>
-    </div>
-
-    <!-- Technician Comments + Total Value -->
-    <div class="row g-3">
-      <div class="col-lg-6">
-        <div class="card mb-3">
-          <div class="card-header"><strong>Technician Comments</strong></div>
-          <div class="card-body">
-            {% if job_task.technician_comments %}
-              <div style="white-space: pre-wrap;">{{ job_task.technician_comments }}</div>
-            {% else %}
-              <span class="text-muted">—</span>
-            {% endif %}
-          </div>
-        </div>
-      </div>
-
-      <div class="col-lg-6">
-        <div class="card mb-3">
-          <div class="card-header"><strong>Total Value</strong></div>
-          <div class="card-body">
-            <div class="d-flex justify-content-between">
-              <div><strong>Value</strong></div>
-              <div>${{ value }}</div>
-            </div>
-            <div class="d-flex justify-content-between">
-              <div><strong>GST</strong></div>
-              <div>${{ gst }}</div>
-            </div>
-            <hr class="my-2">
-            <div class="d-flex justify-content-between">
-              <div><strong>Total Value</strong></div>
-              <div class="fw-semibold">${{ total_value }}</div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-
   </div>
 
-  <!-- RIGHT -->
   <div class="col-lg-4">
-
-    <!-- Links -->
-    <div class="card mb-3">
-      <div class="card-header"><strong>Links</strong></div>
-      <div class="card-body">
-        <div class="mb-2">
-          <strong>Property:</strong>
-          {% if job_task.site %}
-            <a href="{% url 'properties:detail' job_task.site_id %}">
-              {{ job_task.site }}
-            </a>
-          {% else %}
-            <span class="text-muted">—</span>
-          {% endif %}
-        </div>
-
-        <div class="mb-2"><strong>Customer:</strong> {{ job_task.customer|default:"—" }}</div>
-
-        <div class="mb-0">
-          <strong>Routine:</strong>
-          {% if job_task.service_routine %}
-            #{{ job_task.service_routine_id }}
-          {% else %}
-            <span class="text-muted">—</span>
-          {% endif %}
-        </div>
-      </div>
-    </div>
-
-    <!-- Property Notes -->
-    <div class="card mb-3">
-      <div class="card-header"><strong>Property Notes</strong></div>
-      <div class="card-body">
-        {% if job_task.site %}
-          <div class="mb-3">
-            <div class="text-muted small">Site Notes</div>
-            <div>{{ job_task.site.site_notes|default:"—" }}</div>
-          </div>
-
-          <div class="mb-0">
-            <div class="text-muted small">Technician Notes</div>
-            <div>{{ job_task.site.technician_notes|default:"—" }}</div>
-          </div>
-        {% else %}
-          <div class="text-muted">No property linked.</div>
-        {% endif %}
-      </div>
-    </div>
-
-    <!-- Client / Admin -->
-    <div class="card mb-3">
-      <div class="card-header"><strong>Client / Admin</strong></div>
-      <div class="card-body">
-        <div class="mb-2">
-          <strong>Client Acknowledgement:</strong>
-          {% if job_task.client_acknowledgement %}
-            {{ job_task.client_acknowledgement }}
-          {% else %}
-            <span class="text-muted">—</span>
-          {% endif %}
-        </div>
-        <div class="mb-2">
-          <strong>Acknowledgement Date:</strong>
-          {% if job_task.acknowledgement_date %}
-            {{ job_task.acknowledgement_date }}
-          {% else %}
-            <span class="text-muted">—</span>
-          {% endif %}
-        </div>
-        <div class="mb-2">
-          <strong>Work Order No.:</strong>
-          {% if job_task.work_order_no %}
-            {{ job_task.work_order_no }}
-          {% else %}
-            <span class="text-muted">—</span>
-          {% endif %}
-        </div>
-        <div class="mb-0">
-          <strong>Admin Comments:</strong>
-          {% if job_task.admin_comments %}
-            <div style="white-space: pre-wrap;">{{ job_task.admin_comments }}</div>
-          {% else %}
-            <span class="text-muted">—</span>
-          {% endif %}
-        </div>
-      </div>
-    </div>
-
-    <!-- Meta -->
-    <div class="card">
-      <div class="card-header"><strong>Meta</strong></div>
-      <div class="card-body">
-        <div class="mb-2"><strong>Created:</strong> {{ job_task.created_at }}</div>
-        <div class="mb-0"><strong>Updated:</strong> {{ job_task.updated_at }}</div>
-      </div>
-    </div>
-
+    {% include "job_tasks/_jobtask_sidebar.html" %}
   </div>
 </div>
 

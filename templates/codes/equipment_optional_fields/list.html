@@ -1,0 +1,103 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="container">
+
+  <div class="d-flex align-items-center justify-content-between mb-3">
+    <h1 class="h3 mb-0">Equipment Optional Fields</h1>
+  </div>
+
+  <form method="get" class="row g-2 mb-3">
+    <div class="col-md-6">
+      <input type="text" name="q" value="{{ q }}" class="form-control"
+             placeholder="Search equipment or field...">
+    </div>
+    <div class="col-md-3">
+      <select name="show" class="form-select">
+        <option value="active" {% if show == "active" %}selected{% endif %}>Active only</option>
+        <option value="inactive" {% if show == "inactive" %}selected{% endif %}>Inactive only</option>
+        <option value="all" {% if show == "all" %}selected{% endif %}>All</option>
+      </select>
+    </div>
+    <div class="col-md-3">
+      <button class="btn btn-primary w-100" type="submit">Filter</button>
+    </div>
+  </form>
+
+  <div class="card">
+    <div class="table-responsive">
+      <table class="table table-sm mb-0 align-middle">
+        <thead>
+          <tr>
+            <th>Category</th>
+            <th>Equipment</th>
+            <th>Field</th>
+            <th>Status</th>
+            <th>Allowed Values</th>
+            <th class="text-end"></th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for row in rows %}
+          <tr>
+            <td>{{ row.equipment.parent.label|default:"—" }}</td>
+            <td>{{ row.equipment.label }}</td>
+            <td>{{ row.field.label }}</td>
+            <td>
+              {% if row.is_active %}
+                <span class="badge bg-success">Active</span>
+              {% else %}
+                <span class="badge bg-secondary">Inactive</span>
+              {% endif %}
+            </td>
+            <td style="max-width: 520px;">
+              {% if row.values %}
+                <div class="text-truncate">
+                  {{ row.values|join:", " }}
+                </div>
+              {% else %}
+                <span class="text-muted">—</span>
+              {% endif %}
+            </td>
+            <td class="text-end">
+              {% if row.equipment_id %}
+                <a class="btn btn-sm btn-outline-secondary me-1"
+                   href="{% url 'codes:equipment_schema_manage' row.equipment_id %}">
+                  Manage
+                </a>
+              {% endif %}
+              <a class="btn btn-sm btn-outline-primary"
+                 href="{% url 'codes:eof_edit' row.pk %}?q={{ q|urlencode }}&show={{ show|urlencode }}">
+                 Edit
+              </a>
+            </td>
+          </tr>
+          {% empty %}
+          <tr><td colspan="6" class="text-muted p-3">No results.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  {% if is_paginated %}
+    <nav class="mt-3">
+      <ul class="pagination">
+        {% if page_obj.has_previous %}
+          <li class="page-item">
+            <a class="page-link" href="?q={{ q|urlencode }}&show={{ show|urlencode }}&page={{ page_obj.previous_page_number }}">Prev</a>
+          </li>
+        {% endif %}
+        <li class="page-item disabled"><span class="page-link">
+          Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}
+        </span></li>
+        {% if page_obj.has_next %}
+          <li class="page-item">
+            <a class="page-link" href="?q={{ q|urlencode }}&show={{ show|urlencode }}&page={{ page_obj.next_page_number }}">Next</a>
+          </li>
+        {% endif %}
+      </ul>
+    </nav>
+  {% endif %}
+
+</div>
+{% endblock %}

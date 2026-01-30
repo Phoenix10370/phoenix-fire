@@ -29,34 +29,25 @@
       body.page-exit .page-wrap { transition: none; }
     }
 
-   .btn-back,
-a.btn-back,
-button.btn-back {
-  background-color: var(--bs-success) !important;
-  border-color: var(--bs-success) !important;
-  color: #fff !important;
-
-  /* ~1.5× size */
-  padding: 0.6rem 1.25rem;
-  font-size: 1.05rem;
-}
-
-    .btn-back:hover {
-      filter: brightness(0.95);
+    .btn-back,
+    a.btn-back,
+    button.btn-back {
+      background-color: var(--bs-success) !important;
+      border-color: var(--bs-success) !important;
+      color: #fff !important;
+      padding: 0.6rem 1.25rem;
+      font-size: 1.05rem;
     }
 
-    .app-footer { padding-bottom: 24px; }
+    .btn-back:hover { filter: brightness(0.95); }
+
     .print-only { display: none; }
 
     @media print {
       nav.navbar,
-      .no-print {
-        display: none !important;
-      }
-
+      .no-print { display: none !important; }
       body { background: #fff !important; }
       main.container { margin: 0 !important; padding: 0 !important; }
-      .print-letterhead { display: flex !important; }
       .page-wrap { animation: none !important; }
       .print-only { display: block !important; }
     }
@@ -93,70 +84,70 @@ button.btn-back {
       <!-- LEFT NAV -->
       <ul class="navbar-nav me-auto">
 
+        <!-- Dashboard -->
         <li class="nav-item">
-          <a class="nav-link {% if urlname == 'dashboard' %}active{% endif %}" href="{% url 'dashboard' %}">Dashboard</a>
+          <a class="nav-link {% if urlname == 'dashboard' %}active{% endif %}"
+             href="{% url 'dashboard' %}">
+            Dashboard
+          </a>
         </li>
 
-        <!-- CUSTOMERS DROPDOWN -->
+        <!-- CUSTOMERS -->
         <li class="nav-item dropdown">
-          <a class="nav-link dropdown-toggle {% if ns == 'customers' %}active{% endif %}" href="#" id="customersDropdown"
-             role="button" data-bs-toggle="dropdown" aria-expanded="false">
+          <a class="nav-link dropdown-toggle {% if ns == 'customers' %}active{% endif %}"
+             href="#" data-bs-toggle="dropdown">
             Customers
           </a>
-          <ul class="dropdown-menu" aria-labelledby="customersDropdown">
+          <ul class="dropdown-menu">
             <li>
-              <a class="dropdown-item {% if ns == 'customers' and urlname == 'list' %}active{% endif %}" href="{% url 'customers:list' %}">
+              <a class="dropdown-item {% if ns == 'customers' and urlname == 'list' %}active{% endif %}"
+                 href="{% url 'customers:list' %}">
                 <i class="bi bi-people me-2"></i>Customer List
               </a>
             </li>
             <li>
-              <a class="dropdown-item {% if ns == 'customers' and urlname == 'create' %}active{% endif %}" href="{% url 'customers:create' %}">
+              <a class="dropdown-item {% if ns == 'customers' and urlname == 'create' %}active{% endif %}"
+                 href="{% url 'customers:create' %}">
                 <i class="bi bi-person-plus me-2"></i>Add Customer
               </a>
             </li>
             <li><hr class="dropdown-divider"></li>
             <li>
-              <a class="dropdown-item {% if ns == 'customers' and urlname == 'import' %}active{% endif %}" href="{% url 'customers:import' %}">
-                <i class="bi bi-upload me-2"></i>Import Customers (CSV)
+              <a class="dropdown-item {% if ns == 'customers' and urlname == 'import' %}active{% endif %}"
+                 href="{% url 'customers:import' %}">
+                <i class="bi bi-upload me-2"></i>Import Customers
               </a>
             </li>
           </ul>
         </li>
 
-        <!-- PROPERTIES DROPDOWN (includes Routines / Job Tasks / Quotations) -->
+        <!-- PROPERTIES -->
         <li class="nav-item dropdown">
-          <a class="nav-link dropdown-toggle {% if ns == 'properties' or ns == 'routines' or ns == 'job_tasks' or ns == 'quotations' %}active{% endif %}"
-             href="#"
-             id="propertiesDropdown"
-             role="button"
-             data-bs-toggle="dropdown"
-             aria-expanded="false">
+          <a class="nav-link dropdown-toggle
+             {% if ns == 'properties' or ns == 'routines' or ns == 'job_tasks' or ns == 'quotations' %}active{% endif %}"
+             href="#" data-bs-toggle="dropdown">
             Properties
           </a>
-          <ul class="dropdown-menu" aria-labelledby="propertiesDropdown">
+          <ul class="dropdown-menu">
             <li>
               <a class="dropdown-item {% if ns == 'properties' and urlname == 'list' %}active{% endif %}"
                  href="{% url 'properties:list' %}">
                 <i class="bi bi-buildings me-2"></i>Property List
               </a>
             </li>
-
             <li><hr class="dropdown-divider"></li>
-
             <li>
               <a class="dropdown-item {% if ns == 'routines' and urlname == 'list' %}active{% endif %}"
                  href="{% url 'routines:list' %}">
                 <i class="bi bi-arrow-repeat me-2"></i>Routines
               </a>
             </li>
-
             <li>
               <a class="dropdown-item {% if ns == 'job_tasks' and urlname == 'list' %}active{% endif %}"
                  href="{% url 'job_tasks:list' %}">
                 <i class="bi bi-clipboard-check me-2"></i>Job Tasks
               </a>
             </li>
-
             <li>
               <a class="dropdown-item {% if ns == 'quotations' and urlname == 'list' %}active{% endif %}"
                  href="{% url 'quotations:list' %}">
@@ -168,50 +159,60 @@ button.btn-back {
 
         <!-- SETTINGS -->
         <li class="nav-item dropdown">
-          <a class="nav-link dropdown-toggle {% if ns == 'codes' or ns == 'company' or ns == 'email_templates' %}active{% endif %}" href="#" id="settingsDropdown"
-             role="button" data-bs-toggle="dropdown" aria-expanded="false">
+          <a class="nav-link dropdown-toggle
+             {% if ns == 'codes' or ns == 'company' or ns == 'email_templates' %}active{% endif %}"
+             href="#" data-bs-toggle="dropdown">
             Settings
           </a>
-          <ul class="dropdown-menu" aria-labelledby="settingsDropdown">
+          <ul class="dropdown-menu">
 
             <li class="dropdown-header text-uppercase small text-muted">Codes</li>
 
             <li>
-              <a class="dropdown-item {% if ns == 'codes' and urlname == 'efsm_list' %}active{% endif %}" href="{% url 'codes:efsm_list' %}">
+              <a class="dropdown-item {% if urlname == 'efsm_list' %}active{% endif %}"
+                 href="{% url 'codes:efsm_list' %}">
                 <i class="bi bi-shield-check me-2"></i>EFSM Codes
               </a>
             </li>
 
             <li>
-              <a class="dropdown-item {% if ns == 'codes' and urlname == 'defect_list' %}active{% endif %}" href="{% url 'codes:defect_list' %}">
+              <a class="dropdown-item {% if urlname == 'defect_list' %}active{% endif %}"
+                 href="{% url 'codes:defect_list' %}">
                 <i class="bi bi-exclamation-triangle me-2"></i>Defect Codes
               </a>
             </li>
 
             <li>
-              <a class="dropdown-item {% if ns == 'codes' and urlname == 'asset_list' %}active{% endif %}" href="{% url 'codes:asset_list' %}">
+              <a class="dropdown-item {% if urlname == 'asset_list' %}active{% endif %}"
+                 href="{% url 'codes:asset_list' %}">
                 <i class="bi bi-box-seam me-2"></i>Asset Codes
               </a>
             </li>
 
+
             <li>
-              <a class="dropdown-item {% if ns == 'codes' and urlname == 'dropdown_list_list' %}active{% endif %}" href="{% url 'codes:dropdown_list_list' %}">
+              <a class="dropdown-item {% if urlname == 'dropdown_list_list' %}active{% endif %}"
+                 href="{% url 'codes:dropdown_list_list' %}">
                 <i class="bi bi-list-check me-2"></i>Dropdown Lists
               </a>
             </li>
+
+            
 
             <li><hr class="dropdown-divider"></li>
 
             <li class="dropdown-header text-uppercase small text-muted">Main Database</li>
 
             <li>
-              <a class="dropdown-item {% if ns == 'company' and urlname == 'client_profile' %}active{% endif %}" href="{% url 'company:client_profile' %}">
+              <a class="dropdown-item {% if ns == 'company' and urlname == 'client_profile' %}active{% endif %}"
+                 href="{% url 'company:client_profile' %}">
                 <i class="bi bi-building me-2"></i>Client
               </a>
             </li>
 
             <li>
-              <a class="dropdown-item {% if ns == 'email_templates' and urlname == 'list' %}active{% endif %}" href="{% url 'email_templates:list' %}">
+              <a class="dropdown-item {% if ns == 'email_templates' and urlname == 'list' %}active{% endif %}"
+                 href="{% url 'email_templates:list' %}">
                 <i class="bi bi-envelope-paper me-2"></i>Email Templates
               </a>
             </li>
@@ -228,9 +229,7 @@ button.btn-back {
       <ul class="navbar-nav">
         {% if user.is_authenticated %}
           <li class="nav-item">
-            <span class="navbar-text me-3">
-              Logged in as {{ user.username }}
-            </span>
+            <span class="navbar-text me-3">Logged in as {{ user.username }}</span>
           </li>
           <li class="nav-item">
             <a class="btn btn-outline-light btn-sm" href="/admin/logout/">Logout</a>
@@ -249,12 +248,6 @@ button.btn-back {
 <!-- PAGE CONTENT -->
 <main class="container my-4 page-wrap">
 
-  {% if client_profile and client_profile.company_logo %}
-    <div class="print-letterhead d-none d-print-flex mb-4">
-      <img src="{{ client_profile.company_logo.url }}" style="height:70px;">
-    </div>
-  {% endif %}
-
   <div class="mb-3 no-print">
     <button type="button" class="btn btn-back btn-sm"
             onclick="goBackAnimated()" title="Back">
@@ -262,44 +255,19 @@ button.btn-back {
     </button>
   </div>
 
-  {% if messages %}
-    <div class="mb-3 no-print">
-      {% for message in messages %}
-        <div class="alert alert-{{ message.tags }} alert-dismissible fade show">
-          {{ message }}
-          <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-        </div>
-      {% endfor %}
-    </div>
-  {% endif %}
-
   {% block content %}{% endblock %}
 
 </main>
 
-<!-- Bootstrap JS -->
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 
 <script>
-  // Always provide a safe fallback to avoid "blank page" when there is no usable history entry.
   function goBackAnimated() {
-    const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     const dashboardUrl = "{% url 'dashboard' %}";
-
-    // If this tab/page was opened directly, history.back() can land on an empty/initial state.
-    // Use referrer as the "was navigated from somewhere" signal; otherwise fallback to dashboard.
-    const hasReferrer = document.referrer && document.referrer !== window.location.href;
-
-    if (!hasReferrer) {
+    if (!document.referrer) {
       window.location.href = dashboardUrl;
       return;
     }
-
-    if (reduceMotion) {
-      window.history.back();
-      return;
-    }
-
     document.body.classList.add("page-exit");
     setTimeout(() => window.history.back(), 150);
   }

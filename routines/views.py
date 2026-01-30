@@ -23,6 +23,7 @@ from .services import (
 )
 
 from job_tasks.services import create_job_task_from_routine
+from properties.models import PropertyAsset
 
 
 def _ordered_routine_items_qs():
@@ -35,6 +36,32 @@ def _ordered_routine_items_qs():
             "id",
         )
     )
+
+
+def _link_existing_property_assets_to_job_task(job_task):
+    """
+    If the property already has assets, link them to the job task (no duplication).
+    If the property has no assets, do nothing.
+
+    This supports:
+      - Jobs created from Service Routines
+      - Bulk create jobs from routines
+    """
+    site_id = getattr(job_task, "site_id", None)
+    if not site_id:
+        return 0
+
+    asset_ids = list(
+        PropertyAsset.objects
+        .filter(property_id=site_id)
+        .values_list("id", flat=True)
+    )
+    if not asset_ids:
+        return 0
+
+    # Uses the M2M through table; unique constraint prevents duplicates
+    job_task.property_assets.add(*asset_ids)
+    return len(asset_ids)
 
 
 @login_required
@@ -79,7 +106,8 @@ def bulk_action(request):
     if action == "create_job_tasks":
         created = 0
         for routine in qs:
-            create_job_task_from_routine(routine=routine)
+            job_task = create_job_task_from_routine(routine=routine)
+            _link_existing_property_assets_to_job_task(job_task)
             created += 1
         messages.success(request, f"Created {created} Job Task(s) from selected service routines.")
         return redirect("routines:list")
@@ -192,8 +220,6 @@ def create_from_quotation_preview(request, quotation_id: int):
             },
         )
 
-
-
     # Read querystring values from the form
     annual_due_month = request.GET.get("annual_due_month") or ""
     invoice_frequency = request.GET.get("invoice_frequency") or "calculator"
@@ -224,7 +250,6 @@ def create_from_quotation_preview(request, quotation_id: int):
             "form": form,
         },
     )
-
 
 
 @login_required
@@ -376,7 +401,16 @@ def create_job_task(request, pk: int):
 
     job_task = create_job_task_from_routine(routine=routine)
 
-    messages.success(request, f"Job Task #{job_task.pk} created from Service Routine #{routine.pk}.")
+    # ✅ Auto-link property assets (if they exist)
+    linked = _link_existing_property_assets_to_job_task(job_task)
+
+    if linked:
+        messages.success(
+            request,
+            f"Job Task #{job_task.pk} created from Service Routine #{routine.pk} (linked {linked} property asset(s)).",
+        )
+    else:
+        messages.success(request, f"Job Task #{job_task.pk} created from Service Routine #{routine.pk}.")
     return redirect("job_tasks:detail", pk=job_task.pk)
 
 

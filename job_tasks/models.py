@@ -1,5 +1,6 @@
 from decimal import Decimal
 from datetime import time
+import uuid
 
 from django.conf import settings
 from django.db import models
@@ -106,6 +107,15 @@ class JobTask(models.Model):
 
     technician_comments = models.TextField(blank=True, default="")
 
+    # ✅ Property Assets linked to this Job Task (many-to-many)
+    # The Property still "owns" assets (PropertyAsset). Job tasks link to them.
+    property_assets = models.ManyToManyField(
+        "properties.PropertyAsset",
+        through="job_tasks.JobTaskAssetLink",
+        blank=True,
+        related_name="job_tasks",
+    )
+
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -165,6 +175,44 @@ class JobTask(models.Model):
 
     def total_amount(self) -> Decimal:
         return (self.subtotal_amount() + self.gst_amount()).quantize(Decimal("0.01"))
+
+
+class JobTaskAssetLink(models.Model):
+    """
+    Link table between a JobTask and a PropertyAsset.
+
+    - Prevents duplicating assets per job/task
+    - Allows a PropertyAsset to appear on multiple job tasks over time
+    """
+
+    job_task = models.ForeignKey(
+        "job_tasks.JobTask",
+        on_delete=models.CASCADE,
+        related_name="property_asset_links",
+    )
+
+    property_asset = models.ForeignKey(
+        "properties.PropertyAsset",
+        on_delete=models.CASCADE,
+        related_name="job_task_links",
+    )
+
+    uid = models.UUIDField(default=uuid.uuid4, editable=False, unique=True, db_index=True)
+
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = "Job Task Asset Link"
+        verbose_name_plural = "Job Task Asset Links"
+        constraints = [
+            models.UniqueConstraint(
+                fields=["job_task", "property_asset"],
+                name="uq_jobtask_propertyasset_link",
+            )
+        ]
+
+    def __str__(self) -> str:
+        return f"JobTask #{self.job_task_id} -> PropertyAsset #{self.property_asset_id}"
 
 
 class JobTaskItem(models.Model):

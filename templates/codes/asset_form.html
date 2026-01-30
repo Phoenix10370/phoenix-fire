@@ -5,6 +5,15 @@
   <h1 class="h3 mb-0">{{ title }}</h1>
 </div>
 
+{% if object and object.equipment_id %}
+  <div class="mb-3">
+    <a class="btn btn-outline-secondary"
+       href="{% url 'codes:equipment_schema_manage' object.equipment_id %}">
+      <i class="bi bi-sliders me-2"></i>Manage Fields & Allowed Values
+    </a>
+  </div>
+{% endif %}
+
 <div class="card shadow-sm">
   <div class="card-body">
     <form method="post" novalidate>
@@ -14,9 +23,12 @@
         <div class="alert alert-danger">{{ form.non_field_errors }}</div>
       {% endif %}
 
+      <!-- =========================
+           Core Asset Code Fields
+           ========================= -->
       <div class="row g-3">
         <div class="col-md-6">
-          <label class="form-label">Category</label>
+          <label class="form-label"><strong>Category</strong></label>
           {{ form.category }}
           {% if form.category.errors %}
             <div class="text-danger small">{{ form.category.errors }}</div>
@@ -24,7 +36,7 @@
         </div>
 
         <div class="col-md-6">
-          <label class="form-label">Equipment</label>
+          <label class="form-label"><strong>Equipment</strong></label>
           {{ form.equipment }}
           {% if form.equipment.errors %}
             <div class="text-danger small">{{ form.equipment.errors }}</div>
@@ -32,7 +44,7 @@
         </div>
 
         <div class="col-md-6">
-          <label class="form-label">Frequency</label>
+          <label class="form-label"><strong>Frequency</strong></label>
           {{ form.frequency }}
           <div class="form-text">Times per year</div>
           {% if form.frequency.errors %}
@@ -43,10 +55,75 @@
         <div class="col-md-6 d-flex align-items-end">
           <div class="form-check">
             {{ form.is_active }}
-            <label class="form-check-label" for="id_is_active">Active</label>
+            <label class="form-check-label" for="id_is_active"><strong>Active</strong></label>
           </div>
         </div>
       </div>
+
+      <!-- =========================
+           Read-only schema summary
+           ========================= -->
+      <hr class="my-4">
+
+      <div class="d-flex align-items-center justify-content-between mb-2">
+        <h5 class="mb-0">Additional Fields (schema)</h5>
+
+        {% if object and object.equipment_id %}
+          <a class="btn btn-sm btn-outline-secondary"
+             href="{% url 'codes:equipment_schema_manage' object.equipment_id %}">
+            <i class="bi bi-pencil-square me-1"></i>Manage
+          </a>
+        {% endif %}
+      </div>
+
+      <div class="form-text mb-3">
+        These are the <strong>allowed fields and allowed values</strong> for this equipment type.
+        They are not asset-instance data. Values are chosen later when adding assets to Properties / Job Tasks.
+      </div>
+
+      {% if object and object.equipment_id %}
+        {% if dynamic_fields %}
+          <div class="row g-3">
+            {% for f in dynamic_fields %}
+              <div class="col-md-6">
+                <div class="border rounded p-3 bg-light">
+                  <div class="d-flex align-items-center justify-content-between">
+                    <div><strong>{{ f.label }}</strong></div>
+                    {% if f.allowed_values %}
+                      <span class="badge bg-primary">Dropdown</span>
+                    {% else %}
+                      <span class="badge bg-secondary">Free text</span>
+                    {% endif %}
+                  </div>
+
+                  <div class="mt-2">
+                    {% if f.allowed_values %}
+                      <ul class="list-unstyled mb-0">
+                        {% for opt in f.allowed_values %}
+                          <li class="small">• {{ opt }}</li>
+                        {% endfor %}
+                      </ul>
+                    {% else %}
+                      <div class="text-muted small">No predefined values (free text field).</div>
+                    {% endif %}
+                  </div>
+                </div>
+              </div>
+            {% endfor %}
+          </div>
+        {% else %}
+          <div class="alert alert-info mb-0">
+            No additional fields have been defined for this equipment yet.
+            {% if object and object.equipment_id %}
+              Use <strong>Manage</strong> to add fields and allowed values.
+            {% endif %}
+          </div>
+        {% endif %}
+      {% else %}
+        <div class="alert alert-secondary mb-0">
+          Select an equipment type and save to view its schema.
+        </div>
+      {% endif %}
 
       <div class="mt-4 d-flex gap-2">
         <button type="submit" class="btn btn-primary">Save</button>
@@ -58,6 +135,7 @@
 
 <script>
   (function () {
+    // Dependent dropdown: Category -> Equipment
     const categoryEl = document.getElementById("id_category");
     const equipmentEl = document.getElementById("id_equipment");
 
@@ -103,8 +181,6 @@
     }
 
     // On initial load:
-    // - If editing, equipment is already populated by the form queryset
-    // - If creating, equipment is empty until category selected
     if (!equipmentEl.value) {
       setEquipmentDisabled(true);
     }
@@ -112,7 +188,6 @@
     categoryEl.addEventListener("change", function () {
       loadEquipment(categoryEl.value, null);
     });
-
   })();
 </script>
 {% endblock %}

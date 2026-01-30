@@ -1,0 +1,81 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-start mb-3">
+  <div>
+    <h1 class="h3 mb-1">Asset Code {{ object.code }}</h1>
+    <div class="text-muted">Created {{ object.created_at|date:"d M Y" }}</div>
+  </div>
+
+  <div class="d-flex gap-2">
+    <a href="{% url 'codes:asset_update' object.pk %}" class="btn btn-outline-secondary">
+      Edit
+    </a>
+    <a href="{{ cancel_url }}" class="btn btn-outline-secondary">
+      Back
+    </a>
+  </div>
+</div>
+
+<!-- Core details -->
+<div class="card shadow-sm mb-3">
+  <div class="card-header">
+    <strong>Core Details</strong>
+  </div>
+  <div class="card-body">
+    <div class="row g-3">
+      <div class="col-md-6">
+        <strong>Asset Code UID</strong><br>
+        <code>{{ object.code }}</code>
+      </div>
+
+      <div class="col-md-6">
+        <strong>Status</strong><br>
+        {% if object.is_active %}
+          <span class="badge bg-success">Active</span>
+        {% else %}
+          <span class="badge bg-secondary">Inactive</span>
+        {% endif %}
+      </div>
+
+      <div class="col-md-6">
+        <strong>Category</strong><br>
+        {{ object.category.label }}
+      </div>
+
+      <div class="col-md-6">
+        <strong>Equipment</strong><br>
+        {{ object.equipment.label }}
+      </div>
+
+      <div class="col-md-6">
+        <strong>Frequency</strong><br>
+        {{ object.frequency }} per year
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Optional / Dynamic fields -->
+<div class="card shadow-sm">
+  <div class="card-header">
+    <strong>Additional Details</strong>
+  </div>
+  <div class="card-body">
+    {% if attribute_items %}
+      <div class="row g-3">
+        {% for label, value in attribute_items %}
+          <div class="col-md-6">
+            <strong>{{ label }}</strong><br>
+            {{ value }}
+          </div>
+        {% endfor %}
+      </div>
+    {% else %}
+      <div class="text-muted">
+        No additional fields for this Asset Code.
+      </div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

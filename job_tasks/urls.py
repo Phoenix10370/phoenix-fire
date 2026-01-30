@@ -11,7 +11,28 @@ urlpatterns = [
     path("<int:pk>/delete/", views.jobtask_delete, name="delete"),
 
     # Property-specific list
-    path("property/<int:property_id>/", views.jobtask_list_for_property, name="list_for_property"),
+    path(
+        "property/<int:property_id>/",
+        views.jobtask_list_for_property,
+        name="list_for_property",
+    ),
+
+    # ✅ Property Assets actions (Job Task tab)
+    path(
+        "<int:pk>/property-assets/link/",
+        views.jobtask_link_property_assets,
+        name="link_property_assets",
+    ),
+    path(
+        "<int:pk>/property-assets/add/",
+        views.jobtask_add_property_asset,
+        name="add_property_asset",
+    ),
+    path(
+        "<int:pk>/assets/<int:asset_id>/unlink/",
+        views.jobtask_unlink_property_asset,
+        name="unlink_property_asset",
+    ),
 
     # Routine-style items actions
     path("<int:pk>/items/add/", views.jobtask_item_add, name="item_add"),

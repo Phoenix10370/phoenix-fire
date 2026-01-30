@@ -2,12 +2,15 @@ from decimal import Decimal, ROUND_HALF_UP
 
 from django.conf import settings
 from django.contrib import messages
+from django.contrib.contenttypes.models import ContentType
 from django.db import transaction
 from django.db.models import Max, Q
 from django.http import HttpResponseBadRequest
 from django.shortcuts import get_object_or_404, redirect, render
 
-from properties.models import Property
+from properties.models import Property, PropertyAsset
+from codes.models import DropdownList, DropdownOption, AssetCode, AssetField
+
 from .forms import JobTaskAddItemForm, JobTaskForm
 from .models import JobTask, JobTaskItem
 
@@ -40,6 +43,88 @@ def _edit_url_with_anchor(job_task: JobTask, anchor: str = "job-details") -> str
     return redirect("job_tasks:edit", pk=job_task.pk).url + f"#{anchor}"
 
 
+def _extract_attributes_from_post(post_data):
+    """
+    Matches the Property flow:
+      - attributes_json: JSON dict string (optional)
+      - attr__<slug>=<value> fields (preferred from dynamic UI)
+
+    Returns a dict safe to store in PropertyAsset.attributes
+    """
+    raw_json = (post_data.get("attributes_json") or "").strip()
+    if raw_json:
+        try:
+            import json
+
+            parsed = json.loads(raw_json)
+            if isinstance(parsed, dict):
+                return {k: v for k, v in parsed.items() if v not in (None, "", [], {})}
+        except Exception:
+            pass
+
+    attrs = {}
+    for k, v in post_data.items():
+        if not k.startswith("attr__"):
+            continue
+        key = k.replace("attr__", "", 1).strip()
+        val = (v or "").strip() if isinstance(v, str) else v
+        if key and val not in (None, "", [], {}):
+            attrs[key] = val
+    return attrs
+
+
+def _get_dropdown_list(name_contains: str):
+    qs = DropdownList.objects.filter(is_active=True)
+    dl = qs.filter(name__icontains=name_contains).first()
+    if dl:
+        return dl
+    return qs.filter(slug__icontains=name_contains.replace(" ", "-")).first()
+
+
+def _find_list_for_field(field: AssetField):
+    qs = DropdownList.objects.filter(is_active=True)
+
+    dl = qs.filter(slug=field.slug).first()
+    if dl:
+        return dl
+    dl = qs.filter(slug__icontains=field.slug).first()
+    if dl:
+        return dl
+
+    dl = qs.filter(name__iexact=field.label).first()
+    if dl:
+        return dl
+    return qs.filter(name__icontains=field.label).first()
+
+
+def _build_asset_field_payload():
+    """
+    Build payload describing which AssetFields exist and whether they have dropdown options.
+    Used to render dynamic optional fields in the Job Task -> Property Assets tab.
+    """
+    payload = []
+    for f in AssetField.objects.filter(is_active=True).order_by("label"):
+        dl = _find_list_for_field(f)
+        if dl:
+            opts = list(
+                DropdownOption.objects.filter(dropdown_list=dl, is_active=True)
+                .order_by("label")
+                .values_list("value", "label")
+            )
+        else:
+            opts = []
+
+        payload.append(
+            {
+                "slug": f.slug,
+                "label": f.label,
+                "has_dropdown": bool(opts),
+                "options": opts,  # list of (value, label)
+            }
+        )
+    return payload
+
+
 def jobtask_list(request):
     q = (request.GET.get("q") or "").strip()
     qs = JobTask.objects.select_related("site", "customer", "service_routine").order_by("-created_at")
@@ -70,7 +155,7 @@ def jobtask_list_for_property(request, property_id: int):
 def jobtask_detail(request, pk: int):
     job_task = get_object_or_404(
         JobTask.objects.select_related("site", "customer", "service_routine")
-        .prefetch_related("items", "additional_technicians"),
+        .prefetch_related("items", "additional_technicians", "property_assets"),
         pk=pk,
     )
 
@@ -82,11 +167,187 @@ def jobtask_detail(request, pk: int):
     gst = _money_2dp(value * Decimal(str(gst_rate)))
     total_value = _money_2dp(value + gst)
 
+    # --- Property Assets tab context ---
+    linked_ids = set(job_task.property_assets.values_list("id", flat=True))
+
+    available_property_assets = []
+    if job_task.site_id:
+        available_property_assets = (
+            PropertyAsset.objects.filter(property_id=job_task.site_id)
+            .exclude(id__in=linked_ids)
+            .order_by("asset_label", "location", "level", "block", "id")
+        )
+
+    # Dropdowns for adding a new asset from the job task
+    categories_list = _get_dropdown_list("Asset Categories")
+    equipment_list = _get_dropdown_list("Asset Equipment")
+
+    asset_categories = (
+        DropdownOption.objects.filter(dropdown_list=categories_list, is_active=True).order_by("label")
+        if categories_list else DropdownOption.objects.none()
+    )
+    asset_equipment = (
+        DropdownOption.objects.filter(dropdown_list=equipment_list, is_active=True)
+        .select_related("parent")
+        .order_by("label")
+        if equipment_list else DropdownOption.objects.none()
+    )
+
+    asset_codes = (
+        AssetCode.objects.filter(is_active=True)
+        .select_related("category", "equipment")
+        .order_by("code")
+    )
+
+    assetcode_ct_id = ContentType.objects.get_for_model(AssetCode).id
+    asset_field_payload = _build_asset_field_payload()
+
     return render(
         request,
         "job_tasks/jobtask_detail.html",
-        {"job_task": job_task, "value": value, "gst": gst, "total_value": total_value},
+        {
+            "job_task": job_task,
+            "value": value,
+            "gst": gst,
+            "total_value": total_value,
+
+            # Property Assets tab
+            "available_property_assets": available_property_assets,
+            "assetcode_ct_id": assetcode_ct_id,
+            "asset_categories": asset_categories,
+            "asset_equipment": asset_equipment,
+            "asset_codes": asset_codes,
+            "asset_field_payload": asset_field_payload,
+            "categories_list": categories_list,
+            "equipment_list": equipment_list,
+        },
     )
+
+
+@transaction.atomic
+def jobtask_link_property_assets(request, pk: int):
+    """
+    Link existing PropertyAssets (owned by the property) to this JobTask.
+
+    POST:
+      - asset_ids: list of PropertyAsset ids to link
+    """
+    if request.method != "POST":
+        return HttpResponseBadRequest("POST required")
+
+    job_task = get_object_or_404(JobTask.objects.select_related("site"), pk=pk)
+
+    if not job_task.site_id:
+        messages.error(request, "This job task has no property linked.")
+        return redirect("job_tasks:detail", pk=job_task.pk)
+
+    asset_ids = request.POST.getlist("asset_ids")
+    asset_ids = [aid for aid in asset_ids if str(aid).strip().isdigit()]
+    if not asset_ids:
+        messages.warning(request, "No assets selected.")
+        return redirect("job_tasks:detail", pk=job_task.pk)
+
+    # Only allow linking assets that belong to this property
+    qs = PropertyAsset.objects.filter(property_id=job_task.site_id, id__in=asset_ids)
+
+    count = 0
+    for pa in qs:
+        job_task.property_assets.add(pa)
+        count += 1
+
+    messages.success(request, f"Linked {count} asset(s) to this job task.")
+    return redirect("job_tasks:detail", pk=job_task.pk)
+
+
+@transaction.atomic
+def jobtask_unlink_property_asset(request, pk: int, asset_id: int):
+    """
+    Unlink a PropertyAsset from a JobTask.
+    Does NOT delete the PropertyAsset.
+    """
+    if request.method != "POST":
+        return HttpResponseBadRequest("POST required")
+
+    job_task = get_object_or_404(JobTask.objects.select_related("site"), pk=pk)
+
+    # Ensure the asset exists and belongs to the same property (safety)
+    asset = get_object_or_404(PropertyAsset, pk=asset_id)
+
+    if job_task.site_id and asset.property_id and job_task.site_id != asset.property_id:
+        messages.error(request, "That asset belongs to a different property.")
+        return redirect("job_tasks:detail", pk=job_task.pk)
+
+    if not job_task.property_assets.filter(pk=asset_id).exists():
+        messages.warning(request, "Asset not linked to this job task.")
+        return redirect("job_tasks:detail", pk=job_task.pk)
+
+    job_task.property_assets.remove(asset_id)
+
+    messages.success(request, "Asset unlinked from this job task.")
+    return redirect("job_tasks:detail", pk=job_task.pk)
+
+
+@transaction.atomic
+def jobtask_add_property_asset(request, pk: int):
+    """
+    Add an asset from within the JobTask tab.
+
+    Behaviour:
+    - Creates a PropertyAsset (owned by the JobTask's property)
+    - Links it to the JobTask
+
+    POST (minimum):
+      - asset_code_id (required)
+      - asset_code_ct_id (hidden) should be codes.AssetCode CT id
+
+    Optional:
+      - block, level, location
+      - attr__<slug>=value (dynamic optional fields)
+      - attributes_json (fallback)
+    """
+    if request.method != "POST":
+        return HttpResponseBadRequest("POST required")
+
+    job_task = get_object_or_404(JobTask.objects.select_related("site"), pk=pk)
+
+    if not job_task.site_id:
+        messages.error(request, "This job task has no property linked. Link a property first.")
+        return redirect("job_tasks:detail", pk=job_task.pk)
+
+    asset_code_id = (request.POST.get("asset_code_id") or "").strip()
+    if not asset_code_id.isdigit():
+        messages.error(request, "Please select a valid Asset Code.")
+        return redirect("job_tasks:detail", pk=job_task.pk)
+
+    # Validate ContentType is AssetCode
+    ct_id = (request.POST.get("asset_code_ct_id") or "").strip()
+    assetcode_ct = ContentType.objects.get_for_model(AssetCode)
+    if not (ct_id.isdigit() and int(ct_id) == assetcode_ct.id):
+        messages.error(request, "Invalid asset library reference.")
+        return redirect("job_tasks:detail", pk=job_task.pk)
+
+    asset_code = get_object_or_404(AssetCode, pk=int(asset_code_id))
+
+    block = (request.POST.get("block") or "").strip()
+    level = (request.POST.get("level") or "").strip()
+    location = (request.POST.get("location") or "").strip()
+    attributes = _extract_attributes_from_post(request.POST)
+
+    prop_asset = PropertyAsset.objects.create(
+        property=job_task.site,
+        asset_code_content_type=assetcode_ct,
+        asset_code_object_id=asset_code.pk,
+        asset_label=str(asset_code),
+        block=block,
+        level=level,
+        location=location,
+        attributes=attributes or {},
+    )
+
+    job_task.property_assets.add(prop_asset)
+
+    messages.success(request, "Asset added and linked to this job task.")
+    return redirect("job_tasks:detail", pk=job_task.pk)
 
 
 @transaction.atomic
@@ -96,7 +357,6 @@ def jobtask_create(request):
         if form.is_valid():
             job_task = form.save()
             messages.success(request, "Job Task created. You can now add Job Details items.")
-            # go to edit screen so user can add items immediately
             return redirect("job_tasks:edit", pk=job_task.pk)
     else:
         form = JobTaskForm()
@@ -126,14 +386,11 @@ def jobtask_update(request, pk: int):
         if form.is_valid():
             job_task = form.save()
 
-            # ✅ warning if service date set but no technician
             if job_task.service_date and not job_task.service_technician:
                 messages.warning(request, "You must allocate a technician for this job")
 
             messages.success(request, "Job Task updated.")
-            # ✅ return user to Job Details area (bottom)
             return redirect(_edit_url_with_anchor(job_task))
-
     else:
         form = JobTaskForm(instance=job_task)
 

@@ -2,6 +2,7 @@
 
 {% block content %}
 <div class="container-fluid">
+
   <div class="d-flex align-items-center justify-content-between mb-3">
     <div>
       <h3 class="mb-0">{{ object.display_name }}</h3>
@@ -17,18 +18,549 @@
     </div>
   </div>
 
-  {% include "properties/_property_tabs.html" %}
+  {% include "properties/property_tabs_header.html" %}
 
-  <div class="card shadow-sm">
-    <div class="card-header d-flex align-items-center justify-content-between">
-      <strong>Site Assets</strong>
-      <span class="text-muted small">Coming soon</span>
-    </div>
-    <div class="card-body">
-      <div class="text-muted">
-        This tab is ready. When you add the Site Assets model/module, we’ll list assets here and add Create/Edit actions.
+  <div class="row g-3">
+
+    <!-- ADD ASSET -->
+    <div class="col-12 col-lg-5">
+      <div class="card shadow-sm">
+        <div class="card-header">
+          <strong>Add Asset</strong>
+        </div>
+        <div class="card-body">
+
+          <form method="post" action="{% url 'properties:add_property_asset' pk=object.pk %}">
+            {% csrf_token %}
+            <input type="hidden" name="asset_code_ct_id" value="{{ assetcode_ct_id }}">
+
+            <div class="mb-3">
+              <label class="form-label"><strong>Category</strong></label>
+              <select id="asset_category" class="form-select">
+                <option value="">-- Select --</option>
+                {% for c in asset_categories %}
+                  <option value="{{ c.id }}">{{ c.label }}</option>
+                {% endfor %}
+              </select>
+              {% if not categories_list %}
+                <div class="form-text text-warning">
+                  Could not find DropdownList “Asset Categories”. Check Settings → Dropdown Lists.
+                </div>
+              {% endif %}
+            </div>
+
+            <div class="mb-3">
+              <label class="form-label"><strong>Equipment</strong></label>
+              <select id="asset_equipment" class="form-select" disabled>
+                <option value="">-- Select --</option>
+                {% for e in asset_equipment %}
+                  <option value="{{ e.id }}" data-parent="{{ e.parent_id|default_if_none:'' }}">{{ e.label }}</option>
+                {% endfor %}
+              </select>
+              {% if not equipment_list %}
+                <div class="form-text text-warning">
+                  Could not find DropdownList “Asset Equipment”. Check Settings → Dropdown Lists.
+                </div>
+              {% endif %}
+            </div>
+
+            <div class="mb-3">
+              <label class="form-label"><strong>Asset Code</strong></label>
+              <select id="asset_code_select" name="asset_code_id" class="form-select" required disabled>
+                <option value="">-- Select --</option>
+                {% for ac in asset_codes %}
+                  <option value="{{ ac.id }}"
+                          data-category="{{ ac.category_id }}"
+                          data-equipment="{{ ac.equipment_id }}">
+                    {{ ac.code }} — {{ ac.category.label }} / {{ ac.equipment.label }}
+                  </option>
+                {% endfor %}
+              </select>
+              <div class="form-text">
+                Select Category → Equipment → Asset Code.
+              </div>
+            </div>
+
+            <hr class="my-3">
+
+            <div class="mb-3">
+              <label class="form-label"><strong>Barcode</strong></label>
+              <input type="text" name="barcode" class="form-control" placeholder="Scan or type barcode">
+              <div class="form-text">Optional. If provided, must be unique.</div>
+            </div>
+
+            <div class="mb-3">
+              <label class="form-label"><strong>Block</strong></label>
+              <input type="text" name="block" class="form-control">
+            </div>
+
+            <div class="mb-3">
+              <label class="form-label"><strong>Level</strong></label>
+              <input type="text" name="level" class="form-control">
+            </div>
+
+            <div class="mb-3">
+              <label class="form-label"><strong>Location</strong></label>
+              <input type="text" name="location" class="form-control">
+            </div>
+
+            <!-- OPTIONAL FIELDS -->
+            <div class="card mt-3">
+              <div class="card-header">
+                <strong>Additional Fields</strong>
+              </div>
+              <div class="card-body">
+
+                <div id="optional_fields_empty" class="text-muted">
+                  Select Equipment to show additional fields.
+                </div>
+
+                <div id="optional_fields_wrap" class="row g-3" style="display:none;">
+                  {% for f in asset_field_payload %}
+                    <div class="col-12"
+                         data-opt-field="1"
+                         data-opt-slug="{{ f.slug }}"
+                         style="display:none;">
+                      <label class="form-label"><strong>{{ f.label }}</strong></label>
+                      <select class="form-select" data-opt-select="1" style="display:none;"></select>
+                      <input type="text" class="form-control" data-opt-input="1" style="display:none;">
+                    </div>
+                  {% endfor %}
+                </div>
+
+                <div class="form-text mt-2">
+                  These fields are driven by your Equipment schema (Equipment → Optional Fields → Allowed values).
+                  Values are saved to this property’s asset instance.
+                </div>
+              </div>
+            </div>
+
+            <button type="submit" class="btn btn-primary mt-3">Add Asset</button>
+          </form>
+
+          {{ equipment_optional_map|json_script:"equipmentOptionalMap" }}
+
+          <script>
+            (function () {
+              const categoryEl = document.getElementById("asset_category");
+              const equipmentEl = document.getElementById("asset_equipment");
+              const assetCodeEl = document.getElementById("asset_code_select");
+
+              const optionalEmptyEl = document.getElementById("optional_fields_empty");
+              const optionalWrapEl = document.getElementById("optional_fields_wrap");
+              const optFields = Array.from(document.querySelectorAll("[data-opt-field='1']"));
+
+              const equipmentOptionalMap = (function () {
+                try {
+                  const el = document.getElementById("equipmentOptionalMap");
+                  return JSON.parse(el.textContent || "{}");
+                } catch (e) {
+                  return {};
+                }
+              })();
+
+              const allEquipmentOptions = Array.from(equipmentEl.querySelectorAll("option")).filter(o => o.value !== "");
+              const allAssetCodeOptions = Array.from(assetCodeEl.querySelectorAll("option")).filter(o => o.value !== "");
+
+              function resetSelect(selectEl, placeholderText) {
+                selectEl.value = "";
+                Array.from(selectEl.querySelectorAll("option")).forEach((opt, idx) => {
+                  opt.hidden = idx !== 0;
+                });
+                if (placeholderText) selectEl.querySelector("option").textContent = placeholderText;
+              }
+
+              function enableSelect(selectEl, enabled) {
+                selectEl.disabled = !enabled;
+              }
+
+              function clearFieldNamesAndValues(container) {
+                const sel = container.querySelector("[data-opt-select='1']");
+                const inp = container.querySelector("[data-opt-input='1']");
+                if (sel) { sel.name = ""; sel.value = ""; sel.innerHTML = ""; }
+                if (inp) { inp.name = ""; inp.value = ""; }
+              }
+
+              function hideAllOptionalFields(message) {
+                optFields.forEach(el => {
+                  el.style.display = "none";
+                  clearFieldNamesAndValues(el);
+                });
+                optionalWrapEl.style.display = "none";
+                optionalEmptyEl.style.display = "block";
+                optionalEmptyEl.textContent = message || "Select Equipment to show additional fields.";
+              }
+
+              function showOptionalFieldsForEquipment(equipmentId) {
+                const map = equipmentOptionalMap[String(equipmentId)] || null;
+
+                if (!map || typeof map !== "object") {
+                  hideAllOptionalFields("No additional fields found for this equipment.");
+                  return;
+                }
+
+                let shown = 0;
+
+                optFields.forEach(el => {
+                  const slug = el.getAttribute("data-opt-slug");
+                  const values = map[slug];
+
+                  clearFieldNamesAndValues(el);
+
+                  const sel = el.querySelector("[data-opt-select='1']");
+                  const inp = el.querySelector("[data-opt-input='1']");
+
+                  if (!values || !Array.isArray(values)) {
+                    el.style.display = "none";
+                    if (sel) sel.style.display = "none";
+                    if (inp) inp.style.display = "none";
+                    return;
+                  }
+
+                  el.style.display = "block";
+                  shown += 1;
+
+                  if (values.length > 0) {
+                    if (sel) {
+                      const opt0 = document.createElement("option");
+                      opt0.value = "";
+                      opt0.textContent = "-- Select --";
+                      sel.appendChild(opt0);
+
+                      values.forEach(v => {
+                        const o = document.createElement("option");
+                        o.value = v;
+                        o.textContent = v;
+                        sel.appendChild(o);
+                      });
+
+                      sel.style.display = "block";
+                      sel.name = "attr__" + slug;
+                    }
+
+                    if (inp) {
+                      inp.style.display = "none";
+                      inp.name = "";
+                      inp.value = "";
+                    }
+                  } else {
+                    if (inp) {
+                      inp.style.display = "block";
+                      inp.name = "attr__" + slug;
+                    }
+                    if (sel) {
+                      sel.style.display = "none";
+                      sel.name = "";
+                      sel.value = "";
+                    }
+                  }
+                });
+
+                if (shown > 0) {
+                  optionalWrapEl.style.display = "flex";
+                  optionalEmptyEl.style.display = "none";
+                } else {
+                  hideAllOptionalFields("No additional fields for this equipment.");
+                }
+              }
+
+              function filterEquipmentByCategory(categoryId) {
+                resetSelect(equipmentEl, "-- Select --");
+                resetSelect(assetCodeEl, "-- Select --");
+                enableSelect(assetCodeEl, false);
+                hideAllOptionalFields();
+
+                if (!categoryId) {
+                  enableSelect(equipmentEl, false);
+                  return;
+                }
+
+                let shown = 0;
+                allEquipmentOptions.forEach(opt => {
+                  const parent = opt.getAttribute("data-parent") || "";
+                  const match = (parent === "" || parent === categoryId);
+                  opt.hidden = !match;
+                  if (match) shown += 1;
+                });
+
+                enableSelect(equipmentEl, true);
+
+                if (shown === 0) {
+                  allEquipmentOptions.forEach(opt => opt.hidden = false);
+                }
+              }
+
+              function filterAssetCodes(categoryId, equipmentId) {
+                resetSelect(assetCodeEl, "-- Select --");
+
+                if (!categoryId || !equipmentId) {
+                  enableSelect(assetCodeEl, false);
+                  return;
+                }
+
+                let shown = 0;
+                allAssetCodeOptions.forEach(opt => {
+                  const oc = opt.getAttribute("data-category");
+                  const oe = opt.getAttribute("data-equipment");
+                  const match = (oc === categoryId && oe === equipmentId);
+                  opt.hidden = !match;
+                  if (match) shown += 1;
+                });
+
+                enableSelect(assetCodeEl, true);
+
+                if (shown === 0) {
+                  enableSelect(assetCodeEl, false);
+                  assetCodeEl.querySelector("option").textContent = "No Asset Codes for this selection";
+                }
+              }
+
+              resetSelect(equipmentEl, "-- Select --");
+              resetSelect(assetCodeEl, "-- Select --");
+              enableSelect(equipmentEl, false);
+              enableSelect(assetCodeEl, false);
+              hideAllOptionalFields();
+
+              categoryEl.addEventListener("change", function () {
+                filterEquipmentByCategory(categoryEl.value || "");
+              });
+
+              equipmentEl.addEventListener("change", function () {
+                const categoryId = categoryEl.value || "";
+                const equipmentId = equipmentEl.value || "";
+                filterAssetCodes(categoryId, equipmentId);
+
+                hideAllOptionalFields();
+                if (equipmentId) showOptionalFieldsForEquipment(equipmentId);
+              });
+            })();
+          </script>
+
+        </div>
       </div>
     </div>
+
+    <!-- EXISTING ASSETS -->
+    <div class="col-12 col-lg-7">
+      <div class="card shadow-sm">
+        <div class="card-header d-flex justify-content-between align-items-center">
+          <strong>Site Assets</strong>
+          <span class="text-muted small">
+            {{ assets|length }} item{{ assets|length|pluralize }}
+          </span>
+        </div>
+
+        <div class="card-body p-0">
+          {% if assets %}
+            <div class="table-responsive">
+              <table class="table table-sm mb-0 align-middle">
+                <thead class="table-light">
+                  <tr>
+                    <th>Asset</th>
+                    <th>Barcode</th>
+                    <th>Block</th>
+                    <th>Level</th>
+                    <th>Location</th>
+                    <th class="text-end"></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {% for a in assets %}
+                    <tr>
+                      <td><strong>{{ a.get_asset_display }}</strong></td>
+                      <td>{{ a.barcode|default:"—" }}</td>
+                      <td>{{ a.block|default:"—" }}</td>
+                      <td>{{ a.level|default:"—" }}</td>
+                      <td>{{ a.location|default:"—" }}</td>
+                      <td class="text-end">
+                        <div class="d-inline-flex gap-2">
+                          <button type="button"
+                                  class="btn btn-sm btn-outline-secondary js-asset-view"
+                                  data-bs-toggle="modal"
+                                  data-bs-target="#assetValuesModal{{ a.pk }}"
+                                  data-attrs='{{ a.attributes|default:"{}"|escapejs }}'>
+                            View
+                          </button>
+
+                          <form method="post"
+                                action="{% url 'properties:delete_property_asset' pk=object.pk asset_id=a.pk %}">
+                            {% csrf_token %}
+                            <button type="submit"
+                                    class="btn btn-sm btn-outline-danger"
+                                    onclick="return confirm('Remove this asset from the property?');">
+                              Delete
+                            </button>
+                          </form>
+                        </div>
+                      </td>
+                    </tr>
+                  {% endfor %}
+                </tbody>
+              </table>
+            </div>
+          {% else %}
+            <div class="p-3 text-muted">No site assets added yet.</div>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+
   </div>
 </div>
+
+{# ✅ Move modals OUTSIDE the table for valid HTML #}
+{% if assets %}
+  {% for a in assets %}
+    <div class="modal fade" id="assetValuesModal{{ a.pk }}" tabindex="-1" aria-hidden="true">
+      <div class="modal-dialog modal-lg modal-dialog-scrollable">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title mb-0">{{ a.get_asset_display }}</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+          </div>
+
+          <div class="modal-body">
+
+            <div class="row g-3 mb-3">
+              <div class="col-md-4">
+                <div class="text-muted small">Barcode</div>
+                <div><strong>{{ a.barcode|default:"—" }}</strong></div>
+              </div>
+              <div class="col-md-4">
+                <div class="text-muted small">Block</div>
+                <div><strong>{{ a.block|default:"—" }}</strong></div>
+              </div>
+              <div class="col-md-4">
+                <div class="text-muted small">Level</div>
+                <div><strong>{{ a.level|default:"—" }}</strong></div>
+              </div>
+              <div class="col-12">
+                <div class="text-muted small">Location</div>
+                <div><strong>{{ a.location|default:"—" }}</strong></div>
+              </div>
+            </div>
+
+            <hr>
+            <h6 class="mb-3">Additional Fields</h6>
+
+            <div id="assetAttrsRender{{ a.pk }}">
+              <div class="text-muted">Loading…</div>
+            </div>
+
+          </div>
+
+          <div class="modal-footer">
+            <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Close</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  {% endfor %}
+{% endif %}
+
+{# ✅ Put field payload into json_script so JS has NO {{ }} inside it #}
+{{ asset_field_payload|json_script:"assetFieldPayload" }}
+
+<script>
+  (function () {
+    const labelBySlug = {};
+
+    // Read the payload from json_script instead of inline {{ }}
+    try {
+      const el = document.getElementById("assetFieldPayload");
+      const fieldPayload = el ? JSON.parse(el.textContent || "[]") : [];
+      (fieldPayload || []).forEach(f => {
+        if (f && f.slug) labelBySlug[String(f.slug)] = String(f.label || f.slug);
+      });
+    } catch (e) {
+      // ignore
+    }
+
+    function escapeHtml(str) {
+      return String(str)
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;")
+        .replaceAll("'", "&#039;");
+    }
+
+    function prettySlug(slug) {
+      return String(slug || "")
+        .replaceAll("_", " ")
+        .replaceAll("-", " ")
+        .replace(/\s+/g, " ")
+        .trim();
+    }
+
+    function renderAttrs(mount, attrsObj) {
+      if (!mount) return;
+
+      const attrs = (attrsObj && typeof attrsObj === "object") ? attrsObj : {};
+      const keys = Object.keys(attrs);
+
+      if (!keys.length) {
+        mount.innerHTML = '<div class="text-muted">No additional values saved for this asset.</div>';
+        return;
+      }
+
+      keys.sort((a, b) => {
+        const la = (labelBySlug[a] || prettySlug(a)).toLowerCase();
+        const lb = (labelBySlug[b] || prettySlug(b)).toLowerCase();
+        return la.localeCompare(lb);
+      });
+
+      let html = '<div class="list-group">';
+      keys.forEach(k => {
+        const label = labelBySlug[k] || prettySlug(k) || k;
+        const val = attrs[k];
+
+        let display = "";
+        if (val === null || val === undefined || val === "") {
+          display = "—";
+        } else if (Array.isArray(val)) {
+          display = val.map(v => escapeHtml(v)).join(", ");
+        } else if (typeof val === "object") {
+          display = escapeHtml(JSON.stringify(val));
+        } else {
+          display = escapeHtml(val);
+        }
+
+        html += `
+          <div class="list-group-item">
+            <div class="fw-semibold">${escapeHtml(label)}</div>
+            <div class="text-muted small">${display}</div>
+          </div>
+        `;
+      });
+      html += "</div>";
+
+      mount.innerHTML = html;
+    }
+
+    document.addEventListener("shown.bs.modal", function (e) {
+      const modal = e.target;
+      if (!modal || !modal.id) return;
+
+      const pk = modal.id.replace("assetValuesModal", "");
+      const mount = document.getElementById("assetAttrsRender" + pk);
+
+      const btn = document.querySelector('.js-asset-view[data-bs-target="#' + modal.id + '"]');
+      if (!btn) {
+        renderAttrs(mount, {});
+        return;
+      }
+
+      let attrs = {};
+      try {
+        attrs = JSON.parse(btn.dataset.attrs || "{}");
+      } catch (err) {
+        attrs = {};
+      }
+
+      renderAttrs(mount, attrs);
+    });
+  })();
+</script>
+
 {% endblock %}

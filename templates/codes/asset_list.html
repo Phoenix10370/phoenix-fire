@@ -3,44 +3,135 @@
 {% block content %}
 <div class="d-flex justify-content-between align-items-center mb-3">
   <h1 class="h3 mb-0">Asset Codes</h1>
-  <a class="btn btn-primary" href="{% url 'codes:asset_create' %}">
-    <i class="bi bi-plus-lg me-1"></i> Add Asset Code
-  </a>
-</div>
 
-<div class="card shadow-sm">
-  <div class="table-responsive">
-    <table class="table table-hover align-middle mb-0">
-      <thead class="table-light">
-        <tr>
-          <th style="width:180px;">Asset Code UID</th>
-          <th style="width:260px;">Category</th>
-          <th>Equipment</th>
-          <th class="text-end" style="width:160px;">Frequency</th>
-          <th class="text-end" style="width:220px;">Actions</th>
-        </tr>
-      </thead>
-
-      <tbody>
-        {% for item in items %}
-          <tr>
-            <td class="fw-semibold">{{ item.code }}</td>
-            <td>{{ item.category.label }}</td>
-            <td>{{ item.equipment.label }}</td>
-            <td class="text-end">{{ item.frequency }}</td>
-            <td class="text-end">
-              <a class="btn btn-sm btn-outline-secondary" href="{% url 'codes:asset_update' item.pk %}">Edit</a>
-              <a class="btn btn-sm btn-outline-danger" href="{% url 'codes:asset_delete' item.pk %}">Delete</a>
-            </td>
-          </tr>
-        {% empty %}
-          <tr>
-            <td colspan="5" class="text-muted">No Asset codes yet.</td>
-          </tr>
-        {% endfor %}
-      </tbody>
-
-    </table>
+  <div class="d-flex gap-2">
+    <a class="btn btn-outline-primary" href="{% url 'codes:asset_import' %}">
+      <i class="bi bi-upload me-1"></i> Import Excel
+    </a>
+    <a class="btn btn-primary" href="{% url 'codes:asset_create' %}">
+      <i class="bi bi-plus-lg me-1"></i> Add Asset Code
+    </a>
   </div>
 </div>
+
+<form method="post" action="{% url 'codes:asset_bulk_delete' %}" id="bulkDeleteForm">
+  {% csrf_token %}
+
+  <div class="d-flex justify-content-between align-items-center mb-2">
+    <div class="text-muted small">
+      Tip: tick rows to enable bulk delete.
+    </div>
+
+    <button type="submit" class="btn btn-sm btn-outline-danger" id="bulkDeleteBtn" disabled>
+      <i class="bi bi-trash me-1"></i> Delete Selected
+    </button>
+  </div>
+
+  <div class="card shadow-sm">
+    <div class="table-responsive">
+      <table class="table table-hover align-middle mb-0">
+        <thead class="table-light">
+          <tr>
+            <th style="width:48px;" class="text-center">
+              <input type="checkbox" class="form-check-input" id="selectAll">
+            </th>
+            <th style="width:180px;">Asset Code UID</th>
+            <th style="width:260px;">Category</th>
+            <th>Equipment</th>
+            <th class="text-end" style="width:160px;">Frequency</th>
+            <th class="text-end" style="width:360px;">Actions</th>
+          </tr>
+        </thead>
+
+        <tbody>
+          {% for item in items %}
+            <tr>
+              <td class="text-center">
+                <input
+                  type="checkbox"
+                  class="form-check-input row-check"
+                  name="ids"
+                  value="{{ item.pk }}"
+                >
+              </td>
+
+              <td class="fw-semibold">
+                <a class="text-decoration-none" href="{% url 'codes:asset_detail' item.pk %}">
+                  {{ item.code }}
+                </a>
+              </td>
+              <td>{{ item.category.label }}</td>
+              <td>{{ item.equipment.label }}</td>
+              <td class="text-end">{{ item.frequency }}</td>
+
+              <td class="text-end">
+                {% if item.equipment_id %}
+                  <a class="btn btn-sm btn-outline-secondary"
+                  href="{% url 'codes:equipment_schema_manage' item.equipment_id %}?next={{ request.get_full_path|urlencode }}">
+                  <i class="bi bi-sliders me-1"></i>Schema
+                  </a>
+
+                {% endif %}
+                <a class="btn btn-sm btn-outline-secondary" href="{% url 'codes:asset_detail' item.pk %}">View</a>
+                <a class="btn btn-sm btn-outline-secondary" href="{% url 'codes:asset_update' item.pk %}">Edit</a>
+                <a class="btn btn-sm btn-outline-danger" href="{% url 'codes:asset_delete' item.pk %}">Delete</a>
+              </td>
+            </tr>
+          {% empty %}
+            <tr>
+              <td colspan="6" class="text-muted">No Asset codes yet.</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+
+      </table>
+    </div>
+  </div>
+</form>
+
+<script>
+  (function () {
+    const selectAll = document.getElementById("selectAll");
+    const checks = () => Array.from(document.querySelectorAll(".row-check"));
+    const bulkBtn = document.getElementById("bulkDeleteBtn");
+    const form = document.getElementById("bulkDeleteForm");
+
+    function syncBulkButton() {
+      const anyChecked = checks().some(c => c.checked);
+      bulkBtn.disabled = !anyChecked;
+    }
+
+    if (selectAll) {
+      selectAll.addEventListener("change", function () {
+        checks().forEach(c => { c.checked = selectAll.checked; });
+        syncBulkButton();
+      });
+    }
+
+    document.addEventListener("change", function (e) {
+      if (e.target && e.target.classList.contains("row-check")) {
+        const all = checks();
+        const allChecked = all.length > 0 && all.every(c => c.checked);
+        const anyChecked = all.some(c => c.checked);
+
+        if (selectAll) selectAll.checked = allChecked;
+        bulkBtn.disabled = !anyChecked;
+      }
+    });
+
+    if (form) {
+      form.addEventListener("submit", function (e) {
+        const count = checks().filter(c => c.checked).length;
+        if (!count) {
+          e.preventDefault();
+          return;
+        }
+        const ok = confirm(`Delete ${count} selected Asset Code(s)? This cannot be undone.`);
+        if (!ok) e.preventDefault();
+      });
+    }
+
+    syncBulkButton();
+  })();
+</script>
 {% endblock %}

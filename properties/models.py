@@ -1,6 +1,9 @@
 from django.db import models, transaction
 from django.db.models import Max
+from django.contrib.contenttypes.fields import GenericForeignKey
+from django.contrib.contenttypes.models import ContentType
 from customers.models import Customer
+import uuid
 
 
 class Property(models.Model):
@@ -135,3 +138,97 @@ class Property(models.Model):
 
     def __str__(self):
         return self.building_name
+
+
+class PropertyAsset(models.Model):
+    """
+    Property-owned asset instance.
+
+    We use a GenericForeignKey so we DON'T assume the AssetCode lives in an app named "assets".
+    This avoids startup/system-check errors when your AssetCode model is in a different app.
+    """
+
+    property = models.ForeignKey(
+        Property,
+        on_delete=models.CASCADE,
+        related_name="site_assets",
+        db_index=True,
+    )
+
+    # Instance identifier (separate from any library/AssetCode uid)
+    uid = models.UUIDField(default=uuid.uuid4, editable=False, unique=True, db_index=True)
+
+    # ✅ NEW: Barcode (scanned by techs)
+    # Use null=True so unique is compatible with "blank" (multiple NULLs allowed).
+    barcode = models.CharField(
+        max_length=100,
+        blank=True,
+        null=True,
+        unique=True,
+        db_index=True,
+        help_text="Asset barcode/QR identifier (unique if provided).",
+    )
+
+    # NEW location fields requested
+    block = models.CharField(max_length=50, blank=True)
+    level = models.CharField(max_length=50, blank=True)
+    location = models.CharField(max_length=200, blank=True)
+
+    # Stores optional dropdown selections (varies per asset type)
+    attributes = models.JSONField(default=dict, blank=True)
+
+    # --- "AssetCode" link (generic, no hard dependency on a specific app label) ---
+    asset_code_content_type = models.ForeignKey(
+        ContentType,
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name="property_assets",
+    )
+    asset_code_object_id = models.PositiveIntegerField(null=True, blank=True, db_index=True)
+    asset_code = GenericForeignKey("asset_code_content_type", "asset_code_object_id")
+
+    # Optional denormalized label (handy for display if the linked record is missing later)
+    asset_label = models.CharField(max_length=200, blank=True)
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "Property Asset"
+        verbose_name_plural = "Property Assets"
+        ordering = ["property", "asset_label", "location", "level", "block", "id"]
+        indexes = [
+            models.Index(fields=["property", "asset_code_content_type", "asset_code_object_id"]),
+            models.Index(fields=["property", "barcode"]),
+        ]
+
+    def get_asset_display(self) -> str:
+        """
+        Best-effort display name:
+        - If linked AssetCode exists, use its common name fields or __str__
+        - Else fallback to stored asset_label
+        """
+        obj = self.asset_code
+        if obj is not None:
+            for attr in ("name", "equipment", "title", "code"):
+                val = getattr(obj, attr, None)
+                if val:
+                    return str(val)
+            return str(obj)
+
+        return self.asset_label or "Asset"
+
+    def __str__(self) -> str:
+        label = self.get_asset_display()
+        loc_bits = [b for b in [self.block, self.level, self.location] if b]
+        loc = " / ".join(loc_bits)
+        bc = (self.barcode or "").strip()
+
+        if loc and bc:
+            return f"{label} @ {self.property} ({loc}) [{bc}]"
+        if loc:
+            return f"{label} @ {self.property} ({loc})"
+        if bc:
+            return f"{label} @ {self.property} [{bc}]"
+        return f"{label} @ {self.property}"

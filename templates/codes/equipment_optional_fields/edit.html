@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="container" style="max-width: 900px;">
+
+  <div class="d-flex align-items-center justify-content-between mb-3">
+    <div>
+      <h1 class="h3 mb-1">Edit Equipment Optional Field</h1>
+      <div class="text-muted">
+        <strong>Category:</strong> {{ row.equipment.parent.label|default:"—" }} &nbsp;|&nbsp;
+        <strong>Equipment:</strong> {{ row.equipment.label }} &nbsp;|&nbsp;
+        <strong>Field:</strong> {{ row.field.label }}
+      </div>
+    </div>
+    <a class="btn btn-outline-secondary"
+       href="{% url 'codes:eof_list' %}?q={{ request.GET.q|urlencode }}&show={{ request.GET.show|urlencode }}">
+      Back
+    </a>
+  </div>
+
+  <div class="card">
+    <div class="card-body">
+      <form method="post">
+        {% csrf_token %}
+
+        <div class="form-check mb-3">
+          {{ form.is_active }}
+          <label class="form-check-label" for="{{ form.is_active.id_for_label }}">Enabled</label>
+          {% if form.is_active.errors %}<div class="text-danger small">{{ form.is_active.errors }}</div>{% endif %}
+        </div>
+
+        <div class="mb-3">
+          <label class="form-label" for="{{ form.values_text.id_for_label }}"><strong>Allowed dropdown values</strong></label>
+          {{ form.values_text }}
+          <div class="form-text">One option per line.</div>
+          {% if form.values_text.errors %}<div class="text-danger small">{{ form.values_text.errors }}</div>{% endif %}
+        </div>
+
+        <button class="btn btn-primary" type="submit">Save</button>
+      </form>
+    </div>
+  </div>
+
+</div>
+{% endblock %}

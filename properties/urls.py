@@ -9,6 +9,8 @@ from .views import (
     PropertyQuotationsView,
     PropertyRoutinesView,
     bulk_delete_routines,
+    add_property_asset,
+    delete_property_asset,
 )
 
 from .views_tabs import (
@@ -30,10 +32,14 @@ urlpatterns = [
     # ✅ Bulk delete routines (from property routines tab)
     path("<int:pk>/routines/bulk-delete/", bulk_delete_routines, name="bulk_delete_routines"),
 
-    # New tabs
+    # Tabs
     path("<int:pk>/assets/", PropertyAssetsView.as_view(), name="assets"),
     path("<int:pk>/key-contact/", PropertyKeyContactView.as_view(), name="key_contact"),
     path("<int:pk>/correspondence/", PropertyCorrespondenceView.as_view(), name="correspondence"),
+
+    # ✅ Property Assets actions
+    path("<int:pk>/assets/add/", add_property_asset, name="add_property_asset"),
+    path("<int:pk>/assets/<int:asset_id>/delete/", delete_property_asset, name="delete_property_asset"),
 
     path("<int:pk>/edit/", PropertyUpdateView.as_view(), name="update"),
     path("<int:pk>/delete/", PropertyDeleteView.as_view(), name="delete"),
