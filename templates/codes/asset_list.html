@@ -14,6 +14,11 @@
   </div>
 </div>
 
+<!-- ✅ Search / filter -->
+<div class="mb-2">
+  <input id="assetSearch" class="form-control" placeholder="Search asset code, category, equipment, frequency..." />
+</div>
+
 <form method="post" action="{% url 'codes:asset_bulk_delete' %}" id="bulkDeleteForm">
   {% csrf_token %}
 
@@ -95,6 +100,8 @@
     const checks = () => Array.from(document.querySelectorAll(".row-check"));
     const bulkBtn = document.getElementById("bulkDeleteBtn");
     const form = document.getElementById("bulkDeleteForm");
+    const searchInput = document.getElementById("assetSearch");
+    const tableBody = document.querySelector("table tbody");
 
     function syncBulkButton() {
       const anyChecked = checks().some(c => c.checked);
@@ -128,6 +135,17 @@
         }
         const ok = confirm(`Delete ${count} selected Asset Code(s)? This cannot be undone.`);
         if (!ok) e.preventDefault();
+      });
+    }
+
+    if (searchInput) {
+      searchInput.addEventListener("input", function () {
+        const q = (searchInput.value || "").trim().toLowerCase();
+        const rows = Array.from(tableBody.querySelectorAll("tr"));
+        rows.forEach(row => {
+          const text = row.textContent.toLowerCase();
+          row.style.display = text.includes(q) ? "" : "none";
+        });
       });
     }
 

@@ -46,6 +46,13 @@
   @media (prefers-reduced-motion: reduce) {
     .dash-tile:hover { transform: none; transition: none; }
   }
+
+  /* Map */
+  .dash-map {
+    height: 420px;
+    border-radius: 16px;
+    overflow: hidden;
+  }
 </style>
 
 <div class="row g-3">
@@ -78,10 +85,10 @@
           <div class="tile-title">Properties</div>
           <div class="tile-count">{{ properties_total }}</div>
 
-          {% if properties_recent is not None %}
-            <div class="tile-sub">New (30 days): {{ properties_recent }}</div>
+          {% if properties_not_validated > 0 %}
+            <div class="tile-sub">Not validated: {{ properties_not_validated }}</div>
           {% else %}
-            <div class="tile-sub">View all properties</div>
+            <div class="tile-sub">All properties validated</div>
           {% endif %}
 
           <div class="tile-icon"><i class="bi bi-buildings-fill"></i></div>
@@ -118,5 +125,99 @@
     </a>
   </div>
 
+  <!-- Map -->
+  <div class="col-12">
+    <div class="card shadow-sm">
+      <div class="card-header d-flex align-items-center justify-content-between">
+        <strong>Property Map</strong>
+        <span class="text-muted small">
+          Showing validated properties: {{ map_properties|length }}
+        </span>
+      </div>
+
+      <div class="card-body p-0">
+        <div id="dashboard-map" class="dash-map"></div>
+      </div>
+
+      {% if not map_properties %}
+        <div class="card-footer">
+          <div class="text-muted">
+            No validated properties yet. Open a property and click <strong>Validate Address</strong> to lock coordinates.
+          </div>
+        </div>
+      {% endif %}
+    </div>
+
+    {# JSON data for JS #}
+    {{ map_properties|json_script:"property-map-data" }}
+  </div>
+
 </div>
+
+{# Leaflet (no API key needed) #}
+<link
+  rel="stylesheet"
+  href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+  integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
+  crossorigin=""
+>
+<script
+  src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+  integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
+  crossorigin=""
+></script>
+
+<script>
+  (function () {
+    const el = document.getElementById("dashboard-map");
+    if (!el) return;
+
+    const dataEl = document.getElementById("property-map-data");
+    const props = dataEl ? JSON.parse(dataEl.textContent || "[]") : [];
+
+    // Default center (Australia-ish) if no points; will be replaced by fitBounds when points exist.
+    const map = L.map("dashboard-map", {
+      scrollWheelZoom: false,
+    }).setView([-25.2744, 133.7751], 4);
+
+    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+      maxZoom: 19,
+      attribution: "&copy; OpenStreetMap contributors",
+    }).addTo(map);
+
+    if (!props.length) return;
+
+    const bounds = L.latLngBounds([]);
+
+    props.forEach((p) => {
+      if (typeof p.lat !== "number" || typeof p.lng !== "number") return;
+
+      const marker = L.marker([p.lat, p.lng]).addTo(map);
+      bounds.extend([p.lat, p.lng]);
+
+      const safeName = (p.name || "Property").toString();
+      const safeAddress = (p.address || "").toString();
+      const safeUrl = (p.url || "").toString();
+
+      const popupHtml = `
+        <div style="min-width:220px">
+          <div style="font-weight:700; margin-bottom:4px;">${safeName}</div>
+          <div style="font-size:0.9rem; opacity:0.85; margin-bottom:8px;">${safeAddress}</div>
+          ${safeUrl ? `<a href="${safeUrl}" class="btn btn-sm btn-primary">Open</a>` : ""}
+        </div>
+      `;
+      marker.bindPopup(popupHtml);
+    });
+
+    map.fitBounds(bounds.pad(0.2));
+
+    // Enable scroll zoom only after user clicks the map (prevents annoying page scroll hijack)
+    map.on("click", function () {
+      if (!map.scrollWheelZoom.enabled()) map.scrollWheelZoom.enable();
+    });
+
+    // Fix sizing when inside Bootstrap cards/layout changes
+    setTimeout(() => map.invalidateSize(), 200);
+  })();
+</script>
 {% endblock %}

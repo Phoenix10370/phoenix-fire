@@ -1,0 +1,189 @@
+<div class="card shadow-sm mb-3">
+  <div class="card-header d-flex align-items-center justify-content-between">
+    <strong>Job Task</strong>
+
+    <div class="d-flex align-items-center gap-2">
+      {% if job_task.parent_job_id %}
+        <span class="badge text-bg-light">Child Job</span>
+      {% elif child_jobs %}
+        <span class="badge text-bg-light">Parent Job</span>
+      {% endif %}
+
+      <span class="badge bg-secondary">
+        {{ job_task.get_status_display|default:"—" }}
+      </span>
+    </div>
+  </div>
+
+  <div class="card-body">
+    <div class="row g-3">
+
+      <div class="col-12">
+        <div class="card shadow-sm">
+          <div class="card-header"><strong>Service Details</strong></div>
+          <div class="card-body">
+            <div class="row g-3">
+              <div class="col-md-6">
+                <strong>Service Type</strong>
+                <div>{{ job_task.service_type|default:"—" }}</div>
+              </div>
+
+              <div class="col-md-6">
+                <strong>Service Date</strong>
+                <div>{{ job_task.service_date|date:"d-M-y"|default:"—" }}</div>
+              </div>
+
+              <div class="col-md-6">
+                <strong>Service Time</strong>
+                <div>{{ job_task.service_time|default:"—" }}</div>
+              </div>
+
+              <div class="col-md-6">
+                <strong>Technician</strong>
+                <div>{{ job_task.service_technician|default:"—" }}</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="col-12">
+        <div class="card shadow-sm">
+          <div class="card-header"><strong>Access Details</strong></div>
+          <div class="card-body">
+            <strong>Access Details</strong>
+            <div class="mb-3">
+              {% if job_task.site %}
+                {{ job_task.site.get_access_details_display|default:"—" }}
+              {% else %}
+                —
+              {% endif %}
+            </div>
+
+            <strong>Access Code / Notes</strong>
+            <div>
+              {% if job_task.site %}
+                {{ job_task.site.access_code|default:"—" }}
+              {% else %}
+                —
+              {% endif %}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="col-12">
+        <div class="card shadow-sm mt-2">
+          <div class="card-header d-flex align-items-center justify-content-between">
+            <strong>Fire Safety Measures</strong>
+            {% if not is_root_job %}
+              <span class="badge text-bg-light">Shared (from parent job)</span>
+            {% endif %}
+          </div>
+
+          <div class="card-body p-0">
+            {% if measure_items and measure_items.exists %}
+              <div class="table-responsive">
+                <table class="table table-sm align-middle mb-0">
+                  <thead class="table-light">
+                    <tr>
+                      <th style="width: 130px;">Code</th>
+                      <th>Measure</th>
+                      <th class="text-end" style="width: 70px;">Qty</th>
+                      <th class="text-end" style="width: 100px;">Unit Price</th>
+                      <th class="text-end" style="width: 100px;">Line Total</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {% for it in measure_items %}
+                      <tr>
+                        <td>
+                          <span class="text-muted">{{ it.code|default:"" }}</span>
+                        </td>
+                        <td>
+                          <div class="fw-semibold">{{ it.description|default:"—" }}</div>
+                        </td>
+                        <td class="text-end">
+                          {{ it.quantity|default:"0" }}
+                        </td>
+                        <td class="text-end">
+                          {% if is_root_job %}
+                            {{ it.unit_price|default_if_none:"0.00" }}
+                          {% else %}
+                            —
+                          {% endif %}
+                        </td>
+                        <td class="text-end">
+                          {% if is_root_job %}
+                            {{ it.line_total|default_if_none:"0.00" }}
+                          {% else %}
+                            —
+                          {% endif %}
+                        </td>
+                      </tr>
+                    {% endfor %}
+                  </tbody>
+                </table>
+              </div>
+
+              {% if is_root_job %}
+                <div class="p-3 border-top">
+                  <div class="d-flex justify-content-end">
+                    <div style="min-width: 260px;">
+                      <div class="d-flex justify-content-between mb-2">
+                        <div class="text-muted">Subtotal</div>
+                        <div>{{ value|default:"0.00" }}</div>
+                      </div>
+                      <div class="d-flex justify-content-between mb-2">
+                        <div class="text-muted">GST</div>
+                        <div>{{ gst|default:"0.00" }}</div>
+                      </div>
+                      <div class="d-flex justify-content-between border-top pt-2">
+                        <strong>Total</strong>
+                        <strong>{{ total_value|default:"0.00" }}</strong>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              {% else %}
+                <div class="p-3 border-top text-muted small">
+                  Invoice values live on the parent/root job only.
+                </div>
+              {% endif %}
+
+            {% else %}
+              <div class="p-3 text-muted">
+                No measures found for this job.
+              </div>
+            {% endif %}
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<script>
+(function () {
+  const tbody = document.getElementById("jt-bulk-body");
+  if (!tbody) return;
+
+  function wireRemoveButtons(scope) {
+    (scope || document).querySelectorAll(".jt-remove-row").forEach(btn => {
+      btn.onclick = () => {
+        const row = btn.closest("tr");
+        if (!row) return;
+        const rows = tbody.querySelectorAll("tr");
+        if (rows.length <= 1) {
+          row.querySelectorAll("input, select").forEach(el => el.value = "");
+          return;
+        }
+        row.remove();
+      };
+    });
+  }
+
+  wireRemoveButtons(document);
+})();
+</script>

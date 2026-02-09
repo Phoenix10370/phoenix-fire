@@ -4,11 +4,11 @@
 <div class="container-fluid">
   <div class="d-flex align-items-center justify-content-between mb-3">
     <div>
-      <h3 class="mb-0">{{ object.display_name }}</h3>
-      <div class="text-muted small">
-        {{ object.full_address }}
-        {% if object.customer %} • {{ object.customer }}{% endif %}
-      </div>
+      <h3 class="mb-0">
+        <a href="{% url 'properties:detail' object.pk %}" class="text-decoration-none text-reset">
+          {{ object.full_address }}
+        </a>
+      </h3>
     </div>
     <div class="d-flex gap-2">
       <a href="{% url 'properties:list' %}" class="btn btn-outline-secondary">Back</a>
@@ -17,7 +17,7 @@
     </div>
   </div>
 
-  {% include "properties/_property_tabs.html" %}
+  {% include "properties/property_tabs_header.html" %}
 
   <div class="row g-3">
     <div class="col-lg-6">

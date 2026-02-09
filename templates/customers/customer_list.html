@@ -3,7 +3,7 @@
 {% block content %}
 
 <div class="d-flex justify-content-between align-items-center mb-3">
-  <h1 class="h3 mb-0">Customers</h1>
+  <h1 class="h3 mb-0">Customer List</h1>
 
   <a href="{% url 'customers:create' %}" class="btn btn-primary">
     <i class="bi bi-plus-lg me-1"></i>
@@ -61,7 +61,7 @@
             </th>
             <th style="width:500px;">Customer</th>
             <th style="width:180px;">Type</th>
-            <th style="width:250px;">Primary Contact</th>
+            <th style="width:280px;">Primary Contact</th>
             <th style="width:120px;">Status</th>
             <th class="text-end" style="width:300px;">Actions</th>
           </tr>
@@ -90,7 +90,9 @@
             <td class="fw-semibold">
               {{ item.customer_name }}
               {% if item.customer_address %}
-                <div class="text-muted small fw-normal">{{ item.customer_address }}</div>
+                <div class="text-muted small fw-normal">
+                  {{ item.customer_address }}
+                </div>
               {% endif %}
             </td>
 
@@ -110,7 +112,27 @@
               {% endif %}
             </td>
 
-            <td>{{ item.customer_contact_name|default:"—" }}</td>
+            <td>
+              {% if item.customer_contact_name %}
+                <div class="fw-semibold">
+                  {{ item.customer_contact_name }}
+                </div>
+
+                {% if item.customer_main_phone %}
+                  <div class="text-muted small">
+                    {{ item.customer_main_phone }}
+                  </div>
+                {% endif %}
+
+                {% if item.billing_email %}
+                  <div class="text-muted small">
+                    {{ item.billing_email }}
+                  </div>
+                {% endif %}
+              {% else %}
+                <span class="text-muted">—</span>
+              {% endif %}
+            </td>
 
             <td>
               {% if item.is_active %}
@@ -120,7 +142,7 @@
               {% endif %}
             </td>
 
-            <!-- ACTIONS (MATCH ROUTINES STYLE) -->
+            <!-- ACTIONS -->
             <td class="text-end">
               <a
                 class="btn btn-sm btn-outline-primary"
@@ -152,7 +174,6 @@
           </tr>
           {% endfor %}
         </tbody>
-
       </table>
     </div>
   </div>
@@ -172,10 +193,9 @@
     function initRowSelection() {
       document.querySelectorAll("tr.customer-row").forEach(row => {
         row.addEventListener("click", (e) => {
-          // ✅ Don't trigger row actions when clicking checkboxes or buttons
           if (e.target.closest("a, button, input")) return;
           selectRow(row);
-          // ✅ open detail in a new tab when clicking the row
+
           const viewUrl = row.getAttribute("data-view-url");
           if (viewUrl) window.open(viewUrl, "_blank", "noopener");
         });
@@ -185,20 +205,21 @@
     }
 
     function selectRow(row) {
-      if (selectedRow && selectedRow !== row) selectedRow.classList.remove("table-active");
+      if (selectedRow && selectedRow !== row) {
+        selectedRow.classList.remove("table-active");
+      }
       selectedRow = row;
       selectedRow.classList.add("table-active");
     }
 
-    // Keyboard shortcuts: V=view, E=edit, Delete=delete (selected row) - open new tab
     document.addEventListener("keydown", (e) => {
-      const tag = (e.target && e.target.tagName) ? e.target.tagName.toLowerCase() : "";
+      const tag = e.target?.tagName?.toLowerCase() || "";
       if (tag === "input" || tag === "textarea" || e.target.isContentEditable) return;
       if (!selectedRow) return;
 
-      const viewUrl = selectedRow.getAttribute("data-view-url");
-      const editUrl = selectedRow.getAttribute("data-edit-url");
-      const deleteUrl = selectedRow.getAttribute("data-delete-url");
+      const viewUrl = selectedRow.dataset.viewUrl;
+      const editUrl = selectedRow.dataset.editUrl;
+      const deleteUrl = selectedRow.dataset.deleteUrl;
 
       if (e.key === "v" || e.key === "V") {
         e.preventDefault();
@@ -215,21 +236,21 @@
     function updateBulkUI() {
       const checks = document.querySelectorAll(".row-check");
       const checked = document.querySelectorAll(".row-check:checked");
+
       selectedCount.textContent = `${checked.length} selected`;
       bulkDeleteBtn.disabled = checked.length === 0;
 
-      // keep select-all in sync
-      if (checks.length === 0) {
+      if (!checks.length) {
         selectAll.checked = false;
         selectAll.indeterminate = false;
         return;
       }
+
       selectAll.checked = checked.length === checks.length;
       selectAll.indeterminate = checked.length > 0 && checked.length < checks.length;
     }
 
     function initBulkCheckboxes() {
-      // select all
       selectAll.addEventListener("change", () => {
         document.querySelectorAll(".row-check").forEach(cb => {
           cb.checked = selectAll.checked;
@@ -237,10 +258,9 @@
         updateBulkUI();
       });
 
-      // per row checkbox
       document.querySelectorAll(".row-check").forEach(cb => {
         cb.addEventListener("change", updateBulkUI);
-        cb.addEventListener("click", (e) => e.stopPropagation()); // ✅ don't trigger row click
+        cb.addEventListener("click", e => e.stopPropagation());
       });
 
       updateBulkUI();
@@ -251,9 +271,8 @@
       initBulkCheckboxes();
     }
 
-    // Live search (AJAX)
     let debounceTimer = null;
-    searchInput.addEventListener("input", function () {
+    searchInput.addEventListener("input", () => {
       clearTimeout(debounceTimer);
 
       debounceTimer = setTimeout(() => {
@@ -264,14 +283,12 @@
           .then(html => {
             const doc = new DOMParser().parseFromString(html, "text/html");
             const newBody = doc.querySelector("#customer-table-body");
+
             if (newBody) {
               tableBody.innerHTML = newBody.innerHTML;
               selectedRow = null;
-
-              // Reset select-all after new results
               selectAll.checked = false;
               selectAll.indeterminate = false;
-
               initAllUI();
             }
           });

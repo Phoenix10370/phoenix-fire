@@ -37,7 +37,6 @@ class PropertyForm(forms.ModelForm):
 
             "customer": forms.Select(attrs={"class": "form-select"}),
 
-            # ✅ NEW
             "property_description": forms.Select(attrs={"class": "form-select"}),
             "number_of_residential": forms.NumberInput(attrs={"class": "form-control", "min": 0}),
             "number_of_commercial": forms.NumberInput(attrs={"class": "form-control", "min": 0}),
@@ -74,3 +73,17 @@ class PropertyForm(forms.ModelForm):
                 self.fields["customer"].queryset = self.fields["customer"].queryset.order_by("customer_name")
             except Exception:
                 pass
+
+        # ✅ If a customer is preselected (via view initial or editing an existing property),
+        # lock the dropdown to prevent accidental reassignment.
+        locked_customer = None
+
+        if getattr(self.instance, "pk", None) and getattr(self.instance, "customer_id", None):
+            locked_customer = self.instance.customer_id
+        else:
+            initial_customer = self.initial.get("customer")
+            if initial_customer:
+                locked_customer = getattr(initial_customer, "pk", initial_customer)
+
+        if locked_customer and "customer" in self.fields:
+            self.fields["customer"].disabled = True

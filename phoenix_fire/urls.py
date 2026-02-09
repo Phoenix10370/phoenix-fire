@@ -26,6 +26,9 @@ urlpatterns = [
     path("email-templates/", include("email_templates.urls")),
     path("job-tasks/", include("job_tasks.urls")),
 
+    # ✅ Scheduling routes (namespaced correctly)
+    path("scheduling/", include(("scheduling.urls", "scheduling"), namespace="scheduling")),
+
     # ✅ QBO routes live here
     path("qbo/", include("qbo.urls")),
 ]

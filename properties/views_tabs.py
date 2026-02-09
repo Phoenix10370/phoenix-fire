@@ -15,6 +15,8 @@ from codes.models import (
     AssetField,
     EquipmentOptionalField,
 )
+from job_tasks.models import JobTaskAssetLink, JobTaskAssetResult
+from .utils import build_property_tab_counts
 
 
 def _get_dropdown_list(name_contains: str):
@@ -106,12 +108,14 @@ class PropertyAssetsView(DetailView):
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         context["tab"] = "assets"
+        context["tab_counts"] = build_property_tab_counts(self.object)
 
         # Existing property assets
-        context["assets"] = (
+        assets = (
             self.object.site_assets.all()
             .order_by("asset_label", "location", "level", "block", "id")
         )
+        context["assets"] = assets
 
         # ContentType for codes.AssetCode (so the form can post asset_code_ct_id + asset_code_id)
         assetcode_ct = ContentType.objects.get_for_model(AssetCode)
@@ -161,6 +165,72 @@ class PropertyAssetsView(DetailView):
 
         context["equipment_optional_map"] = _build_equipment_optional_map(equipment_ids)
 
+        # ✅ Add asset-code keyed map for optional fields
+        context["asset_code_optional_map"] = {
+            str(ac.id): context["equipment_optional_map"].get(str(ac.equipment_id), {})
+            for ac in context["asset_codes"]
+        }
+
+        # ✅ Add asset attributes map for modal rendering
+        context["asset_attrs_map"] = {
+            str(a.pk): (a.attributes or {})
+            for a in assets
+        }
+
+        asset_ids = list(assets.values_list("id", flat=True))
+        history_map: dict[str, list[dict]] = {}
+        inspected_count = 0
+        if asset_ids:
+            results = (
+                JobTaskAssetResult.objects
+                .filter(property_asset_id__in=asset_ids)
+                .exclude(result="")
+                .select_related(
+                    "job_task",
+                    "job_task__parent_job",
+                    "job_task__service_type",
+                    "job_task__service_technician",
+                )
+                .order_by("-updated_at")
+            )
+            inspected_count = (
+                results.values("property_asset_id").distinct().count()
+            )
+            for res in results:
+                jt = res.job_task
+                if not jt:
+                    continue
+                root_job = jt.parent_job if jt.parent_job_id else jt
+
+                service_type = ""
+                if root_job.service_type_id and root_job.service_type:
+                    service_type = root_job.service_type.name or ""
+
+                technician = ""
+                if jt.service_technician_id and jt.service_technician:
+                    full = jt.service_technician.get_full_name()
+                    technician = full or jt.service_technician.username
+
+                rows = history_map.setdefault(str(res.property_asset_id), [])
+                rows.append(
+                    {
+                        "job_task_id": root_job.pk,
+                        "service_type": service_type,
+                        "result": res.result or "",
+                        "child_job_id": jt.pk,
+                        "child_service_date": jt.service_date.isoformat() if jt.service_date else "",
+                        "child_technician": technician,
+                        "child_is_parent": jt.pk == root_job.pk,
+                    }
+                )
+
+        for asset in assets:
+            asset.history_count = len(history_map.get(str(asset.pk), []))
+
+        context["asset_history_map"] = history_map
+        context["asset_total_count"] = assets.count()
+        context["asset_inspected_count"] = inspected_count
+
         return context
 
 
@@ -174,6 +244,7 @@ class PropertyKeyContactView(DetailView):
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         context["tab"] = "key_contact"
+        context["tab_counts"] = build_property_tab_counts(self.object)
         return context
 
 
@@ -187,4 +258,5 @@ class PropertyCorrespondenceView(DetailView):
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         context["tab"] = "correspondence"
+        context["tab_counts"] = build_property_tab_counts(self.object)
         return context

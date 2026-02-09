@@ -3,11 +3,13 @@
 {% block content %}
 <div class="d-flex justify-content-between align-items-start mb-3">
   <div>
+    <div class="text-primary fw-semibold small mb-3">
+      CUSTOMER MANAGEMENT
+    </div>
     <h1 class="h3 mb-1">{{ item.customer_name }}</h1>
   </div>
-  <div class="d-flex gap-2">
 
-    <!-- NEW: Close Tab -->
+  <div class="d-flex gap-2">
     <button
       type="button"
       class="btn btn-outline-secondary"
@@ -28,9 +30,7 @@
     <div class="card shadow-sm">
       <div class="card-header fw-semibold">Customer Details</div>
       <div class="card-body">
-
         <dl class="row mb-0">
-
           <dt class="col-sm-4">Company Code</dt>
           <dd class="col-sm-8">{{ item.company_code|default:"—" }}</dd>
 
@@ -41,6 +41,9 @@
           <dd class="col-sm-8">{{ item.get_billing_type_display }}</dd>
 
           <hr class="my-3">
+
+          <dt class="col-sm-4">Address</dt>
+          <dd class="col-sm-8">{{ item.customer_address }}</dd>
 
           <dt class="col-sm-4">Type</dt>
           <dd class="col-sm-8">{{ item.customer_type }}</dd>
@@ -55,13 +58,13 @@
           <dd class="col-sm-8">{{ item.billing_email|default:"" }}</dd>
 
           {% if item.add_email %}
-          <dt class="col-sm-4">Additional Email</dt>
-          <dd class="col-sm-8">{{ item.add_email }}</dd>
+            <dt class="col-sm-4">Additional Email</dt>
+            <dd class="col-sm-8">{{ item.add_email }}</dd>
           {% endif %}
 
           {% if item.add_phone %}
-          <dt class="col-sm-4">Additional Phone</dt>
-          <dd class="col-sm-8">{{ item.add_phone }}</dd>
+            <dt class="col-sm-4">Additional Phone</dt>
+            <dd class="col-sm-8">{{ item.add_phone }}</dd>
           {% endif %}
 
           <dt class="col-sm-4">ABN/ACN</dt>
@@ -75,35 +78,46 @@
               <span class="badge text-bg-secondary">Inactive</span>
             {% endif %}
           </dd>
-
         </dl>
-
       </div>
     </div>
 
     {% if item.notes %}
-    <div class="card shadow-sm mt-3">
-      <div class="card-header fw-semibold">Notes</div>
-      <div class="card-body" style="white-space: pre-wrap;">{{ item.notes }}</div>
-    </div>
+      <div class="card shadow-sm mt-3">
+        <div class="card-header fw-semibold">Notes</div>
+        <div class="card-body" style="white-space: pre-wrap;">{{ item.notes }}</div>
+      </div>
     {% endif %}
   </div>
 
   <div class="col-lg-6">
     <div class="card shadow-sm mb-3">
       <div class="card-header d-flex justify-content-between align-items-center">
-        <span class="fw-semibold">Sites</span>
-        <a class="btn btn-sm btn-primary" href="{% url 'customers:site_create' item.pk %}">Add Site</a>
+        <div class="d-flex align-items-center gap-2">
+          <span class="fw-semibold">Sites</span>
+          <span class="badge text-bg-secondary">
+            {{ item.properties.count }}
+          </span>
+        </div>
+
+        <a class="btn btn-sm btn-primary" href="{% url 'properties:create' %}?customer={{ item.pk }}">
+          Add Site
+        </a>
       </div>
 
       <div class="card-body p-0">
-        {% if item.sites.all %}
+        {% if item.properties.all %}
           <div class="list-group list-group-flush">
-            {% for s in item.sites.all %}
-              <div class="list-group-item">
-                <div class="fw-semibold">{{ s.site_name }}</div>
-                <div class="text-muted small">{{ s.address }}</div>
-              </div>
+            {% for p in item.properties.all %}
+              <a class="list-group-item list-group-item-action" href="{% url 'properties:detail' p.pk %}">
+                <div class="fw-semibold">
+                  {{ p.building_name }}
+                  {% if p.site_id %}
+                    <span class="text-muted small fw-normal">({{ p.site_id }})</span>
+                  {% endif %}
+                </div>
+                <div class="text-muted small">{{ p.full_address }}</div>
+              </a>
             {% endfor %}
           </div>
         {% else %}
@@ -115,31 +129,34 @@
     <div class="card shadow-sm">
       <div class="card-header d-flex justify-content-between align-items-center">
         <span class="fw-semibold">Contacts</span>
-        <a class="btn btn-sm btn-primary" href="{% url 'customers:contact_create' item.pk %}">Add Contact</a>
+        <a class="btn btn-sm btn-primary" href="{% url 'customers:contact_create' item.pk %}">
+          Add Contact
+        </a>
       </div>
 
       <div class="card-body">
         <ul class="list-group">
           {% for c in item.contacts.all %}
-          <li class="list-group-item d-flex justify-content-between align-items-center">
-            <div>
-              <div class="fw-semibold">
-                {{ c.name }}
-                {% if c.is_primary %}
-                  <span class="badge text-bg-info ms-2">Primary</span>
-                {% endif %}
+            <li class="list-group-item d-flex justify-content-between align-items-center">
+              <div>
+                <div class="fw-semibold">
+                  {{ c.name }}
+                  {% if c.is_primary %}
+                    <span class="badge text-bg-info ms-2">Primary</span>
+                  {% endif %}
+                </div>
+                <div class="text-muted small">
+                  {{ c.email|default:"" }}{% if c.email and c.phone %} • {% endif %}{{ c.phone|default:"" }}
+                </div>
               </div>
-              <div class="text-muted small">
-                {{ c.email|default:"" }}{% if c.email and c.phone %} • {% endif %}{{ c.phone|default:"" }}
+
+              <div class="d-flex gap-2">
+                <a class="btn btn-sm btn-outline-secondary" href="{% url 'customers:contact_update' item.pk c.pk %}">Edit</a>
+                <a class="btn btn-sm btn-outline-danger" href="{% url 'customers:contact_delete' item.pk c.pk %}">Delete</a>
               </div>
-            </div>
-            <div class="d-flex gap-2">
-              <a class="btn btn-sm btn-outline-secondary" href="{% url 'customers:contact_update' item.pk c.pk %}">Edit</a>
-              <a class="btn btn-sm btn-outline-danger" href="{% url 'customers:contact_delete' item.pk c.pk %}">Delete</a>
-            </div>
-          </li>
+            </li>
           {% empty %}
-          <li class="list-group-item text-muted">No contacts yet.</li>
+            <li class="list-group-item text-muted">No contacts yet.</li>
           {% endfor %}
         </ul>
       </div>

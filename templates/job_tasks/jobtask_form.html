@@ -1,315 +1,391 @@
+{# templates/job_tasks/jobtask_form.html #}
 {% extends "base.html" %}
 {% block content %}
 
-<div class="d-flex align-items-center justify-content-between mb-3">
-  <div>
-    <h1 class="h3 mb-1">
-      {% if mode == "create" %}New Job Task{% else %}Edit Job Task{% endif %}
-    </h1>
+<style>
+  /* Floating Save button */
+  .pf-fab-save {
+    position: fixed;
+    right: 22px;
+    bottom: 22px;
+    z-index: 1050;
+  }
+  .pf-fab-save .btn {
+    border-radius: 999px;
+    padding: 8px 14px;
+    font-weight: 600;
+    font-size: 0.9rem;
+  }
+  /* Ensure page content isn't hidden behind the floating button */
+  .pf-bottom-safe-area {
+    padding-bottom: 110px;
+  }
+</style>
+
+<div class="pf-bottom-safe-area">
+
+  <div class="d-flex align-items-center justify-content-between mb-3">
+    <div>
+      <h1 class="h3 mb-1">
+        {% if mode == "create" %}New Job Task{% else %}Edit Job Task{% endif %}
+      </h1>
+    </div>
+
+    <div class="d-flex gap-2">
+      {% if job_task %}
+        <a href="{% url 'job_tasks:detail' job_task.pk %}" class="btn btn-outline-secondary">
+          Back to Job Task
+        </a>
+      {% else %}
+        <a href="{% url 'job_tasks:list' %}" class="btn btn-outline-secondary">
+          Back to list
+        </a>
+      {% endif %}
+    </div>
   </div>
 
-  <div class="d-flex gap-2">
-    {% if job_task %}
-      <a href="{% url 'job_tasks:detail' job_task.pk %}" class="btn btn-outline-secondary">
-        Back to Job Task
-      </a>
-    {% else %}
-      <a href="{% url 'job_tasks:list' %}" class="btn btn-outline-secondary">
-        Back to list
-      </a>
+  {% if form.errors %}
+    <div class="alert alert-danger">
+      Please fix the errors below.
+    </div>
+  {% endif %}
+
+  {# ONE MAIN FORM ONLY #}
+  <form method="post"
+        id="jobtask-form"
+        action="{% if job_task %}{% url 'job_tasks:edit' job_task.pk %}{% else %}{% url 'job_tasks:create' %}{% endif %}">
+    {% csrf_token %}
+
+    <input type="hidden" name="next" value="{% if job_task %}{% url 'job_tasks:detail' job_task.pk %}{% else %}{% url 'job_tasks:list' %}{% endif %}">
+
+    {% if form.parent_job %}
+      {{ form.parent_job }}
     {% endif %}
-  </div>
-</div>
 
-{% if form.errors %}
-  <div class="alert alert-danger">
-    Please fix the errors below.
-  </div>
-{% endif %}
+    <div class="row g-3">
 
-{# ============================================================= #}
-{# ONE MAIN FORM ONLY (no nested forms).                          #}
-{# Line-item actions use formaction/formmethod on buttons.        #}
-{# This keeps Job Details under Task and removes the big gap.     #}
-{# ============================================================= #}
-<form method="post" id="jobtask-form">
-  {% csrf_token %}
+      <!-- LEFT COLUMN -->
+      <div class="col-lg-8">
 
-  <div class="row g-3">
-
-    <!-- LEFT COLUMN -->
-    <div class="col-lg-8">
-
-      <!-- TASK -->
-      <div class="card mb-3 shadow-sm">
-        <div class="card-header bg-light fw-semibold">Task</div>
-        <div class="card-body">
-
-          <div class="mb-3">
-            <div class="text-muted small mb-1">Title</div>
-            {{ form.title }}
-            {% if form.title.errors %}<div class="text-danger small mt-1">{{ form.title.errors }}</div>{% endif %}
-          </div>
-
-          <div class="row g-3">
-            <div class="col-md-6">
-              <div class="text-muted small mb-1">Status</div>
-              {{ form.status }}
-              {% if form.status.errors %}<div class="text-danger small mt-1">{{ form.status.errors }}</div>{% endif %}
-            </div>
-
-            <div class="col-md-6">
-              <div class="text-muted small mb-1">Service Type</div>
-              {{ form.service_type }}
-              {% if form.service_type.errors %}<div class="text-danger small mt-1">{{ form.service_type.errors }}</div>{% endif %}
-            </div>
-
-            <div class="col-md-6">
-              <div class="text-muted small mb-1">Service Date</div>
-              {{ form.service_date }}
-              {% if form.service_date.errors %}<div class="text-danger small mt-1">{{ form.service_date.errors }}</div>{% endif %}
-            </div>
-
-            <div class="col-md-3">
-              <div class="text-muted small mb-1">Start Time</div>
-              {{ form.start_time }}
-              {% if form.start_time.errors %}<div class="text-danger small mt-1">{{ form.start_time.errors }}</div>{% endif %}
-            </div>
-
-            <div class="col-md-3">
-              <div class="text-muted small mb-1">Finish Time</div>
-              {{ form.finish_time }}
-              {% if form.finish_time.errors %}<div class="text-danger small mt-1">{{ form.finish_time.errors }}</div>{% endif %}
-            </div>
-
-            <div class="col-md-6">
-              <div class="text-muted small mb-1">Service Technician</div>
-              {{ form.service_technician }}
-              {% if form.service_technician.errors %}<div class="text-danger small mt-1">{{ form.service_technician.errors }}</div>{% endif %}
-            </div>
-
-            <!-- Technician Comments under Service Technician -->
-            <div class="col-md-6">
-              <div class="text-muted small mb-1">Technician Comments</div>
-              {{ form.technician_comments }}
-              {% if form.technician_comments.errors %}<div class="text-danger small mt-1">{{ form.technician_comments.errors }}</div>{% endif %}
-            </div>
-
-            <div class="col-12">
-              <div class="text-muted small mb-1">Additional Technicians</div>
-              <div class="border rounded p-2">
-                {{ form.additional_technicians }}
-              </div>
-              {% if form.additional_technicians.errors %}<div class="text-danger small mt-1">{{ form.additional_technicians.errors }}</div>{% endif %}
-            </div>
-          </div>
-
-        </div>
-      </div>
-
-      <!-- JOB DETAILS / LINE ITEMS (directly under Task) -->
-      <div class="card mb-3 shadow-sm" id="job-details">
-        <div class="card-header bg-light fw-semibold">Job Details</div>
-
-        {% if mode == "create" %}
+        <!-- TASK -->
+        <div class="card mb-3 shadow-sm">
+          <div class="card-header bg-light fw-semibold">Task</div>
           <div class="card-body">
-            <div class="text-muted">Save the Job Task first, then you can add Job Details items.</div>
-          </div>
-        {% else %}
 
-          <!-- ADD ITEM (no nested form; use buttons with formaction) -->
-          <div class="card-body border-bottom">
-            <div class="d-flex justify-content-between align-items-center mb-2">
-              <div class="fw-semibold">ADD ITEM</div>
-              <div class="text-muted small">
-                Choose EFSM code OR type a custom description
+            <div class="mb-3">
+              <div class="text-muted small mb-1">Title</div>
+              {{ form.title }}
+              {% if form.title.errors %}<div class="text-danger small mt-1">{{ form.title.errors }}</div>{% endif %}
+            </div>
+
+            <div class="row g-3">
+              <div class="col-md-6">
+                <div class="text-muted small mb-1">Status</div>
+                {{ form.status }}
+                {% if form.status.errors %}<div class="text-danger small mt-1">{{ form.status.errors }}</div>{% endif %}
+              </div>
+
+              <div class="col-md-6">
+                <div class="text-muted small mb-1">Service Type</div>
+                {{ form.service_type }}
+                {% if form.service_type.errors %}<div class="text-danger small mt-1">{{ form.service_type.errors }}</div>{% endif %}
+              </div>
+
+              <div class="col-md-6">
+                <div class="text-muted small mb-1">Service Date</div>
+                {{ form.service_date }}
+                {% if form.service_date.errors %}<div class="text-danger small mt-1">{{ form.service_date.errors }}</div>{% endif %}
+              </div>
+
+              <div class="col-md-3">
+                <div class="text-muted small mb-1">Start Time</div>
+                {{ form.start_time }}
+                {% if form.start_time.errors %}<div class="text-danger small mt-1">{{ form.start_time.errors }}</div>{% endif %}
+              </div>
+
+              <div class="col-md-3">
+                <div class="text-muted small mb-1">Finish Time</div>
+                {{ form.finish_time }}
+                {% if form.finish_time.errors %}<div class="text-danger small mt-1">{{ form.finish_time.errors }}</div>{% endif %}
+              </div>
+
+              <div class="col-md-6">
+                <div class="text-muted small mb-1">Service Technician</div>
+                {{ form.service_technician }}
+                {% if form.service_technician.errors %}<div class="text-danger small mt-1">{{ form.service_technician.errors }}</div>{% endif %}
+              </div>
+
+              <div class="col-md-6">
+                <div class="text-muted small mb-1">Technician Comments</div>
+                {{ form.technician_comments }}
+                {% if form.technician_comments.errors %}<div class="text-danger small mt-1">{{ form.technician_comments.errors }}</div>{% endif %}
+              </div>
+
+              <div class="col-12">
+                <div class="row g-3">
+                  <div class="col-12 col-lg-6">
+                    <div class="border rounded p-2">
+                      <div class="d-flex align-items-center justify-content-between mb-1">
+                        <div class="text-muted small">Shared Site Notes</div>
+                        <span class="badge text-bg-light">Shared</span>
+                      </div>
+                      {% if form.shared_site_notes_ui %}
+                        {{ form.shared_site_notes_ui }}
+                        {% if form.shared_site_notes_ui.errors %}
+                          <div class="text-danger small mt-1">{{ form.shared_site_notes_ui.errors }}</div>
+                        {% endif %}
+                        {% if form.shared_site_notes_ui.help_text %}
+                          <div class="form-text">{{ form.shared_site_notes_ui.help_text }}</div>
+                        {% endif %}
+                      {% else %}
+                        <div class="text-muted small">Shared notes field not available.</div>
+                      {% endif %}
+                    </div>
+                  </div>
+
+                  <div class="col-12 col-lg-6">
+                    <div class="border rounded p-2">
+                      <div class="d-flex align-items-center justify-content-between mb-1">
+                        <div class="text-muted small">Technician Job Notes</div>
+                        <span class="badge text-bg-light">Per Job</span>
+                      </div>
+                      {% if form.technician_job_notes %}
+                        {{ form.technician_job_notes }}
+                        {% if form.technician_job_notes.errors %}
+                          <div class="text-danger small mt-1">{{ form.technician_job_notes.errors }}</div>
+                        {% endif %}
+                      {% else %}
+                        <div class="text-muted small">Technician job notes field not available.</div>
+                      {% endif %}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {% if mode == "create" %}
+              <div class="col-12">
+                <div class="text-muted small mb-1">Additional Technicians</div>
+                <div class="border rounded p-2">
+                  {{ form.additional_technicians }}
+                </div>
+                {% if form.additional_technicians.errors %}<div class="text-danger small mt-1">{{ form.additional_technicians.errors }}</div>{% endif %}
+              </div>
+              {% endif %}
+            </div>
+
+          </div>
+        </div>
+
+        <!-- JOB DETAILS / LINE ITEMS -->
+        <div class="card mb-3 shadow-sm" id="job-details">
+          <div class="card-header bg-light fw-semibold">Job Details</div>
+
+          {% if mode == "create" %}
+            <div class="card-body">
+              <div class="text-muted">Save the Job Task first, then you can add Job Details items.</div>
+            </div>
+          {% else %}
+
+            <div class="card-body border-bottom">
+              <div class="d-flex justify-content-between align-items-center mb-2">
+                <div class="fw-semibold">ADD ITEM</div>
+                <div class="text-muted small">
+                  Choose EFSM code OR type a custom description
+                </div>
+              </div>
+
+              <div class="row g-2 align-items-end">
+                <div class="col-md-5">
+                  <label class="form-label text-muted small mb-1">EFSM Code (optional)</label>
+                  {{ add_item_form.code }}
+                </div>
+
+                <div class="col-md-5">
+                  <label class="form-label text-muted small mb-1">Custom Description (optional)</label>
+                  {{ add_item_form.custom_description }}
+                </div>
+
+                <div class="col-md-1">
+                  <label class="form-label text-muted small mb-1">Qty</label>
+                  {{ add_item_form.quantity }}
+                </div>
+
+                <div class="col-md-1">
+                  <label class="form-label text-muted small mb-1">Unit Price</label>
+                  {{ add_item_form.unit_price }}
+                </div>
+
+                <div class="col-12 d-flex justify-content-end mt-1">
+                  <button
+                    class="btn btn-success"
+                    type="submit"
+                    formmethod="post"
+                    formaction="{% url 'job_tasks:item_add' job_task.pk %}">
+                    + Add Measure
+                  </button>
+                </div>
               </div>
             </div>
 
-            <div class="row g-2 align-items-end">
-              <div class="col-md-5">
-                <label class="form-label text-muted small mb-1">EFSM Code (optional)</label>
-                {{ add_item_form.code }}
-              </div>
-
-              <div class="col-md-5">
-                <label class="form-label text-muted small mb-1">Custom Description (optional)</label>
-                {{ add_item_form.custom_description }}
-              </div>
-
-              <div class="col-md-1">
-                <label class="form-label text-muted small mb-1">Qty</label>
-                {{ add_item_form.quantity }}
-              </div>
-
-              <div class="col-md-1">
-                <label class="form-label text-muted small mb-1">Unit Price</label>
-                {{ add_item_form.unit_price }}
-              </div>
-
-              <div class="col-12 d-flex justify-content-end mt-1">
-                <button
-                  class="btn btn-success"
-                  type="submit"
-                  formmethod="post"
-                  formaction="{% url 'job_tasks:item_add' job_task.pk %}">
-                  + Add Measure
-                </button>
-              </div>
-            </div>
-          </div>
-
-          <!-- ITEMS TABLE -->
-          <div class="card-body p-0">
-            <div class="table-responsive">
-              <table class="table mb-0 align-middle">
-                <thead class="table-light">
-                  <tr>
-                    <th style="width:160px;">Code</th>
-                    <th>Description</th>
-                    <th class="text-end" style="width:110px;">Qty</th>
-                    <th class="text-end" style="width:140px;">Unit Price</th>
-                    <th class="text-end" style="width:140px;">Line Total</th>
-                    <th style="width:140px;"></th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {% for it in items %}
+            <div class="card-body p-0">
+              <div class="table-responsive">
+                <table class="table mb-0 align-middle">
+                  <thead class="table-light">
                     <tr>
-                      <td>{{ it.code|default:"" }}</td>
-                      <td>{{ it.description|default:"—" }}</td>
-                      <td class="text-end">{{ it.quantity }}</td>
-                      <td class="text-end">${{ it.unit_price }}</td>
-                      <td class="text-end">${{ it.line_total }}</td>
-                      <td class="text-end">
-                        <div class="d-inline-flex gap-1">
-                          <button
-                            class="btn btn-sm btn-outline-secondary"
-                            type="submit"
-                            formmethod="post"
-                            formaction="{% url 'job_tasks:item_move' job_task.pk it.pk 'up' %}"
-                            title="Move up">↑</button>
-
-                          <button
-                            class="btn btn-sm btn-outline-secondary"
-                            type="submit"
-                            formmethod="post"
-                            formaction="{% url 'job_tasks:item_move' job_task.pk it.pk 'down' %}"
-                            title="Move down">↓</button>
-
-                          <button
-                            class="btn btn-sm btn-outline-danger"
-                            type="submit"
-                            formmethod="post"
-                            formaction="{% url 'job_tasks:item_delete' job_task.pk it.pk %}"
-                            title="Delete">🗑</button>
-                        </div>
-                      </td>
+                      <th style="width:160px;">Code</th>
+                      <th>Description</th>
+                      <th class="text-end" style="width:110px;">Qty</th>
+                      <th class="text-end" style="width:140px;">Unit Price</th>
+                      <th class="text-end" style="width:140px;">Line Total</th>
+                      <th style="width:140px;"></th>
                     </tr>
-                  {% empty %}
-                    <tr>
-                      <td colspan="6" class="p-3 text-muted">No items yet.</td>
-                    </tr>
-                  {% endfor %}
-                </tbody>
-              </table>
-            </div>
+                  </thead>
+                  <tbody>
+                    {% for it in items %}
+                      <tr>
+                        <td>{{ it.code|default:"" }}</td>
+                        <td>{{ it.description|default:"—" }}</td>
+                        <td class="text-end">{{ it.quantity }}</td>
+                        <td class="text-end">${{ it.unit_price }}</td>
+                        <td class="text-end">${{ it.line_total }}</td>
+                        <td class="text-end">
+                          <div class="d-inline-flex gap-1">
+                            <button
+                              class="btn btn-sm btn-outline-secondary"
+                              type="submit"
+                              formmethod="post"
+                              formaction="{% url 'job_tasks:item_move' job_task.pk it.pk 'up' %}"
+                              title="Move up">↑</button>
 
-            <!-- TOTALS -->
-            <div class="p-3 d-flex justify-content-end">
-              <div style="min-width: 320px;">
-                <div class="d-flex justify-content-between mb-2">
-                  <div class="text-muted">Subtotal</div>
-                  <div class="fw-semibold">${{ value }}</div>
-                </div>
-                <div class="d-flex justify-content-between mb-3">
-                  <div class="text-muted">GST (10%)</div>
-                  <div class="fw-semibold">${{ gst }}</div>
-                </div>
-                <hr>
-                <div class="d-flex justify-content-between mt-3">
-                  <div class="fw-semibold">Total</div>
-                  <div class="fw-bold">${{ total_value }}</div>
+                            <button
+                              class="btn btn-sm btn-outline-secondary"
+                              type="submit"
+                              formmethod="post"
+                              formaction="{% url 'job_tasks:item_move' job_task.pk it.pk 'down' %}"
+                              title="Move down">↓</button>
+
+                            <button
+                              class="btn btn-sm btn-outline-danger"
+                              type="submit"
+                              formmethod="post"
+                              formaction="{% url 'job_tasks:item_delete' job_task.pk it.pk %}"
+                              title="Delete">🗑</button>
+                          </div>
+                        </td>
+                      </tr>
+                    {% empty %}
+                      <tr>
+                        <td colspan="6" class="p-3 text-muted">No items yet.</td>
+                      </tr>
+                    {% endfor %}
+                  </tbody>
+                </table>
+              </div>
+
+              <div class="p-3 d-flex justify-content-end">
+                <div style="min-width: 320px;">
+                  <div class="d-flex justify-content-between mb-2">
+                    <div class="text-muted">Subtotal</div>
+                    <div class="fw-semibold">${{ value }}</div>
+                  </div>
+                  <div class="d-flex justify-content-between mb-3">
+                    <div class="text-muted">GST (10%)</div>
+                    <div class="fw-semibold">${{ gst }}</div>
+                  </div>
+                  <hr>
+                  <div class="d-flex justify-content-between mt-3">
+                    <div class="fw-semibold">Total</div>
+                    <div class="fw-bold">${{ total_value }}</div>
+                  </div>
                 </div>
               </div>
-            </div>
 
-          </div>
-        {% endif %}
+            </div>
+          {% endif %}
+        </div>
+
+        <div class="d-flex gap-2">
+          <button class="btn btn-primary" type="submit">
+            Save
+          </button>
+          {% if job_task %}
+            <a class="btn btn-outline-secondary" href="{% url 'job_tasks:detail' job_task.pk %}">Cancel</a>
+          {% else %}
+            <a class="btn btn-outline-secondary" href="{% url 'job_tasks:list' %}">Cancel</a>
+          {% endif %}
+        </div>
+
       </div>
 
-      <!-- SAVE / CANCEL BELOW JOB DETAILS -->
-      <div class="d-flex gap-2">
-        <button class="btn btn-primary" type="submit" formaction="{% url 'job_tasks:edit' job_task.pk %}">
-          Save
+      <!-- RIGHT COLUMN -->
+      <div class="col-lg-4">
+
+        <div class="card mb-3 shadow-sm">
+          <div class="card-header bg-light fw-semibold">Links</div>
+          <div class="card-body">
+
+            <div class="mb-3">
+              <div class="text-muted small mb-1">Property</div>
+              {{ form.site }}
+              {% if form.site.errors %}<div class="text-danger small mt-1">{{ form.site.errors }}</div>{% endif %}
+            </div>
+
+            <div class="mb-3">
+              <div class="text-muted small mb-1">Customer</div>
+              {{ form.customer }}
+              {% if form.customer.errors %}<div class="text-danger small mt-1">{{ form.customer.errors }}</div>{% endif %}
+            </div>
+
+            <div class="mb-0">
+              <div class="text-muted small mb-1">Source Routine</div>
+              {{ form.service_routine }}
+              {% if form.service_routine.errors %}<div class="text-danger small mt-1">{{ form.service_routine.errors }}</div>{% endif %}
+            </div>
+
+          </div>
+        </div>
+
+        <div class="card mb-3 shadow-sm">
+          <div class="card-header bg-light fw-semibold">Client / Admin</div>
+          <div class="card-body">
+
+            <div class="mb-3">
+              <div class="text-muted small mb-1">Client Acknowledgement</div>
+              {{ form.client_acknowledgement }}
+            </div>
+
+            <div class="mb-3">
+              <div class="text-muted small mb-1">Acknowledgement Date</div>
+              {{ form.acknowledgement_date }}
+            </div>
+
+            <div class="mb-3">
+              <div class="text-muted small mb-1">Work Order No.</div>
+              {{ form.work_order_no }}
+            </div>
+
+            <div class="mb-0">
+              <div class="text-muted small mb-1">Admin Comments</div>
+              {{ form.admin_comments }}
+            </div>
+
+          </div>
+        </div>
+
+      </div>
+
+    </div>
+
+    {% if job_task %}
+      <div class="pf-fab-save">
+        <button class="btn btn-primary btn-sm shadow" type="submit">
+          <i class="bi bi-save2 me-1"></i> Save
         </button>
-        {% if job_task %}
-          <a class="btn btn-outline-secondary" href="{% url 'job_tasks:detail' job_task.pk %}">Cancel</a>
-        {% else %}
-          <a class="btn btn-outline-secondary" href="{% url 'job_tasks:list' %}">Cancel</a>
-        {% endif %}
       </div>
+    {% endif %}
 
-    </div>
+  </form>
 
-    <!-- RIGHT COLUMN -->
-    <div class="col-lg-4">
-
-      <div class="card mb-3 shadow-sm">
-        <div class="card-header bg-light fw-semibold">Links</div>
-        <div class="card-body">
-
-          <div class="mb-3">
-            <div class="text-muted small mb-1">Property</div>
-            {{ form.site }}
-            {% if form.site.errors %}<div class="text-danger small mt-1">{{ form.site.errors }}</div>{% endif %}
-          </div>
-
-          <div class="mb-3">
-            <div class="text-muted small mb-1">Customer</div>
-            {{ form.customer }}
-            {% if form.customer.errors %}<div class="text-danger small mt-1">{{ form.customer.errors }}</div>{% endif %}
-          </div>
-
-          <div class="mb-0">
-            <div class="text-muted small mb-1">Source Routine</div>
-            {{ form.service_routine }}
-            {% if form.service_routine.errors %}<div class="text-danger small mt-1">{{ form.service_routine.errors }}</div>{% endif %}
-          </div>
-
-        </div>
-      </div>
-
-      <div class="card mb-3 shadow-sm">
-        <div class="card-header bg-light fw-semibold">Client / Admin</div>
-        <div class="card-body">
-
-          <div class="mb-3">
-            <div class="text-muted small mb-1">Client Acknowledgement</div>
-            {{ form.client_acknowledgement }}
-          </div>
-
-          <div class="mb-3">
-            <div class="text-muted small mb-1">Acknowledgement Date</div>
-            {{ form.acknowledgement_date }}
-          </div>
-
-          <div class="mb-3">
-            <div class="text-muted small mb-1">Work Order No.</div>
-            {{ form.work_order_no }}
-          </div>
-
-          <div class="mb-0">
-            <div class="text-muted small mb-1">Admin Comments</div>
-            {{ form.admin_comments }}
-          </div>
-
-        </div>
-      </div>
-
-    </div>
-
-  </div>
-</form>
+</div>
 
 {% endblock %}

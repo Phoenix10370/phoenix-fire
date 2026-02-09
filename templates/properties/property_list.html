@@ -11,8 +11,8 @@
   </a>
 </div>
 
-<!-- SEARCH BAR -->
-<div class="row mb-3">
+<!-- SEARCH + FILTERS -->
+<div class="row mb-3 g-2 align-items-end">
   <div class="col-md-3">
     <input
       id="property-search"
@@ -25,6 +25,26 @@
       aria-label="Search properties"
     >
   </div>
+
+  <div class="col-md-9">
+    <div class="d-flex flex-wrap gap-2">
+      {# Build filter links that preserve q #}
+      <a class="btn btn-sm {% if not validated %}btn-primary{% else %}btn-outline-primary{% endif %}"
+         href="{% url 'properties:list' %}{% if q %}?q={{ q|urlencode }}{% endif %}">
+        All
+      </a>
+
+      <a class="btn btn-sm {% if validated == '1' %}btn-primary{% else %}btn-outline-primary{% endif %}"
+         href="{% url 'properties:list' %}?validated=1{% if q %}&q={{ q|urlencode }}{% endif %}">
+        Validated
+      </a>
+
+      <a class="btn btn-sm {% if validated == '0' %}btn-primary{% else %}btn-outline-primary{% endif %}"
+         href="{% url 'properties:list' %}?validated=0{% if q %}&q={{ q|urlencode }}{% endif %}">
+        Unvalidated
+      </a>
+    </div>
+  </div>
 </div>
 
 <div class="card shadow-sm">
@@ -35,7 +55,7 @@
           <th style="width:140px;">Site ID</th>
           <th style="width:800px;">Property</th>
           <th style="width:550px;">Customer</th>
-          <th style="width:80px;">Status</th>
+          <th style="width:140px;">Status</th>
           <th class="text-end" style="width:300px;">Actions</th>
         </tr>
       </thead>
@@ -144,14 +164,22 @@
 
           <!-- STATUS -->
           <td>
-            {% if item.active_status %}
-              <span class="badge bg-success">Active</span>
-            {% else %}
-              <span class="badge bg-secondary">Inactive</span>
-            {% endif %}
+            <div class="d-flex flex-column gap-1">
+              {% if item.active_status %}
+                <span class="badge bg-success">Active</span>
+              {% else %}
+                <span class="badge bg-secondary">Inactive</span>
+              {% endif %}
+
+              {% if item.coords_validated %}
+                <span class="badge bg-primary">Validated ✓</span>
+              {% else %}
+                <span class="badge bg-warning text-dark">Not validated</span>
+              {% endif %}
+            </div>
           </td>
 
-          <!-- ACTIONS (MATCH ROUTINES STYLE) -->
+          <!-- ACTIONS -->
           <td class="text-end">
             <a
               href="{% url 'properties:detail' item.pk %}"

@@ -1,14 +1,21 @@
 {% extends "base.html" %}
 {% block content %}
 
+<div class="d-flex align-items-center justify-content-between mb-3">
+  <div>
+    <h3 class="mb-0">
+      <a href="{% url 'properties:detail' object.pk %}" class="text-decoration-none text-reset">
+        {{ object.full_address }}
+      </a>
+    </h3>
+  </div>
+</div>
+
 {% include "properties/property_tabs_header.html" %}
 
 <div class="card shadow-sm">
   <div class="card-header d-flex align-items-center justify-content-between">
     <span class="fw-semibold">Routines</span>
-    <span class="text-muted small">
-      {% if routines %}{{ routines|length }}{% else %}0{% endif %}
-    </span>
   </div>
 
   <form method="post"

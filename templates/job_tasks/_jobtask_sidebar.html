@@ -1,0 +1,125 @@
+{# templates/job_tasks/_jobtask_sidebar.html #}
+
+<div id="jtSummaryCard" class="card shadow-sm mb-3">
+  <div class="card-header">
+    <strong>Summary</strong>
+  </div>
+
+  <div class="card-body">
+
+    <div class="mb-3">
+      <strong>Status</strong>
+      <div>{{ job_task.get_status_display|default:"—" }}</div>
+    </div>
+
+    <div class="mb-3">
+      <strong>Work Order No.</strong>
+      <div>{{ job_task.work_order_no|default:"—" }}</div>
+    </div>
+
+    <div class="mb-3">
+      <strong>Property</strong>
+      <div>
+        {% if job_task.site_id %}
+          <a class="text-decoration-none" href="{% url 'properties:detail' job_task.site_id %}">
+            {{ job_task.site.full_address|default:job_task.site }}
+          </a>
+        {% else %}
+          —
+        {% endif %}
+      </div>
+    </div>
+
+    <div class="mb-3">
+      <strong>Customer</strong>
+      <div>
+        {% if job_task.customer_id %}
+          <a class="text-decoration-none" href="{% url 'customers:detail' job_task.customer_id %}">
+            {{ job_task.customer.customer_name }}
+          </a>
+        {% else %}
+          —
+        {% endif %}
+      </div>
+    </div>
+
+    <div class="mb-3">
+      <strong>Service Routine</strong>
+      <div>
+        {% if job_task.service_routine_id %}
+          <a href="{% url 'routines:detail' job_task.service_routine_id %}"
+             class="text-decoration-none">
+            #{{ job_task.service_routine_id }} - View Routine
+          </a>
+        {% else %}
+          —
+        {% endif %}
+      </div>
+    </div>
+
+    <div class="mb-3">
+      <strong>Client Acknowledgement</strong>
+      <div>{{ job_task.get_client_acknowledgement_display|default:"—" }}</div>
+    </div>
+
+    <div class="mb-3">
+      <strong>Acknowledgement Date</strong>
+      <div>
+        {% if job_task.acknowledgement_date %}
+          {{ job_task.acknowledgement_date|date:"d-M-y" }}
+        {% else %}
+          —
+        {% endif %}
+      </div>
+    </div>
+
+    <div class="mb-3">
+      <strong>Created</strong>
+      <div>
+        {% if job_task.created_at %}
+          {{ job_task.created_at|date:"d-M-y" }}
+        {% else %}
+          —
+        {% endif %}
+      </div>
+    </div>
+
+    <hr>
+
+    <div class="mb-2">
+      <strong>Associated Jobs</strong>
+    </div>
+
+    <ul class="list-unstyled mb-0">
+      {% if job_task.parent_job_id %}
+        <li>
+          <a href="{% url 'job_tasks:detail' job_task.root_job.pk %}"
+             class="text-decoration-none">
+            Job #{{ job_task.root_job.pk }} (Parent)
+          </a>
+        </li>
+      {% else %}
+        <li>
+          <span class="fw-semibold">
+            Job #{{ job_task.pk }} (Parent)
+          </span>
+        </li>
+      {% endif %}
+
+      {% if child_jobs %}
+        {% for cj in child_jobs %}
+          <li class="ms-2">
+            <a href="{% url 'job_tasks:detail' cj.pk %}"
+               class="text-decoration-none">
+              Job #{{ cj.pk }}
+              {% if cj.service_date %}
+                – {{ cj.service_date|date:"d-M-y" }}
+              {% endif %}
+            </a>
+          </li>
+        {% endfor %}
+      {% endif %}
+    </ul>
+
+  </div>
+</div>

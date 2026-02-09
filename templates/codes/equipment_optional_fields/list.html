@@ -6,15 +6,16 @@
     <h1 class="h3 mb-0">Equipment Optional Fields</h1>
   </div>
 
-  <form method="get" class="row g-2 mb-3">
+  <form class="row g-2 align-items-end mb-3" method="get">
     <div class="col-md-6">
-      <input type="text" name="q" value="{{ q }}" class="form-control"
-             placeholder="Search equipment or field...">
+      <label class="form-label mb-1"><strong>Search</strong></label>
+      <input name="q" value="{{ q }}" class="form-control" placeholder="Search equipment or field...">
     </div>
     <div class="col-md-3">
+      <label class="form-label mb-1"><strong>Status</strong></label>
       <select name="show" class="form-select">
-        <option value="active" {% if show == "active" %}selected{% endif %}>Active only</option>
-        <option value="inactive" {% if show == "inactive" %}selected{% endif %}>Inactive only</option>
+        <option value="active" {% if show == "active" %}selected{% endif %}>Active</option>
+        <option value="inactive" {% if show == "inactive" %}selected{% endif %}>Inactive</option>
         <option value="all" {% if show == "all" %}selected{% endif %}>All</option>
       </select>
     </div>

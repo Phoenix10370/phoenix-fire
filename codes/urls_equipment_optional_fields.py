@@ -3,10 +3,20 @@ from .views_equipment_optional_fields import (
     EquipmentOptionalFieldListView,
     EquipmentOptionalFieldEditView,
 )
+from .views_equipment_schema import equipment_schema_manage
 
 app_name = "codes"
 
 urlpatterns = [
     path("equipment-optional-fields/", EquipmentOptionalFieldListView.as_view(), name="eof_list"),
     path("equipment-optional-fields/<int:pk>/edit/", EquipmentOptionalFieldEditView.as_view(), name="eof_edit"),
+]
+
+
+urlpatterns += [
+    path(
+        "settings/equipment/<int:equipment_id>/fields/",
+        equipment_schema_manage,
+        name="equipment_schema_manage",
+    ),
 ]

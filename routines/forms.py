@@ -1,6 +1,7 @@
 # routines/forms.py
 from django import forms
 
+from job_tasks.models import JobServiceType
 from .models import MONTH_CHOICES, ServiceRoutineItem
 
 
@@ -25,10 +26,17 @@ class CreateServiceRoutinesFromQuotationForm(forms.Form):
         help_text="Controls how the quotation total is distributed across the created routines.",
     )
 
+    # ✅ NEW: Service Type (JobServiceType)
+    service_type = forms.ModelChoiceField(
+        queryset=JobServiceType.objects.filter(is_active=True).order_by("name"),
+        required=False,
+        empty_label="— Select Service Type —",
+        label="Service Type",
+        widget=forms.Select(attrs={"class": "form-select"}),
+        help_text="This will be saved onto each created Service Routine, and copied to Job Tasks created from routines.",
+    )
 
-# =========================
-# ADD ROUTINE ITEM (EFSM OR CUSTOM)
-# =========================
+
 class AddServiceRoutineItemForm(forms.ModelForm):
     """
     Allows adding a routine item in two ways:
@@ -42,46 +50,29 @@ class AddServiceRoutineItemForm(forms.ModelForm):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
-        # Both EFSM and custom description are optional individually,
-        # but one of them must be provided (enforced in clean()).
         self.fields["efsm_code"].required = False
         self.fields["custom_description"].required = False
 
-        # Bootstrap styling
-        self.fields["efsm_code"].widget.attrs.update({
-            "class": "form-select",
-        })
+        self.fields["efsm_code"].widget.attrs.update({"class": "form-select"})
         self.fields["custom_description"].widget.attrs.update({
             "class": "form-control",
             "placeholder": "Custom description (only if not using EFSM code)",
         })
-        self.fields["quantity"].widget.attrs.update({
-            "class": "form-control",
-            "min": "0",
-            "step": "1",
-        })
-        self.fields["unit_price"].widget.attrs.update({
-            "class": "form-control",
-            "min": "0",
-            "step": "0.01",
-        })
+        self.fields["quantity"].widget.attrs.update({"class": "form-control", "min": "0", "step": "1"})
+        self.fields["unit_price"].widget.attrs.update({"class": "form-control", "min": "0", "step": "0.01"})
 
     def clean(self):
         cleaned = super().clean()
-
         efsm = cleaned.get("efsm_code")
         custom = (cleaned.get("custom_description") or "").strip()
 
-        # Require one of them
         if not efsm and not custom:
             raise forms.ValidationError("Select an EFSM code OR type a custom description.")
 
-        # If EFSM is chosen, ignore any custom text to prevent confusion
         if efsm:
             cleaned["custom_description"] = ""
 
         return cleaned
 
     def clean_quantity(self):
-        qty = self.cleaned_data.get("quantity")
-        return qty or 0
+        return self.cleaned_data.get("quantity") or 0

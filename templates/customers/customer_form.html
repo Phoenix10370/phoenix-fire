@@ -1,11 +1,14 @@
 {% extends "base.html" %}
+{% load static %}
+
+{% block content %}
+
 {% if form.errors %}
   <div class="alert alert-danger">
     Please correct the errors below and try again.
   </div>
 {% endif %}
 
-{% block content %}
 <div class="d-flex justify-content-between align-items-center mb-3">
   <h1 class="h3 mb-0">{% if object %}Edit Customer{% else %}Add Customer{% endif %}</h1>
   <a class="btn btn-outline-secondary" href="{% url 'customers:list' %}">Back</a>
@@ -15,92 +18,82 @@
   <div class="card-body">
     <form method="post" novalidate>
       {% csrf_token %}
-      {% if form.errors %}
-  <div class="alert alert-danger">
-    Please correct the errors below and try again.
-  </div>
-{% endif %}
-
 
       <div class="row g-3">
         <div class="col-md-8">
-          <label class="form-label">Customer Name</label>
+          <label class="form-label" for="{{ form.customer_name.id_for_label }}">Customer Name</label>
           {{ form.customer_name }}
           {% for e in form.customer_name.errors %}<div class="text-danger small">{{ e }}</div>{% endfor %}
         </div>
 
         <div class="col-md-4">
-          <label class="form-label">Customer Type</label>
+          <label class="form-label" for="{{ form.customer_type.id_for_label }}">Customer Type</label>
           {{ form.customer_type }}
           {% for e in form.customer_type.errors %}<div class="text-danger small">{{ e }}</div>{% endfor %}
         </div>
 
         <div class="col-12">
-          <label class="form-label">Customer Address</label>
+          <label class="form-label" for="{{ form.customer_address.id_for_label }}">Customer Address</label>
           {{ form.customer_address }}
+          <div class="text-muted small mt-1">Start typing an address and select a suggestion.</div>
           {% for e in form.customer_address.errors %}<div class="text-danger small">{{ e }}</div>{% endfor %}
         </div>
 
         <div class="col-md-6">
-          <label class="form-label">Contact Name</label>
+          <label class="form-label" for="{{ form.customer_contact_name.id_for_label }}">Contact Name</label>
           {{ form.customer_contact_name }}
         </div>
 
         <div class="col-md-6">
-          <label class="form-label">Main Phone</label>
+          <label class="form-label" for="{{ form.customer_main_phone.id_for_label }}">Main Phone</label>
           {{ form.customer_main_phone }}
         </div>
 
-        {# NEW: Billing Type #}
         <div class="col-md-6">
-          <label class="form-label">Billing Type</label>
+          <label class="form-label" for="{{ form.billing_type.id_for_label }}">Billing Type</label>
           {{ form.billing_type }}
           {% for e in form.billing_type.errors %}<div class="text-danger small">{{ e }}</div>{% endfor %}
         </div>
 
-     <label class="form-label">Billing Email</label>
-{{ form.billing_email }}
-
-{% if form.billing_email.errors %}
-  <div class="text-danger small">
-    {{ form.billing_email.errors|striptags }}
-  </div>
-{% endif %}
-
-
+        <div class="col-md-6">
+          <label class="form-label" for="{{ form.billing_email.id_for_label }}">Billing Email</label>
+          {{ form.billing_email }}
+          {% if form.billing_email.errors %}
+            <div class="text-danger small">
+              {{ form.billing_email.errors|striptags }}
+            </div>
+          {% endif %}
+        </div>
 
         <div class="col-md-6">
-  <label class="form-label">Additional Email</label>
-  {{ form.add_email }}
-
-  {% if form.add_email.errors %}
-    <div class="text-danger small">
-      {{ form.add_email.errors|striptags }}
-    </div>
-  {% endif %}
-</div>
-
-
+          <label class="form-label" for="{{ form.add_email.id_for_label }}">Additional Email</label>
+          {{ form.add_email }}
+          {% if form.add_email.errors %}
+            <div class="text-danger small">
+              {{ form.add_email.errors|striptags }}
+            </div>
+          {% endif %}
+        </div>
 
         <div class="col-md-6">
-          <label class="form-label">Additional Phone</label>
+          <label class="form-label" for="{{ form.add_phone.id_for_label }}">Additional Phone</label>
           {{ form.add_phone }}
         </div>
 
         <div class="col-md-6">
-          <label class="form-label">ABN/ACN</label>
+          <label class="form-label" for="{{ form.customer_abn_acn.id_for_label }}">ABN/ACN</label>
           {{ form.customer_abn_acn }}
         </div>
 
         <div class="col-12">
           <div class="form-check">
             {{ form.is_active }}
-            <label class="form-check-label">Active</label>
+            <label class="form-check-label" for="{{ form.is_active.id_for_label }}">Active</label>
           </div>
         </div>
 
         <div class="col-12">
-          <label class="form-label">Notes</label>
+          <label class="form-label" for="{{ form.notes.id_for_label }}">Notes</label>
           {{ form.notes }}
         </div>
       </div>
@@ -110,6 +103,65 @@
         <a class="btn btn-outline-secondary" href="{% url 'customers:list' %}">Cancel</a>
       </div>
     </form>
+
+    <!-- Debug indicator (remove later if you want) -->
+    <div class="mt-3 text-muted small">
+      Google key in template:
+      {% if GOOGLE_MAPS_API_KEY %}
+        <span class="badge text-bg-success">YES</span>
+      {% else %}
+        <span class="badge text-bg-danger">NO</span>
+      {% endif %}
+    </div>
+
   </div>
 </div>
+
+<script>
+  (function () {
+    function attachCustomerAutocomplete() {
+      const addr = document.getElementById("{{ form.customer_address.id_for_label }}");
+      if (!addr) return false;
+      if (addr.dataset.gplacesBound === "1") return true;
+      if (!window.google || !google.maps || !google.maps.places) return false;
+
+      const ac = new google.maps.places.Autocomplete(addr, {
+        types: ["address"],
+        componentRestrictions: { country: "au" },
+        fields: ["formatted_address"],
+      });
+
+      ac.addListener("place_changed", () => {
+        const place = ac.getPlace();
+        if (place && place.formatted_address) {
+          addr.value = place.formatted_address;
+        }
+      });
+
+      addr.dataset.gplacesBound = "1";
+      return true;
+    }
+
+    window.initCustomerAddressAutocomplete = function () {
+      attachCustomerAutocomplete();
+    };
+
+    document.addEventListener("DOMContentLoaded", () => {
+      attachCustomerAutocomplete();
+    });
+  })();
+</script>
+
+{% if GOOGLE_MAPS_API_KEY %}
+  <script
+    src="https://maps.googleapis.com/maps/api/js?key={{ GOOGLE_MAPS_API_KEY }}&libraries=places&callback=initCustomerAddressAutocomplete"
+    async
+    defer
+  ></script>
+{% else %}
+  <script>
+    console.warn("GOOGLE_MAPS_API_KEY is missing from template context. Autocomplete disabled.");
+  </script>
+{% endif %}
+
 {% endblock %}

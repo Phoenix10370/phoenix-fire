@@ -27,7 +27,6 @@ from properties.models import PropertyAsset
 
 
 def _ordered_routine_items_qs():
-    # Order by quotation position first; put marker/invoice lines (NULL source) last.
     return (
         ServiceRoutineItem.objects
         .select_related("efsm_code", "source_quotation_item")
@@ -39,14 +38,6 @@ def _ordered_routine_items_qs():
 
 
 def _link_existing_property_assets_to_job_task(job_task):
-    """
-    If the property already has assets, link them to the job task (no duplication).
-    If the property has no assets, do nothing.
-
-    This supports:
-      - Jobs created from Service Routines
-      - Bulk create jobs from routines
-    """
     site_id = getattr(job_task, "site_id", None)
     if not site_id:
         return 0
@@ -59,7 +50,6 @@ def _link_existing_property_assets_to_job_task(job_task):
     if not asset_ids:
         return 0
 
-    # Uses the M2M through table; unique constraint prevents duplicates
     job_task.property_assets.add(*asset_ids)
     return len(asset_ids)
 
@@ -68,16 +58,9 @@ def _link_existing_property_assets_to_job_task(job_task):
 @require_http_methods(["POST"])
 @transaction.atomic
 def bulk_action(request):
-    """
-    Bulk actions for routines list.
-    action:
-      - delete
-      - create_job_tasks
-    """
     action = (request.POST.get("action") or "").strip()
     ids = request.POST.getlist("routine_ids")
 
-    # Normalize ids to ints safely
     routine_ids = []
     for raw in ids:
         try:
@@ -137,8 +120,7 @@ class ServiceRoutineListView(ListView):
     model = ServiceRoutine
     template_name = "routines/service_routine_list.html"
     context_object_name = "routines"
-
-    paginate_by = None
+    paginate_by = 50
 
     def _get_int_param(self, key: str):
         raw = (self.request.GET.get(key) or "").strip()
@@ -200,31 +182,20 @@ class ServiceRoutineListView(ListView):
 @login_required
 @require_http_methods(["GET"])
 def create_from_quotation_preview(request, quotation_id: int):
-    """
-    HTMX endpoint: returns ONLY the preview partial.
-    No DB writes.
-    """
     quotation = get_object_or_404(Quotation, pk=quotation_id)
     routines_exist = quotation.service_routines.exists()
 
-    # If routines exist, preview is irrelevant (creation is blocked)
     if routines_exist:
         form = CreateServiceRoutinesFromQuotationForm()
         return render(
             request,
             "routines/_create_from_quotation_preview.html",
-            {
-                "preview": [],
-                "routines_exist": True,
-                "form": form,
-            },
+            {"preview": [], "routines_exist": True, "form": form},
         )
 
-    # Read querystring values from the form
     annual_due_month = request.GET.get("annual_due_month") or ""
     invoice_frequency = request.GET.get("invoice_frequency") or "calculator"
 
-    # Fallbacks in case of weird input
     try:
         annual_due_month_int = int(annual_due_month)
     except (TypeError, ValueError):
@@ -244,11 +215,7 @@ def create_from_quotation_preview(request, quotation_id: int):
     return render(
         request,
         "routines/_create_from_quotation_preview.html",
-        {
-            "preview": preview,
-            "routines_exist": False,
-            "form": form,
-        },
+        {"preview": preview, "routines_exist": False, "form": form},
     )
 
 
@@ -264,7 +231,6 @@ def create_from_quotation(request, quotation_id: int):
 
     routines_exist = quotation.service_routines.exists()
 
-    # Server-side enforcement: block POST if routines already exist
     if request.method == "POST" and routines_exist:
         messages.error(
             request,
@@ -286,7 +252,6 @@ def create_from_quotation(request, quotation_id: int):
     else:
         form = CreateServiceRoutinesFromQuotationForm()
 
-    # Initial preview for non-HTMX first page load (optional, but nice)
     preview = []
     if not routines_exist:
         initial_month = form.initial.get("annual_due_month") or form.fields["annual_due_month"].choices[0][0]
@@ -323,11 +288,7 @@ def detail(request, pk: int):
         pk=pk,
     )
 
-    routines_qs = (
-        ServiceRoutine.objects
-        .filter(quotation=routine.quotation)
-        .order_by("month_due", "id")
-    )
+    routines_qs = ServiceRoutine.objects.filter(quotation=routine.quotation).order_by("month_due", "id")
     routines_list = list(routines_qs)
     total_count = len(routines_list)
 
@@ -400,8 +361,6 @@ def create_job_task(request, pk: int):
     )
 
     job_task = create_job_task_from_routine(routine=routine)
-
-    # ✅ Auto-link property assets (if they exist)
     linked = _link_existing_property_assets_to_job_task(job_task)
 
     if linked:
@@ -477,6 +436,7 @@ class ServiceRoutineUpdateView(LoginRequiredMixin, UpdateView):
 
     fields = [
         "month_due",
+        "service_type",
         "work_order_number",
 
         "monthly_run_notes",

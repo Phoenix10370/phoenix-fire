@@ -10,6 +10,10 @@ from properties.models import PropertyAsset
 from codes.models import AssetCode
 
 
+# --------------------
+# Helpers
+# --------------------
+
 def _safe_decimal(val, default="0.00") -> Decimal:
     try:
         return Decimal(str(val))
@@ -18,181 +22,137 @@ def _safe_decimal(val, default="0.00") -> Decimal:
 
 
 def _get_routine_item_code(item: ServiceRoutineItem) -> str:
-    efsm = getattr(item, "efsm_code", None)
-    if efsm is not None:
-        code = getattr(efsm, "code", None)
-        if code:
-            return str(code).strip()
-        return str(efsm).strip()
-    return str(getattr(item, "code", "") or "").strip()
-
-
-def _get_routine_item_description(item: ServiceRoutineItem) -> str:
-    desc = getattr(item, "description", None)
-    if desc:
-        return str(desc).strip()
-
-    desc = getattr(item, "custom_description", None)
-    if desc:
-        return str(desc).strip()
-
-    efsm = getattr(item, "efsm_code", None)
-    if efsm is not None:
-        efsm_desc = getattr(efsm, "description", None)
-        if efsm_desc:
-            return str(efsm_desc).strip()
-        return str(efsm).strip()
-
+    if item.efsm_code:
+        return item.efsm_code.code
     return ""
 
 
-def _routine_service_type_or_none(routine: ServiceRoutine):
+def _get_routine_item_description(item: ServiceRoutineItem) -> str:
+    if item.custom_description:
+        return item.custom_description
+    if item.efsm_code:
+        return getattr(item.efsm_code, "fire_safety_measure", "") or ""
+    return ""
+
+
+def _resolve_job_service_type(routine: ServiceRoutine) -> JobServiceType | None:
     """
-    Best-effort: copy service_type from routine if that field exists.
+    FINAL SOURCE OF TRUTH for JobTask.service_type
+
+    Priority:
+    1) Explicit routine.service_type FK (if present)
+    2) Map routine.routine_type → JobServiceType
     """
+
+    # 1️⃣ Explicit FK on routine (best case)
     st = getattr(routine, "service_type", None)
-    if st:
+    if isinstance(st, JobServiceType):
         return st
 
-    st_id = getattr(routine, "service_type_id", None)
-    if st_id:
-        try:
-            return JobServiceType.objects.get(pk=st_id)
-        except JobServiceType.DoesNotExist:
-            return None
+    # 2️⃣ Fallback: map routine_type
+    routine_type = (routine.routine_type or "").lower()
 
-    return None
+    MAP = {
+        "annual": "Annual Inspection",
+        "biannual": "Bi-Annual Inspection",
+        "monthly": "Monthly Inspection",
+        "quarterly": "Quarterly Invoicing",
+    }
+
+    name = MAP.get(routine_type)
+    if not name:
+        return None
+
+    service_type, _ = JobServiceType.objects.get_or_create(
+        name=name,
+        defaults={"is_active": True},
+    )
+    return service_type
 
 
 def _routine_type_key(routine: ServiceRoutine) -> str:
-    """
-    ServiceRoutine.routine_type values in your model:
-      - annual
-      - biannual   (Half Yearly)
-      - monthly
-      - quarterly
-    """
-    return (getattr(routine, "routine_type", "") or "").strip().lower()
+    return (routine.routine_type or "").lower()
 
 
 def _asset_is_included_for_routine_type(routine_type: str, frequency: int) -> bool:
-    """
-    Your rules based on AssetCode.frequency (times per year):
-      - Annual: include all assets
-      - Half Yearly (biannual): include assets with frequency > 2 (exclude 1 and 2)
-      - Monthly: include assets with frequency > 3
-      - Quarterly: include none
-    """
     if routine_type == "annual":
         return True
     if routine_type == "biannual":
         return frequency > 2
     if routine_type == "monthly":
         return frequency > 3
-    if routine_type == "quarterly":
-        return False
-
-    # Unknown routine type -> safest default (avoid sending too many assets)
     return False
 
 
 def _autolink_property_assets(job_task: JobTask, routine: ServiceRoutine) -> None:
-    """
-    Link PropertyAssets to the new JobTask based on routine type and AssetCode.frequency.
-
-    Notes:
-      - Only considers PropertyAssets whose asset_code_content_type is codes.AssetCode
-      - Does NOT create/delete assets; only creates M2M link rows
-    """
-    site = getattr(routine, "site", None)
+    site = routine.site
     if not site:
         return
 
     routine_type = _routine_type_key(routine)
-
-    # Explicitly none for quarterly
     if routine_type == "quarterly":
         return
 
     assetcode_ct = ContentType.objects.get_for_model(AssetCode)
 
-    # Only property assets that point to AssetCode
-    prop_assets = list(
-        PropertyAsset.objects.filter(
-            property_id=site.pk,
-            asset_code_content_type_id=assetcode_ct.id,
-        ).only("id", "asset_code_object_id")
+    assets = PropertyAsset.objects.filter(
+        property_id=site.pk,
+        asset_code_content_type_id=assetcode_ct.id,
     )
-    if not prop_assets:
+
+    if not assets.exists():
         return
 
-    code_ids = [pa.asset_code_object_id for pa in prop_assets if pa.asset_code_object_id]
-    if not code_ids:
-        return
-
-    codes_by_id = {
+    codes = {
         ac.id: ac
-        for ac in AssetCode.objects.filter(id__in=code_ids).only("id", "frequency")
+        for ac in AssetCode.objects.filter(
+            id__in=assets.values_list("asset_code_object_id", flat=True)
+        )
     }
 
     to_link = []
-    for pa in prop_assets:
-        ac = codes_by_id.get(pa.asset_code_object_id)
+    for pa in assets:
+        ac = codes.get(pa.asset_code_object_id)
         if not ac:
             continue
 
-        try:
-            freq_int = int(getattr(ac, "frequency", 1) or 1)
-        except (TypeError, ValueError):
-            freq_int = 1
-
-        if _asset_is_included_for_routine_type(routine_type, freq_int):
+        freq = int(ac.frequency or 1)
+        if _asset_is_included_for_routine_type(routine_type, freq):
             to_link.append(pa)
 
     if to_link:
         job_task.property_assets.add(*to_link)
 
 
+# --------------------
+# Main entry
+# --------------------
+
 @transaction.atomic
 def create_job_task_from_routine(routine: ServiceRoutine) -> JobTask:
-    routine_name = (getattr(routine, "name", "") or "").strip()
-    title = routine_name or f"Service Routine #{routine.pk}"
-
-    service_type = _routine_service_type_or_none(routine)
+    title = routine.name or f"Service Routine #{routine.pk}"
 
     job_task = JobTask.objects.create(
         title=title,
-        site=getattr(routine, "site", None),
-        customer=getattr(getattr(routine, "site", None), "customer", None),
+        site=routine.site,
+        customer=getattr(routine.site, "customer", None),
         service_routine=routine,
-
-        # must be blank and unscheduled
         service_date=None,
         status="open",
-
-        # no tech auto assignment
         service_technician=None,
-
-        # copy service type if possible
-        service_type=service_type,
+        service_type=_resolve_job_service_type(routine),
     )
 
-    items_rel = getattr(routine, "items", None)
-    if items_rel:
-        routine_items = list(items_rel.all().order_by("id"))
-        sort_order = 1
-        for rit in routine_items:
-            JobTaskItem.objects.create(
-                job_task=job_task,
-                sort_order=sort_order,
-                code=_get_routine_item_code(rit),
-                description=_get_routine_item_description(rit),
-                quantity=_safe_decimal(getattr(rit, "quantity", 0), default="0"),
-                unit_price=_safe_decimal(getattr(rit, "unit_price", 0), default="0"),
-            )
-            sort_order += 1
+    # Copy routine items
+    for idx, rit in enumerate(routine.items.all().order_by("position", "id"), start=1):
+        JobTaskItem.objects.create(
+            job_task=job_task,
+            sort_order=idx,
+            code=_get_routine_item_code(rit),
+            description=_get_routine_item_description(rit),
+            quantity=_safe_decimal(rit.quantity),
+            unit_price=_safe_decimal(rit.unit_price),
+        )
 
-    # Auto-link Property Assets using frequency rules
-    _autolink_property_assets(job_task=job_task, routine=routine)
-
+    _autolink_property_assets(job_task, routine)
     return job_task

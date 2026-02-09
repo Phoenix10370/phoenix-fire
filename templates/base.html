@@ -1,3 +1,4 @@
+<!-- templates/base.html (FULL FILE REPLACEMENT) -->
 <!doctype html>
 <html lang="en">
 <head>
@@ -189,15 +190,12 @@
               </a>
             </li>
 
-
             <li>
               <a class="dropdown-item {% if urlname == 'dropdown_list_list' %}active{% endif %}"
                  href="{% url 'codes:dropdown_list_list' %}">
                 <i class="bi bi-list-check me-2"></i>Dropdown Lists
               </a>
             </li>
-
-            
 
             <li><hr class="dropdown-divider"></li>
 
@@ -218,6 +216,14 @@
             </li>
 
           </ul>
+        </li>
+
+        <!-- Scheduling -->
+        <li class="nav-item">
+          <a class="nav-link {% if ns == 'scheduling' %}active{% endif %}"
+             href="{% url 'scheduling:index' %}">
+            <i class="bi bi-calendar-week me-1"></i>Scheduling
+          </a>
         </li>
 
       </ul>
@@ -255,6 +261,18 @@
     </button>
   </div>
 
+  <!-- DJANGO MESSAGES -->
+  {% if messages %}
+    <div class="no-print mb-3">
+      {% for message in messages %}
+        <div class="alert alert-{{ message.tags|default:'info' }} alert-dismissible fade show shadow-sm mb-2" role="alert">
+          {{ message }}
+          <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+      {% endfor %}
+    </div>
+  {% endif %}
+
   {% block content %}{% endblock %}
 
 </main>
@@ -271,6 +289,41 @@
     document.body.classList.add("page-exit");
     setTimeout(() => window.history.back(), 150);
   }
+</script>
+
+<!-- UNSAVED CHANGES WARNING (GLOBAL) -->
+<script>
+  (function () {
+    const forms = document.querySelectorAll("form");
+    if (!forms.length) return;
+
+    let isDirty = false;
+    let isSubmitting = false;
+
+    forms.forEach((form) => {
+      if (form.hasAttribute("data-skip-unsaved-warning")) return;
+
+      const method = (form.getAttribute("method") || "get").toLowerCase();
+      if (method === "get") return;
+
+      const fields = form.querySelectorAll("input, textarea, select");
+
+      fields.forEach((field) => {
+        field.addEventListener("input", () => { isDirty = true; }, { passive: true });
+        field.addEventListener("change", () => { isDirty = true; }, { passive: true });
+      });
+
+      form.addEventListener("submit", () => {
+        isSubmitting = true;
+      });
+    });
+
+    window.addEventListener("beforeunload", (e) => {
+      if (!isDirty || isSubmitting) return;
+      e.preventDefault();
+      e.returnValue = "";
+    });
+  })();
 </script>
 
 </body>

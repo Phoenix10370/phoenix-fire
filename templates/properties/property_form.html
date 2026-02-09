@@ -18,179 +18,369 @@
     </div>
   </div>
 
-  <form method="post" novalidate>
+  <form id="property-form" method="post" novalidate>
     {% csrf_token %}
 
     {% if form.non_field_errors %}
       <div class="alert alert-danger">{{ form.non_field_errors }}</div>
     {% endif %}
 
-    <!-- CARD 1: Property -->
-    <div class="card shadow-sm mb-3">
-      <div class="card-header d-flex align-items-center justify-content-between">
-        <strong>Property</strong>
-        <div class="form-check">
-          {{ form.active_status }}
-          <label class="form-check-label" for="{{ form.active_status.id_for_label }}">
-            {{ form.active_status.label }}
-          </label>
+    {% if object %}
+      <!-- ==========================================================
+           ✅ EDIT ONLY LAYOUT
+           1) Address card moved to top
+           2) Building/Customer/Strata/SOR moved to top of Property card
+           ========================================================== -->
+
+      <!-- CARD 2 (MOVED): Address -->
+      <div class="card shadow-sm mb-3">
+        <div class="card-header"><strong>Address</strong></div>
+        <div class="card-body">
+          <div class="row g-3">
+            <div class="col-md-6">
+              <label class="form-label" for="{{ form.street.id_for_label }}">{{ form.street.label }}</label>
+              {{ form.street }}
+              <div class="text-muted small mt-1">Start typing an address and select a suggestion.</div>
+              {% if form.street.errors %}<div class="text-danger small">{{ form.street.errors }}</div>{% endif %}
+            </div>
+            <div class="col-md-6">
+              <label class="form-label" for="{{ form.city.id_for_label }}">{{ form.city.label }}</label>
+              {{ form.city }}
+              {% if form.city.errors %}<div class="text-danger small">{{ form.city.errors }}</div>{% endif %}
+            </div>
+            <div class="col-md-6">
+              <label class="form-label" for="{{ form.state.id_for_label }}">{{ form.state.label }}</label>
+              {{ form.state }}
+              {% if form.state.errors %}<div class="text-danger small">{{ form.state.errors }}</div>{% endif %}
+            </div>
+            <div class="col-md-6">
+              <label class="form-label" for="{{ form.post_code.id_for_label }}">{{ form.post_code.label }}</label>
+              {{ form.post_code }}
+              {% if form.post_code.errors %}<div class="text-danger small">{{ form.post_code.errors }}</div>{% endif %}
+            </div>
+          </div>
         </div>
       </div>
 
-      <div class="card-body">
-
-        <!-- SECTION 2 (Top of card as requested) -->
-        <div class="card border-0 mb-3">
-          <div class="d-flex align-items-center mb-2">
-            <strong class="me-2">Section 2</strong>
-            <span class="text-muted small">Building information and AFSS details</span>
+      <!-- CARD 1: Property -->
+      <div class="card shadow-sm mb-3">
+        <div class="card-header d-flex align-items-center justify-content-between">
+          <strong>Property</strong>
+          <div class="form-check">
+            {{ form.active_status }}
+            <label class="form-check-label" for="{{ form.active_status.id_for_label }}">
+              {{ form.active_status.label }}
+            </label>
           </div>
+        </div>
+
+        <div class="card-body">
+
+          <!-- ✅ MOVED UP: Building name section -->
+          <div class="row g-3">
+            <div class="col-md-8">
+              <label class="form-label" for="{{ form.building_name.id_for_label }}">{{ form.building_name.label }}</label>
+              {{ form.building_name }}
+              {% if form.building_name.errors %}<div class="text-danger small">{{ form.building_name.errors }}</div>{% endif %}
+            </div>
+
+            <div class="col-md-4">
+              <label class="form-label" for="{{ form.customer.id_for_label }}">{{ form.customer.label }}</label>
+              {{ form.customer }}
+
+              {% if form.customer.field.disabled %}
+                <div class="text-muted small mt-1">
+                  Customer is preselected from the customer record.
+                </div>
+              {% endif %}
+
+              {% if form.customer.errors %}<div class="text-danger small">{{ form.customer.errors }}</div>{% endif %}
+            </div>
+
+            <div class="col-md-6">
+              <label class="form-label" for="{{ form.strata_plan.id_for_label }}">{{ form.strata_plan.label }}</label>
+              {{ form.strata_plan }}
+              {% if form.strata_plan.errors %}<div class="text-danger small">{{ form.strata_plan.errors }}</div>{% endif %}
+            </div>
+
+            <div class="col-md-6">
+              <label class="form-label" for="{{ form.sor_site_id.id_for_label }}">{{ form.sor_site_id.label }}</label>
+              {{ form.sor_site_id }}
+              {% if form.sor_site_id.errors %}<div class="text-danger small">{{ form.sor_site_id.errors }}</div>{% endif %}
+            </div>
+          </div>
+
+          <hr class="my-3"/>
+
+          <!-- SECTION 2 -->
+          <div class="card border-0 mb-3">
+            <div class="d-flex align-items-center mb-2">
+              <strong class="me-2">Section 2</strong>
+              <span class="text-muted small">Building information and AFSS details</span>
+            </div>
+
+            <div class="row g-3">
+              <div class="col-md-6">
+                <label class="form-label" for="{{ form.property_description.id_for_label }}">
+                  {{ form.property_description.label }}
+                </label>
+                {{ form.property_description }}
+                {% if form.property_description.errors %}
+                  <div class="text-danger small">{{ form.property_description.errors }}</div>
+                {% endif %}
+              </div>
+
+              <div class="col-md-6">
+                <label class="form-label" for="{{ form.afss_number.id_for_label }}">
+                  {{ form.afss_number.label }}
+                </label>
+                {{ form.afss_number }}
+                {% if form.afss_number.errors %}
+                  <div class="text-danger small">{{ form.afss_number.errors }}</div>
+                {% endif %}
+              </div>
+
+              <div class="col-md-6">
+                <label class="form-label" for="{{ form.levels_above_ground.id_for_label }}">
+                  {{ form.levels_above_ground.label }}
+                </label>
+                {{ form.levels_above_ground }}
+                {% if form.levels_above_ground.errors %}
+                  <div class="text-danger small">{{ form.levels_above_ground.errors }}</div>
+                {% endif %}
+              </div>
+
+              <div class="col-md-6">
+                <label class="form-label" for="{{ form.number_of_residential.id_for_label }}">
+                  {{ form.number_of_residential.label }}
+                </label>
+                {{ form.number_of_residential }}
+                {% if form.number_of_residential.errors %}
+                  <div class="text-danger small">{{ form.number_of_residential.errors }}</div>
+                {% endif %}
+              </div>
+
+              <div class="col-md-6">
+                <label class="form-label" for="{{ form.levels_below_ground.id_for_label }}">
+                  {{ form.levels_below_ground.label }}
+                </label>
+                {{ form.levels_below_ground }}
+                {% if form.levels_below_ground.errors %}
+                  <div class="text-danger small">{{ form.levels_below_ground.errors }}</div>
+                {% endif %}
+              </div>
+
+              <div class="col-md-6">
+                <label class="form-label" for="{{ form.number_of_commercial.id_for_label }}">
+                  {{ form.number_of_commercial.label }}
+                </label>
+                {{ form.number_of_commercial }}
+                {% if form.number_of_commercial.errors %}
+                  <div class="text-danger small">{{ form.number_of_commercial.errors }}</div>
+                {% endif %}
+              </div>
+
+              <div class="col-md-6">
+                <label class="form-label" for="{{ form.afss_due_date.id_for_label }}">
+                  {{ form.afss_due_date.label }}
+                </label>
+                {{ form.afss_due_date }}
+                {% if form.afss_due_date.errors %}
+                  <div class="text-danger small">{{ form.afss_due_date.errors }}</div>
+                {% endif %}
+              </div>
+
+              <div class="col-md-6">
+                <label class="form-label" for="{{ form.certification_date.id_for_label }}">
+                  {{ form.certification_date.label }}
+                </label>
+                {{ form.certification_date }}
+                {% if form.certification_date.errors %}
+                  <div class="text-danger small">{{ form.certification_date.errors }}</div>
+                {% endif %}
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+    {% else %}
+      <!-- ==========================================================
+           ✅ ADD ONLY LAYOUT (UNCHANGED)
+           ========================================================== -->
+
+      <!-- CARD 1: Property -->
+      <div class="card shadow-sm mb-3">
+        <div class="card-header d-flex align-items-center justify-content-between">
+          <strong>Property</strong>
+          <div class="form-check">
+            {{ form.active_status }}
+            <label class="form-check-label" for="{{ form.active_status.id_for_label }}">
+              {{ form.active_status.label }}
+            </label>
+          </div>
+        </div>
+
+        <div class="card-body">
+          <!-- SECTION 2 -->
+          <div class="card border-0 mb-3">
+            <div class="d-flex align-items-center mb-2">
+              <strong class="me-2">Section 2</strong>
+              <span class="text-muted small">Building information and AFSS details</span>
+            </div>
+
+            <div class="row g-3">
+              <div class="col-md-6">
+                <label class="form-label" for="{{ form.property_description.id_for_label }}">
+                  {{ form.property_description.label }}
+                </label>
+                {{ form.property_description }}
+                {% if form.property_description.errors %}
+                  <div class="text-danger small">{{ form.property_description.errors }}</div>
+                {% endif %}
+              </div>
+
+              <div class="col-md-6">
+                <label class="form-label" for="{{ form.afss_number.id_for_label }}">
+                  {{ form.afss_number.label }}
+                </label>
+                {{ form.afss_number }}
+                {% if form.afss_number.errors %}
+                  <div class="text-danger small">{{ form.afss_number.errors }}</div>
+                {% endif %}
+              </div>
+
+              <div class="col-md-6">
+                <label class="form-label" for="{{ form.levels_above_ground.id_for_label }}">
+                  {{ form.levels_above_ground.label }}
+                </label>
+                {{ form.levels_above_ground }}
+                {% if form.levels_above_ground.errors %}
+                  <div class="text-danger small">{{ form.levels_above_ground.errors }}</div>
+                {% endif %}
+              </div>
+
+              <div class="col-md-6">
+                <label class="form-label" for="{{ form.number_of_residential.id_for_label }}">
+                  {{ form.number_of_residential.label }}
+                </label>
+                {{ form.number_of_residential }}
+                {% if form.number_of_residential.errors %}
+                  <div class="text-danger small">{{ form.number_of_residential.errors }}</div>
+                {% endif %}
+              </div>
+
+              <div class="col-md-6">
+                <label class="form-label" for="{{ form.levels_below_ground.id_for_label }}">
+                  {{ form.levels_below_ground.label }}
+                </label>
+                {{ form.levels_below_ground }}
+                {% if form.levels_below_ground.errors %}
+                  <div class="text-danger small">{{ form.levels_below_ground.errors }}</div>
+                {% endif %}
+              </div>
+
+              <div class="col-md-6">
+                <label class="form-label" for="{{ form.number_of_commercial.id_for_label }}">
+                  {{ form.number_of_commercial.label }}
+                </label>
+                {{ form.number_of_commercial }}
+                {% if form.number_of_commercial.errors %}
+                  <div class="text-danger small">{{ form.number_of_commercial.errors }}</div>
+                {% endif %}
+              </div>
+
+              <div class="col-md-6">
+                <label class="form-label" for="{{ form.afss_due_date.id_for_label }}">
+                  {{ form.afss_due_date.label }}
+                </label>
+                {{ form.afss_due_date }}
+                {% if form.afss_due_date.errors %}
+                  <div class="text-danger small">{{ form.afss_due_date.errors }}</div>
+                {% endif %}
+              </div>
+
+              <div class="col-md-6">
+                <label class="form-label" for="{{ form.certification_date.id_for_label }}">
+                  {{ form.certification_date.label }}
+                </label>
+                {{ form.certification_date }}
+                {% if form.certification_date.errors %}
+                  <div class="text-danger small">{{ form.certification_date.errors }}</div>
+                {% endif %}
+              </div>
+            </div>
+          </div>
+
+          <hr class="my-3"/>
 
           <div class="row g-3">
-            <!-- Row 1: Property Description + AFSS Number -->
-            <div class="col-md-6">
-              <label class="form-label" for="{{ form.property_description.id_for_label }}">
-                {{ form.property_description.label }}
-              </label>
-              {{ form.property_description }}
-              {% if form.property_description.errors %}
-                <div class="text-danger small">{{ form.property_description.errors }}</div>
+            <div class="col-md-8">
+              <label class="form-label" for="{{ form.building_name.id_for_label }}">{{ form.building_name.label }}</label>
+              {{ form.building_name }}
+              {% if form.building_name.errors %}<div class="text-danger small">{{ form.building_name.errors }}</div>{% endif %}
+            </div>
+
+            <div class="col-md-4">
+              <label class="form-label" for="{{ form.customer.id_for_label }}">{{ form.customer.label }}</label>
+              {{ form.customer }}
+
+              {% if form.customer.field.disabled %}
+                <div class="text-muted small mt-1">
+                  Customer is preselected from the customer record.
+                </div>
               {% endif %}
+
+              {% if form.customer.errors %}<div class="text-danger small">{{ form.customer.errors }}</div>{% endif %}
             </div>
 
             <div class="col-md-6">
-              <label class="form-label" for="{{ form.afss_number.id_for_label }}">
-                {{ form.afss_number.label }}
-              </label>
-              {{ form.afss_number }}
-              {% if form.afss_number.errors %}
-                <div class="text-danger small">{{ form.afss_number.errors }}</div>
-              {% endif %}
-            </div>
-
-            <!-- Row 2: Levels Above Ground + Number of Residential (inline) -->
-            <div class="col-md-6">
-              <label class="form-label" for="{{ form.levels_above_ground.id_for_label }}">
-                {{ form.levels_above_ground.label }}
-              </label>
-              {{ form.levels_above_ground }}
-              {% if form.levels_above_ground.errors %}
-                <div class="text-danger small">{{ form.levels_above_ground.errors }}</div>
-              {% endif %}
+              <label class="form-label" for="{{ form.strata_plan.id_for_label }}">{{ form.strata_plan.label }}</label>
+              {{ form.strata_plan }}
+              {% if form.strata_plan.errors %}<div class="text-danger small">{{ form.strata_plan.errors }}</div>{% endif %}
             </div>
 
             <div class="col-md-6">
-              <label class="form-label" for="{{ form.number_of_residential.id_for_label }}">
-                {{ form.number_of_residential.label }}
-              </label>
-              {{ form.number_of_residential }}
-              {% if form.number_of_residential.errors %}
-                <div class="text-danger small">{{ form.number_of_residential.errors }}</div>
-              {% endif %}
+              <label class="form-label" for="{{ form.sor_site_id.id_for_label }}">{{ form.sor_site_id.label }}</label>
+              {{ form.sor_site_id }}
+              {% if form.sor_site_id.errors %}<div class="text-danger small">{{ form.sor_site_id.errors }}</div>{% endif %}
             </div>
-
-            <!-- Row 3: Levels Below Ground + Number of Commercial (inline) -->
-            <div class="col-md-6">
-              <label class="form-label" for="{{ form.levels_below_ground.id_for_label }}">
-                {{ form.levels_below_ground.label }}
-              </label>
-              {{ form.levels_below_ground }}
-              {% if form.levels_below_ground.errors %}
-                <div class="text-danger small">{{ form.levels_below_ground.errors }}</div>
-              {% endif %}
-            </div>
-
-            <div class="col-md-6">
-              <label class="form-label" for="{{ form.number_of_commercial.id_for_label }}">
-                {{ form.number_of_commercial.label }}
-              </label>
-              {{ form.number_of_commercial }}
-              {% if form.number_of_commercial.errors %}
-                <div class="text-danger small">{{ form.number_of_commercial.errors }}</div>
-              {% endif %}
-            </div>
-
-            <!-- Row 4: AFSS Due Date + Certification Date (inline) -->
-            <div class="col-md-6">
-              <label class="form-label" for="{{ form.afss_due_date.id_for_label }}">
-                {{ form.afss_due_date.label }}
-              </label>
-              {{ form.afss_due_date }}
-              {% if form.afss_due_date.errors %}
-                <div class="text-danger small">{{ form.afss_due_date.errors }}</div>
-              {% endif %}
-            </div>
-
-            <div class="col-md-6">
-              <label class="form-label" for="{{ form.certification_date.id_for_label }}">
-                {{ form.certification_date.label }}
-              </label>
-              {{ form.certification_date }}
-              {% if form.certification_date.errors %}
-                <div class="text-danger small">{{ form.certification_date.errors }}</div>
-              {% endif %}
-            </div>
-          </div>
-        </div>
-
-        <hr class="my-3"/>
-
-        <div class="row g-3">
-          <div class="col-md-8">
-            <label class="form-label" for="{{ form.building_name.id_for_label }}">{{ form.building_name.label }}</label>
-            {{ form.building_name }}
-            {% if form.building_name.errors %}<div class="text-danger small">{{ form.building_name.errors }}</div>{% endif %}
-          </div>
-
-          <div class="col-md-4">
-            <label class="form-label" for="{{ form.customer.id_for_label }}">{{ form.customer.label }}</label>
-            {{ form.customer }}
-            {% if form.customer.errors %}<div class="text-danger small">{{ form.customer.errors }}</div>{% endif %}
-          </div>
-
-          <div class="col-md-6">
-            <label class="form-label" for="{{ form.strata_plan.id_for_label }}">{{ form.strata_plan.label }}</label>
-            {{ form.strata_plan }}
-            {% if form.strata_plan.errors %}<div class="text-danger small">{{ form.strata_plan.errors }}</div>{% endif %}
-          </div>
-
-          <div class="col-md-6">
-            <label class="form-label" for="{{ form.sor_site_id.id_for_label }}">{{ form.sor_site_id.label }}</label>
-            {{ form.sor_site_id }}
-            {% if form.sor_site_id.errors %}<div class="text-danger small">{{ form.sor_site_id.errors }}</div>{% endif %}
           </div>
         </div>
       </div>
-    </div>
 
-    <!-- CARD 2: Address -->
-    <div class="card shadow-sm mb-3">
-      <div class="card-header"><strong>Address</strong></div>
-      <div class="card-body">
-        <div class="row g-3">
-          <div class="col-md-6">
-            <label class="form-label" for="{{ form.street.id_for_label }}">{{ form.street.label }}</label>
-            {{ form.street }}
-            {% if form.street.errors %}<div class="text-danger small">{{ form.street.errors }}</div>{% endif %}
-          </div>
-          <div class="col-md-6">
-            <label class="form-label" for="{{ form.city.id_for_label }}">{{ form.city.label }}</label>
-            {{ form.city }}
-            {% if form.city.errors %}<div class="text-danger small">{{ form.city.errors }}</div>{% endif %}
-          </div>
-          <div class="col-md-6">
-            <label class="form-label" for="{{ form.state.id_for_label }}">{{ form.state.label }}</label>
-            {{ form.state }}
-            {% if form.state.errors %}<div class="text-danger small">{{ form.state.errors }}</div>{% endif %}
-          </div>
-          <div class="col-md-6">
-            <label class="form-label" for="{{ form.post_code.id_for_label }}">{{ form.post_code.label }}</label>
-            {{ form.post_code }}
-            {% if form.post_code.errors %}<div class="text-danger small">{{ form.post_code.errors }}</div>{% endif %}
+      <!-- CARD 2: Address -->
+      <div class="card shadow-sm mb-3">
+        <div class="card-header"><strong>Address</strong></div>
+        <div class="card-body">
+          <div class="row g-3">
+            <div class="col-md-6">
+              <label class="form-label" for="{{ form.street.id_for_label }}">{{ form.street.label }}</label>
+              {{ form.street }}
+              <div class="text-muted small mt-1">Start typing an address and select a suggestion.</div>
+              {% if form.street.errors %}<div class="text-danger small">{{ form.street.errors }}</div>{% endif %}
+            </div>
+            <div class="col-md-6">
+              <label class="form-label" for="{{ form.city.id_for_label }}">{{ form.city.label }}</label>
+              {{ form.city }}
+              {% if form.city.errors %}<div class="text-danger small">{{ form.city.errors }}</div>{% endif %}
+            </div>
+            <div class="col-md-6">
+              <label class="form-label" for="{{ form.state.id_for_label }}">{{ form.state.label }}</label>
+              {{ form.state }}
+              {% if form.state.errors %}<div class="text-danger small">{{ form.state.errors }}</div>{% endif %}
+            </div>
+            <div class="col-md-6">
+              <label class="form-label" for="{{ form.post_code.id_for_label }}">{{ form.post_code.label }}</label>
+              {{ form.post_code }}
+              {% if form.post_code.errors %}<div class="text-danger small">{{ form.post_code.errors }}</div>{% endif %}
+            </div>
           </div>
         </div>
       </div>
-    </div>
+
+    {% endif %}
 
     <!-- CARD 3: Contacts -->
     <div class="card shadow-sm mb-3">
@@ -270,5 +460,98 @@
       <button type="submit" class="btn btn-primary">Save</button>
     </div>
   </form>
+
+  <!-- ✅ DEBUG: This tells us if the template received the key -->
+  <div class="mt-3 text-muted small">
+    Google key in template:
+    {% if GOOGLE_MAPS_API_KEY %}
+      <span class="badge text-bg-success">YES</span>
+    {% else %}
+      <span class="badge text-bg-danger">NO</span>
+    {% endif %}
+  </div>
 </div>
+
+<!-- ✅ Floating save (bound to form) -->
+<button
+  type="submit"
+  form="property-form"
+  class="btn btn-primary shadow position-fixed"
+  style="right: 24px; bottom: 24px; z-index: 1050;"
+>
+  <i class="bi bi-save me-1"></i> Save
+</button>
+
+<script>
+  (function () {
+    function attachAutocomplete() {
+      const streetInput = document.getElementById("{{ form.street.id_for_label }}");
+      if (!streetInput) return false;
+
+      if (streetInput.dataset.gplacesBound === "1") return true;
+      if (!window.google || !google.maps || !google.maps.places) return false;
+
+      const cityInput = document.getElementById("{{ form.city.id_for_label }}");
+      const stateInput = document.getElementById("{{ form.state.id_for_label }}");
+      const postCodeInput = document.getElementById("{{ form.post_code.id_for_label }}");
+
+      const autocomplete = new google.maps.places.Autocomplete(streetInput, {
+        types: ["address"],
+        componentRestrictions: { country: "au" },
+        fields: ["address_components"],
+      });
+
+      function getComp(components, type, useShort) {
+        const c = (components || []).find(x => (x.types || []).includes(type));
+        if (!c) return "";
+        return useShort ? (c.short_name || c.long_name || "") : (c.long_name || c.short_name || "");
+      }
+
+      autocomplete.addListener("place_changed", () => {
+        const place = autocomplete.getPlace();
+        const comps = place.address_components || [];
+        if (!comps.length) return;
+
+        const subpremise = getComp(comps, "subpremise", false);
+        const streetNumber = getComp(comps, "street_number", false);
+        const route = getComp(comps, "route", false);
+
+        let streetLine = [streetNumber, route].filter(Boolean).join(" ").trim();
+        if (subpremise && streetLine) streetLine = `${subpremise}/${streetLine}`;
+        if (streetLine) streetInput.value = streetLine;
+
+        const city =
+          getComp(comps, "locality", false) ||
+          getComp(comps, "postal_town", false) ||
+          getComp(comps, "sublocality_level_1", false) ||
+          getComp(comps, "sublocality", false);
+
+        const state = getComp(comps, "administrative_area_level_1", true);
+        const postCode = getComp(comps, "postal_code", false);
+
+        if (cityInput && city) cityInput.value = city;
+        if (stateInput && state) stateInput.value = state;
+        if (postCodeInput && postCode) postCodeInput.value = postCode;
+      });
+
+      streetInput.dataset.gplacesBound = "1";
+      return true;
+    }
+
+    window.initAddressAutocomplete = function () {
+      attachAutocomplete();
+    };
+
+    document.addEventListener("DOMContentLoaded", () => {
+      attachAutocomplete();
+    });
+  })();
+</script>
+
+<script
+  src="https://maps.googleapis.com/maps/api/js?key={{ GOOGLE_MAPS_API_KEY }}&libraries=places&callback=initAddressAutocomplete"
+  async
+  defer
+></script>
+
 {% endblock %}

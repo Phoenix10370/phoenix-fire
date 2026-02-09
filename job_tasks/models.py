@@ -1,3 +1,5 @@
+# job_tasks/models.py
+
 from decimal import Decimal
 from datetime import time
 import uuid
@@ -53,6 +55,31 @@ class JobTask(models.Model):
         related_name="job_tasks",
     )
 
+    # ------------------------------------------------------------------
+    # Parent/Child grouping (NEW)
+    # ------------------------------------------------------------------
+    parent_job = models.ForeignKey(
+        'self',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='child_jobs'
+    )
+
+    # Shared across ALL related jobs (store on parent; children should read/write via parent)
+    shared_site_notes = models.TextField(
+        blank=True,
+        default="",
+        help_text="Shared site notes for this job group (stored on the parent job).",
+    )
+
+    # Per technician/day job notes (stored on each task; primarily used on child jobs)
+    technician_job_notes = models.TextField(
+        blank=True,
+        default="",
+        help_text="Technician-specific job notes (per scheduled task).",
+    )
+
     title = models.CharField(max_length=200)
     description = models.TextField(blank=True, default="")  # kept for DB compatibility
 
@@ -61,9 +88,10 @@ class JobTask(models.Model):
     # Service Date (blank unless user sets)
     service_date = models.DateField(null=True, blank=True)
 
-    # ✅ NEW: start/finish time
+    # ✅ start/finish time
     start_time = models.TimeField(null=True, blank=True)
     finish_time = models.TimeField(null=True, blank=True)
+    is_all_day = models.BooleanField(default=False)
 
     # ✅ Keep legacy display field (safe + avoids breaking old code/templates)
     # This will be auto-updated from start/finish when present.
@@ -112,6 +140,7 @@ class JobTask(models.Model):
     property_assets = models.ManyToManyField(
         "properties.PropertyAsset",
         through="job_tasks.JobTaskAssetLink",
+        through_fields=("job_task", "property_asset"),
         blank=True,
         related_name="job_tasks",
     )
@@ -124,6 +153,17 @@ class JobTask(models.Model):
 
     def __str__(self) -> str:
         return f"{self.title} (#{self.pk})"
+
+    @property
+    def root_job(self) -> "JobTask":
+        """
+        Parent job if this is a child, otherwise self.
+        """
+        return self.parent_job if self.parent_job_id else self
+
+    @property
+    def is_parent(self) -> bool:
+        return self.parent_job_id is None
 
     @staticmethod
     def _fmt_time_dot(t: time) -> str:
@@ -143,24 +183,35 @@ class JobTask(models.Model):
         - If service_date is set and status is Unscheduled -> Scheduled
         - If service_date is cleared and status is Scheduled -> Unscheduled
         - If start+finish exist -> update service_time display string
+        - If all-day: wipe times and set display
         """
+        # If all-day: wipe times and set display
+        if self.is_all_day:
+            self.start_time = None
+            self.finish_time = None
+            self.service_time = "All day"
+
         if self.service_date and self.status == "open":
             self.status = "scheduled"
         if not self.service_date and self.status == "scheduled":
             self.status = "open"
 
-        if self.start_time and self.finish_time:
-            self.service_time = f"{self._fmt_time_dot(self.start_time)}-{self._fmt_time_dot(self.finish_time)}"
-        elif not self.start_time and not self.finish_time:
-            # leave existing service_time alone (in case older data is stored there)
-            pass
-        else:
-            # one is set but not the other
-            # keep a partial display to avoid confusion
-            if self.start_time and not self.finish_time:
-                self.service_time = f"{self._fmt_time_dot(self.start_time)}-"
-            elif self.finish_time and not self.start_time:
-                self.service_time = f"-{self._fmt_time_dot(self.finish_time)}"
+        # Only compute time range display when not all-day
+        if not self.is_all_day:
+            if self.start_time and self.finish_time:
+                self.service_time = (
+                    f"{self._fmt_time_dot(self.start_time)}-{self._fmt_time_dot(self.finish_time)}"
+                )
+            elif not self.start_time and not self.finish_time:
+                # leave existing service_time alone (in case older data is stored there)
+                pass
+            else:
+                # one is set but not the other
+                # keep a partial display to avoid confusion
+                if self.start_time and not self.finish_time:
+                    self.service_time = f"{self._fmt_time_dot(self.start_time)}-"
+                elif self.finish_time and not self.start_time:
+                    self.service_time = f"-{self._fmt_time_dot(self.finish_time)}"
 
         super().save(*args, **kwargs)
 
@@ -201,6 +252,24 @@ class JobTaskAssetLink(models.Model):
 
     created_at = models.DateTimeField(auto_now_add=True)
 
+    RESULT_CHOICES = [
+        ("pass", "Pass"),
+        ("fail", "Fail"),
+        ("access", "Access"),
+        ("no_access", "No Access"),
+    ]
+
+    result = models.CharField(max_length=20, choices=RESULT_CHOICES, blank=True, default="")
+    image_urls = models.JSONField(default=list, blank=True)
+
+    last_updated_job = models.ForeignKey(
+        "job_tasks.JobTask",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="asset_link_updates",
+    )
+
     class Meta:
         verbose_name = "Job Task Asset Link"
         verbose_name_plural = "Job Task Asset Links"
@@ -213,6 +282,45 @@ class JobTaskAssetLink(models.Model):
 
     def __str__(self) -> str:
         return f"JobTask #{self.job_task_id} -> PropertyAsset #{self.property_asset_id}"
+
+
+class JobTaskAssetResult(models.Model):
+    """
+    Per-job result for a linked asset.
+    """
+
+    job_task = models.ForeignKey(
+        "job_tasks.JobTask",
+        on_delete=models.CASCADE,
+        related_name="asset_results",
+    )
+
+    property_asset = models.ForeignKey(
+        "properties.PropertyAsset",
+        on_delete=models.CASCADE,
+        related_name="job_task_results",
+    )
+
+    RESULT_CHOICES = [
+        ("pass", "Pass"),
+        ("fail", "Fail"),
+        ("access", "Access"),
+        ("no_access", "No Access"),
+    ]
+
+    result = models.CharField(max_length=20, choices=RESULT_CHOICES, blank=True, default="")
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["job_task", "property_asset"],
+                name="uq_jobtask_asset_result",
+            )
+        ]
+
+    def __str__(self) -> str:
+        return f"JobTask #{self.job_task_id} result for Asset #{self.property_asset_id}"
 
 
 class JobTaskItem(models.Model):
@@ -244,3 +352,22 @@ class JobTaskItem(models.Model):
         qty = self.quantity or Decimal("0")
         unit = self.unit_price or Decimal("0")
         return (qty * unit).quantize(Decimal("0.01"))
+
+
+class JobTaskAssetImage(models.Model):
+    """
+    Uploaded images tied to a JobTaskAssetLink.
+    """
+
+    link = models.ForeignKey(
+        "job_tasks.JobTaskAssetLink",
+        on_delete=models.CASCADE,
+        related_name="images",
+    )
+
+    image = models.ImageField(upload_to="job_tasks/assets/")
+
+    uploaded_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self) -> str:
+        return f"JobTaskAssetImage #{self.pk}"

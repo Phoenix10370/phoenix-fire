@@ -5,13 +5,17 @@
 
   <div class="d-flex align-items-center justify-content-between mb-3">
     <div>
-      <h3 class="mb-0">{{ object.display_name }}</h3>
-      <div class="text-muted small">
-        {{ object.full_address }}
-        {% if object.customer %} • {{ object.customer }}{% endif %}
-      </div>
+      <h3 class="mb-0">
+        <a href="{% url 'properties:detail' object.pk %}" class="text-decoration-none text-reset">
+          {{ object.full_address }}
+        </a>
+      </h3>
     </div>
+
     <div class="d-flex gap-2">
+      <button class="btn btn-success" type="button" data-bs-toggle="collapse" data-bs-target="#addAssetCollapse" aria-expanded="false" aria-controls="addAssetCollapse">
+        Add Asset
+      </button>
       <a href="{% url 'properties:list' %}" class="btn btn-outline-secondary">Back</a>
       <a href="{% url 'properties:update' object.pk %}" class="btn btn-primary">Edit</a>
       <a href="{% url 'properties:delete' object.pk %}" class="btn btn-outline-danger">Delete</a>
@@ -23,331 +27,411 @@
   <div class="row g-3">
 
     <!-- ADD ASSET -->
-    <div class="col-12 col-lg-5">
-      <div class="card shadow-sm">
-        <div class="card-header">
-          <strong>Add Asset</strong>
-        </div>
-        <div class="card-body">
+    <div id="addAssetCol" class="col-12 col-lg-5">
+      <div class="collapse" id="addAssetCollapse">
+        <div class="card shadow-sm">
+          <div class="card-header">
+            <strong>Add Asset</strong>
+          </div>
+          <div class="card-body">
 
-          <form method="post" action="{% url 'properties:add_property_asset' pk=object.pk %}">
-            {% csrf_token %}
-            <input type="hidden" name="asset_code_ct_id" value="{{ assetcode_ct_id }}">
+            <form method="post" action="{% url 'properties:add_property_asset' pk=object.pk %}" enctype="multipart/form-data">
+              {% csrf_token %}
+              <input type="hidden" name="asset_code_ct_id" value="{{ assetcode_ct_id }}">
 
-            <div class="mb-3">
-              <label class="form-label"><strong>Category</strong></label>
-              <select id="asset_category" class="form-select">
-                <option value="">-- Select --</option>
-                {% for c in asset_categories %}
-                  <option value="{{ c.id }}">{{ c.label }}</option>
-                {% endfor %}
-              </select>
-              {% if not categories_list %}
-                <div class="form-text text-warning">
-                  Could not find DropdownList “Asset Categories”. Check Settings → Dropdown Lists.
-                </div>
-              {% endif %}
-            </div>
+              <div class="mb-3">
+                <label class="form-label"><strong>Category</strong></label>
 
-            <div class="mb-3">
-              <label class="form-label"><strong>Equipment</strong></label>
-              <select id="asset_equipment" class="form-select" disabled>
-                <option value="">-- Select --</option>
-                {% for e in asset_equipment %}
-                  <option value="{{ e.id }}" data-parent="{{ e.parent_id|default_if_none:'' }}">{{ e.label }}</option>
-                {% endfor %}
-              </select>
-              {% if not equipment_list %}
-                <div class="form-text text-warning">
-                  Could not find DropdownList “Asset Equipment”. Check Settings → Dropdown Lists.
-                </div>
-              {% endif %}
-            </div>
-
-            <div class="mb-3">
-              <label class="form-label"><strong>Asset Code</strong></label>
-              <select id="asset_code_select" name="asset_code_id" class="form-select" required disabled>
-                <option value="">-- Select --</option>
-                {% for ac in asset_codes %}
-                  <option value="{{ ac.id }}"
-                          data-category="{{ ac.category_id }}"
-                          data-equipment="{{ ac.equipment_id }}">
-                    {{ ac.code }} — {{ ac.category.label }} / {{ ac.equipment.label }}
-                  </option>
-                {% endfor %}
-              </select>
-              <div class="form-text">
-                Select Category → Equipment → Asset Code.
-              </div>
-            </div>
-
-            <hr class="my-3">
-
-            <div class="mb-3">
-              <label class="form-label"><strong>Barcode</strong></label>
-              <input type="text" name="barcode" class="form-control" placeholder="Scan or type barcode">
-              <div class="form-text">Optional. If provided, must be unique.</div>
-            </div>
-
-            <div class="mb-3">
-              <label class="form-label"><strong>Block</strong></label>
-              <input type="text" name="block" class="form-control">
-            </div>
-
-            <div class="mb-3">
-              <label class="form-label"><strong>Level</strong></label>
-              <input type="text" name="level" class="form-control">
-            </div>
-
-            <div class="mb-3">
-              <label class="form-label"><strong>Location</strong></label>
-              <input type="text" name="location" class="form-control">
-            </div>
-
-            <!-- OPTIONAL FIELDS -->
-            <div class="card mt-3">
-              <div class="card-header">
-                <strong>Additional Fields</strong>
-              </div>
-              <div class="card-body">
-
-                <div id="optional_fields_empty" class="text-muted">
-                  Select Equipment to show additional fields.
-                </div>
-
-                <div id="optional_fields_wrap" class="row g-3" style="display:none;">
-                  {% for f in asset_field_payload %}
-                    <div class="col-12"
-                         data-opt-field="1"
-                         data-opt-slug="{{ f.slug }}"
-                         style="display:none;">
-                      <label class="form-label"><strong>{{ f.label }}</strong></label>
-                      <select class="form-select" data-opt-select="1" style="display:none;"></select>
-                      <input type="text" class="form-control" data-opt-input="1" style="display:none;">
-                    </div>
+                <!-- ✅ Autocomplete input -->
+                <input id="asset_category_ac" class="form-control" list="asset_category_list" placeholder="Type to search..." />
+                <datalist id="asset_category_list">
+                  <option value="">-- Select --</option>
+                  {% for c in asset_categories %}
+                    <option value="{{ c.label }}"></option>
                   {% endfor %}
-                </div>
+                </datalist>
 
-                <div class="form-text mt-2">
-                  These fields are driven by your Equipment schema (Equipment → Optional Fields → Allowed values).
-                  Values are saved to this property’s asset instance.
+                <!-- keep the select for JS compatibility -->
+                <select id="asset_category" class="form-select mt-2" style="display:none;">
+                  <option value="">-- Select --</option>
+                  {% for c in asset_categories %}
+                    <option value="{{ c.id }}">{{ c.label }}</option>
+                  {% endfor %}
+                </select>
+
+                {% if not categories_list %}
+                  <div class="form-text text-warning">
+                    Could not find DropdownList “Asset Categories”. Check Settings → Dropdown Lists.
+                  </div>
+                {% endif %}
+              </div>
+
+              <div class="mb-3">
+                <label class="form-label"><strong>Equipment</strong></label>
+                <select id="asset_equipment" class="form-select" disabled>
+                  <option value="">-- Select --</option>
+                  {% for e in asset_equipment %}
+                    <option value="{{ e.id }}" data-parent="{{ e.parent_id|default_if_none:'' }}">{{ e.label }}</option>
+                  {% endfor %}
+                </select>
+                {% if not equipment_list %}
+                  <div class="form-text text-warning">
+                    Could not find DropdownList “Asset Equipment”. Check Settings → Dropdown Lists.
+                  </div>
+                {% endif %}
+              </div>
+
+              <div class="mb-3">
+                <label class="form-label"><strong>Asset Code</strong></label>
+
+                <!-- ✅ Auto-populated, not a dropdown -->
+                <input id="asset_code_display" class="form-control" placeholder="Select Category and Equipment" readonly />
+                <input id="asset_code_id" name="asset_code_id" type="hidden" required />
+
+                <!-- keep options hidden for lookup -->
+                <select id="asset_code_select" class="form-select" style="display:none;">
+                  <option value="">-- Select --</option>
+                  {% for ac in asset_codes %}
+                    <option value="{{ ac.id }}"
+                            data-category="{{ ac.category_id }}"
+                            data-equipment="{{ ac.equipment_id }}">
+                      {{ ac.code }} — {{ ac.category.label }} / {{ ac.equipment.label }}
+                    </option>
+                  {% endfor %}
+                </select>
+
+                <div class="form-text">
+                  Asset Code auto-populates from Category + Equipment.
                 </div>
               </div>
-            </div>
 
-            <button type="submit" class="btn btn-primary mt-3">Add Asset</button>
-          </form>
+              <hr class="my-3">
 
-          {{ equipment_optional_map|json_script:"equipmentOptionalMap" }}
+              <div class="mb-3">
+                <label class="form-label"><strong>Barcode</strong></label>
+                <input type="text" name="barcode" class="form-control" placeholder="Scan or type barcode">
+                <div class="form-text">Optional. If provided, must be unique.</div>
+              </div>
 
-          <script>
-            (function () {
-              const categoryEl = document.getElementById("asset_category");
-              const equipmentEl = document.getElementById("asset_equipment");
-              const assetCodeEl = document.getElementById("asset_code_select");
+              <div class="mb-3">
+                <label class="form-label"><strong>Block</strong></label>
+                <input type="text" name="block" class="form-control">
+              </div>
 
-              const optionalEmptyEl = document.getElementById("optional_fields_empty");
-              const optionalWrapEl = document.getElementById("optional_fields_wrap");
-              const optFields = Array.from(document.querySelectorAll("[data-opt-field='1']"));
+              <div class="mb-3">
+                <label class="form-label"><strong>Level</strong></label>
+                <input type="text" name="level" class="form-control">
+              </div>
 
-              const equipmentOptionalMap = (function () {
-                try {
-                  const el = document.getElementById("equipmentOptionalMap");
-                  return JSON.parse(el.textContent || "{}");
-                } catch (e) {
-                  return {};
+              <div class="mb-3">
+                <label class="form-label"><strong>Location</strong></label>
+                <input type="text" name="location" class="form-control">
+              </div>
+
+              <div class="mb-3">
+                <label class="form-label"><strong>Main Image</strong></label>
+                <input type="file" name="main_image" class="form-control" accept="image/*">
+                <div class="form-text">This is the shared image used for this asset.</div>
+              </div>
+
+              <!-- OPTIONAL FIELDS -->
+              <div class="card mt-3">
+                <div class="card-header">
+                  <strong>Additional Fields</strong>
+                </div>
+                <div class="card-body">
+
+                  <div id="optional_fields_empty" class="text-muted">
+                    Select Equipment to show additional fields.
+                  </div>
+
+                  <div id="optional_fields_wrap" class="row g-3" style="display:none;">
+                    {% for f in asset_field_payload %}
+                      <div class="col-12"
+                           data-opt-field="1"
+                           data-opt-slug="{{ f.slug }}"
+                           style="display:none;">
+                        <label class="form-label"><strong>{{ f.label }}</strong></label>
+                        <select class="form-select" data-opt-select="1" style="display:none;"></select>
+                        <input type="text" class="form-control" data-opt-input="1" style="display:none;">
+                      </div>
+                    {% endfor %}
+                  </div>
+
+                  <div class="form-text mt-2">
+                    These fields are driven by your Equipment schema (Equipment → Optional Fields → Allowed values).
+                    Values are saved to this property’s asset instance.
+                  </div>
+                </div>
+              </div>
+
+              <button type="submit" class="btn btn-primary mt-3">Add Asset</button>
+            </form>
+
+            {{ equipment_optional_map|json_script:"equipmentOptionalMap" }}
+            {{ asset_code_optional_map|json_script:"assetCodeOptionalMap" }}
+
+            <script>
+              (function () {
+                if (window.__assetAddInit) return;
+                window.__assetAddInit = true;
+
+                const categoryEl = document.getElementById("asset_category");
+                const categoryInputEl = document.getElementById("asset_category_ac");
+                const categoryListEl = document.getElementById("asset_category_list");
+                const equipmentEl = document.getElementById("asset_equipment");
+                const assetCodeEl = document.getElementById("asset_code_select");
+                const assetCodeDisplayEl = document.getElementById("asset_code_display");
+                const assetCodeIdEl = document.getElementById("asset_code_id");
+
+                const optionalEmptyEl = document.getElementById("optional_fields_empty");
+                const optionalWrapEl = document.getElementById("optional_fields_wrap");
+                const optFields = Array.from(document.querySelectorAll("[data-opt-field='1']"));
+
+                const allEquipmentOptions = Array.from(equipmentEl.querySelectorAll("option")).filter(o => o.value !== "");
+                const allAssetCodeOptions = Array.from(assetCodeEl.querySelectorAll("option")).filter(o => o.value !== "");
+                const allCategoryOptions = Array.from(categoryEl.querySelectorAll("option")).filter(o => o.value);
+
+                const assetCodeOptionalMap = (function () {
+                  try {
+                    const el = document.getElementById("assetCodeOptionalMap");
+                    return JSON.parse(el?.textContent || "{}");
+                  } catch (e) {
+                    return {};
+                  }
+                })();
+
+                function enableSelect(el, enabled) {
+                  el.disabled = !enabled;
+                  if (!enabled) el.value = "";
                 }
-              })();
 
-              const allEquipmentOptions = Array.from(equipmentEl.querySelectorAll("option")).filter(o => o.value !== "");
-              const allAssetCodeOptions = Array.from(assetCodeEl.querySelectorAll("option")).filter(o => o.value !== "");
-
-              function resetSelect(selectEl, placeholderText) {
-                selectEl.value = "";
-                Array.from(selectEl.querySelectorAll("option")).forEach((opt, idx) => {
-                  opt.hidden = idx !== 0;
-                });
-                if (placeholderText) selectEl.querySelector("option").textContent = placeholderText;
-              }
-
-              function enableSelect(selectEl, enabled) {
-                selectEl.disabled = !enabled;
-              }
-
-              function clearFieldNamesAndValues(container) {
-                const sel = container.querySelector("[data-opt-select='1']");
-                const inp = container.querySelector("[data-opt-input='1']");
-                if (sel) { sel.name = ""; sel.value = ""; sel.innerHTML = ""; }
-                if (inp) { inp.name = ""; inp.value = ""; }
-              }
-
-              function hideAllOptionalFields(message) {
-                optFields.forEach(el => {
-                  el.style.display = "none";
-                  clearFieldNamesAndValues(el);
-                });
-                optionalWrapEl.style.display = "none";
-                optionalEmptyEl.style.display = "block";
-                optionalEmptyEl.textContent = message || "Select Equipment to show additional fields.";
-              }
-
-              function showOptionalFieldsForEquipment(equipmentId) {
-                const map = equipmentOptionalMap[String(equipmentId)] || null;
-
-                if (!map || typeof map !== "object") {
-                  hideAllOptionalFields("No additional fields found for this equipment.");
-                  return;
+                function resetSelect(el, placeholderText) {
+                  const opts = Array.from(el.querySelectorAll("option"));
+                  opts.forEach(o => { if (o.value) o.hidden = true; });
+                  if (placeholderText && el.options.length) el.options[0].textContent = placeholderText;
+                  el.value = "";
                 }
 
-                let shown = 0;
+                function clearFieldNamesAndValues(wrapper) {
+                  const sel = wrapper.querySelector("[data-opt-select='1']");
+                  const inp = wrapper.querySelector("[data-opt-input='1']");
+                  if (sel) { sel.name = ""; sel.innerHTML = ""; sel.value = ""; }
+                  if (inp) { inp.name = ""; inp.value = ""; }
+                }
 
-                optFields.forEach(el => {
-                  const slug = el.getAttribute("data-opt-slug");
-                  const values = map[slug];
-
-                  clearFieldNamesAndValues(el);
-
-                  const sel = el.querySelector("[data-opt-select='1']");
-                  const inp = el.querySelector("[data-opt-input='1']");
-
-                  if (!values || !Array.isArray(values)) {
+                function hideAllOptionalFields(msg) {
+                  optFields.forEach(el => {
                     el.style.display = "none";
-                    if (sel) sel.style.display = "none";
-                    if (inp) inp.style.display = "none";
+                    clearFieldNamesAndValues(el);
+                  });
+                  if (optionalWrapEl) optionalWrapEl.style.display = "none";
+                  if (optionalEmptyEl) {
+                    optionalEmptyEl.style.display = "block";
+                    if (msg) optionalEmptyEl.textContent = msg;
+                  }
+                }
+
+                function showOptionalFieldsForAssetCode(assetCodeId) {
+                  const map = assetCodeOptionalMap[String(assetCodeId)] || null;
+
+                  if (!map || typeof map !== "object") {
+                    hideAllOptionalFields("No additional fields for this asset code.");
                     return;
                   }
 
-                  el.style.display = "block";
-                  shown += 1;
+                  let shown = 0;
 
-                  if (values.length > 0) {
-                    if (sel) {
-                      const opt0 = document.createElement("option");
-                      opt0.value = "";
-                      opt0.textContent = "-- Select --";
-                      sel.appendChild(opt0);
+                  optFields.forEach(el => {
+                    const slug = el.getAttribute("data-opt-slug");
+                    const values = map[slug];
 
-                      values.forEach(v => {
-                        const o = document.createElement("option");
-                        o.value = v;
-                        o.textContent = v;
-                        sel.appendChild(o);
-                      });
+                    clearFieldNamesAndValues(el);
 
-                      sel.style.display = "block";
-                      sel.name = "attr__" + slug;
+                    const sel = el.querySelector("[data-opt-select='1']");
+                    const inp = el.querySelector("[data-opt-input='1']");
+
+                    if (!values || !Array.isArray(values)) {
+                      el.style.display = "none";
+                      if (sel) sel.style.display = "none";
+                      if (inp) inp.style.display = "none";
+                      return;
                     }
 
-                    if (inp) {
-                      inp.style.display = "none";
-                      inp.name = "";
-                      inp.value = "";
+                    el.style.display = "block";
+                    shown += 1;
+
+                    if (values.length > 0) {
+                      if (sel) {
+                        const opt0 = document.createElement("option");
+                        opt0.value = "";
+                        opt0.textContent = "-- Select --";
+                        sel.appendChild(opt0);
+
+                        values.forEach(v => {
+                          const o = document.createElement("option");
+                          o.value = v;
+                          o.textContent = v;
+                          sel.appendChild(o);
+                        });
+
+                        sel.style.display = "block";
+                        sel.name = "attr__" + slug;
+                      }
+
+                      if (inp) {
+                        inp.style.display = "none";
+                        inp.name = "";
+                        inp.value = "";
+                      }
+                    } else {
+                      if (inp) {
+                        inp.style.display = "block";
+                        inp.name = "attr__" + slug;
+                      }
+                      if (sel) {
+                        sel.style.display = "none";
+                        sel.name = "";
+                        sel.value = "";
+                      }
                     }
+                  });
+
+                  if (shown > 0) {
+                    optionalWrapEl.style.display = "flex";
+                    optionalEmptyEl.style.display = "none";
                   } else {
-                    if (inp) {
-                      inp.style.display = "block";
-                      inp.name = "attr__" + slug;
-                    }
-                    if (sel) {
-                      sel.style.display = "none";
-                      sel.name = "";
-                      sel.value = "";
-                    }
+                    hideAllOptionalFields("No additional fields for this asset code.");
                   }
-                });
-
-                if (shown > 0) {
-                  optionalWrapEl.style.display = "flex";
-                  optionalEmptyEl.style.display = "none";
-                } else {
-                  hideAllOptionalFields("No additional fields for this equipment.");
-                }
-              }
-
-              function filterEquipmentByCategory(categoryId) {
-                resetSelect(equipmentEl, "-- Select --");
-                resetSelect(assetCodeEl, "-- Select --");
-                enableSelect(assetCodeEl, false);
-                hideAllOptionalFields();
-
-                if (!categoryId) {
-                  enableSelect(equipmentEl, false);
-                  return;
                 }
 
-                let shown = 0;
-                allEquipmentOptions.forEach(opt => {
-                  const parent = opt.getAttribute("data-parent") || "";
-                  const match = (parent === "" || parent === categoryId);
-                  opt.hidden = !match;
-                  if (match) shown += 1;
-                });
-
-                enableSelect(equipmentEl, true);
-
-                if (shown === 0) {
-                  allEquipmentOptions.forEach(opt => opt.hidden = false);
-                }
-              }
-
-              function filterAssetCodes(categoryId, equipmentId) {
-                resetSelect(assetCodeEl, "-- Select --");
-
-                if (!categoryId || !equipmentId) {
+                function filterEquipmentByCategory(categoryId) {
+                  resetSelect(equipmentEl, "-- Select --");
+                  resetSelect(assetCodeEl, "-- Select --");
                   enableSelect(assetCodeEl, false);
-                  return;
+                  hideAllOptionalFields();
+
+                  if (!categoryId) {
+                    enableSelect(equipmentEl, false);
+                    return;
+                  }
+
+                  let shown = 0;
+                  allEquipmentOptions.forEach(opt => {
+                    const parent = opt.getAttribute("data-parent") || "";
+                    const match = (parent === categoryId);
+                    opt.hidden = !match;
+                    if (match) shown += 1;
+                  });
+
+                  enableSelect(equipmentEl, shown > 0);
                 }
 
-                let shown = 0;
-                allAssetCodeOptions.forEach(opt => {
-                  const oc = opt.getAttribute("data-category");
-                  const oe = opt.getAttribute("data-equipment");
-                  const match = (oc === categoryId && oe === equipmentId);
-                  opt.hidden = !match;
-                  if (match) shown += 1;
+                function resolveCategoryId(inputVal) {
+                  const val = String(inputVal || "").trim().toLowerCase();
+                  if (!val) return "";
+
+                  const exact = allCategoryOptions.find(o => (o.textContent || "").trim().toLowerCase() === val);
+                  if (exact) return exact.value;
+
+                  const prefix = allCategoryOptions.filter(o => (o.textContent || "").trim().toLowerCase().startsWith(val));
+                  return prefix.length === 1 ? prefix[0].value : "";
+                }
+
+                function renderCategoryDatalist(filterText) {
+                  if (!categoryListEl) return;
+                  const q = String(filterText || "").trim().toLowerCase();
+                  categoryListEl.innerHTML = "";
+                  allCategoryOptions.forEach(opt => {
+                    const label = (opt.textContent || "").trim();
+                    if (!q || label.toLowerCase().includes(q)) {
+                      const o = document.createElement("option");
+                      o.value = label;
+                      categoryListEl.appendChild(o);
+                    }
+                  });
+                }
+
+                function syncCategoryFromInput() {
+                  renderCategoryDatalist(categoryInputEl.value);
+
+                  const id = resolveCategoryId(categoryInputEl.value);
+                  categoryEl.value = id;
+
+                  if (id) {
+                    filterEquipmentByCategory(id);
+                  } else {
+                    resetSelect(equipmentEl, "-- Select --");
+                    resetSelect(assetCodeEl, "-- Select --");
+                    enableSelect(equipmentEl, false);
+                    enableSelect(assetCodeEl, false);
+                    hideAllOptionalFields();
+                  }
+                }
+
+                function setAssetCodeDisplay(codeText, codeId) {
+                  assetCodeDisplayEl.value = codeText || "";
+                  assetCodeIdEl.value = codeId || "";
+                }
+
+                function autoSelectAssetCode(categoryId, equipmentId) {
+                  setAssetCodeDisplay("", "");
+                  if (!categoryId || !equipmentId) return;
+
+                  const cId = String(categoryId);
+                  const eId = String(equipmentId);
+
+                  const matches = allAssetCodeOptions.filter(opt => {
+                    const oc = String(opt.getAttribute("data-category") || "");
+                    const oe = String(opt.getAttribute("data-equipment") || "");
+                    return oc === cId && oe === eId;
+                  });
+
+                  if (matches.length === 1) {
+                    const opt = matches[0];
+                    setAssetCodeDisplay(opt.textContent.trim(), opt.value);
+                    showOptionalFieldsForAssetCode(opt.value);
+                  } else if (matches.length > 1) {
+                    setAssetCodeDisplay("Multiple Asset Codes found", "");
+                    hideAllOptionalFields("Multiple asset codes found.");
+                  } else {
+                    setAssetCodeDisplay("No Asset Code for this selection", "");
+                    hideAllOptionalFields("No additional fields for this asset code.");
+                  }
+                }
+
+                // init
+                renderCategoryDatalist("");
+                enableSelect(equipmentEl, false);
+
+                categoryInputEl.addEventListener("input", syncCategoryFromInput);
+                categoryInputEl.addEventListener("change", syncCategoryFromInput);
+
+                categoryEl.addEventListener("change", function () {
+                  filterEquipmentByCategory(categoryEl.value || "");
+                  autoSelectAssetCode(categoryEl.value || "", equipmentEl.value || "");
                 });
 
-                enableSelect(assetCodeEl, true);
+                equipmentEl.addEventListener("change", function () {
+                  autoSelectAssetCode(categoryEl.value || "", equipmentEl.value || "");
+                });
 
-                if (shown === 0) {
-                  enableSelect(assetCodeEl, false);
-                  assetCodeEl.querySelector("option").textContent = "No Asset Codes for this selection";
-                }
-              }
+              })();
+            </script>
 
-              resetSelect(equipmentEl, "-- Select --");
-              resetSelect(assetCodeEl, "-- Select --");
-              enableSelect(equipmentEl, false);
-              enableSelect(assetCodeEl, false);
-              hideAllOptionalFields();
-
-              categoryEl.addEventListener("change", function () {
-                filterEquipmentByCategory(categoryEl.value || "");
-              });
-
-              equipmentEl.addEventListener("change", function () {
-                const categoryId = categoryEl.value || "";
-                const equipmentId = equipmentEl.value || "";
-                filterAssetCodes(categoryId, equipmentId);
-
-                hideAllOptionalFields();
-                if (equipmentId) showOptionalFieldsForEquipment(equipmentId);
-              });
-            })();
-          </script>
-
+          </div>
         </div>
       </div>
     </div>
 
     <!-- EXISTING ASSETS -->
-    <div class="col-12 col-lg-7">
+    <div id="siteAssetsCol" class="col-12 col-lg-12">
       <div class="card shadow-sm">
-        <div class="card-header d-flex justify-content-between align-items-center">
+        <div class="card-header d-flex align-items-center">
           <strong>Site Assets</strong>
-          <span class="text-muted small">
-            {{ assets|length }} item{{ assets|length|pluralize }}
-          </span>
+          <div class="flex-grow-1 text-center text-muted small">
+            Total Assets Inspected - {{ asset_inspected_count|default:0 }} of {{ asset_total_count|default:0 }}
+          </div>
         </div>
 
         <div class="card-body p-0">
@@ -361,36 +445,80 @@
                     <th>Block</th>
                     <th>Level</th>
                     <th>Location</th>
-                    <th class="text-end"></th>
+                    <th>Main Image</th>
+                    <th class="text-end">Actions</th>
                   </tr>
                 </thead>
                 <tbody>
                   {% for a in assets %}
-                    <tr>
-                      <td><strong>{{ a.get_asset_display }}</strong></td>
+                    <tr data-asset-id="{{ a.pk }}" class="{% if not a.is_active %}table-secondary text-muted{% endif %}">
+                      <td>
+                        <strong>{{ a.get_asset_display }}</strong>
+                        <div class="text-muted small">Asset ID: {{ a.pk }}</div>
+                      </td>
                       <td>{{ a.barcode|default:"—" }}</td>
                       <td>{{ a.block|default:"—" }}</td>
                       <td>{{ a.level|default:"—" }}</td>
                       <td>{{ a.location|default:"—" }}</td>
+                      <td>
+                        {% if a.main_image %}
+                          <a href="{{ a.main_image.url }}" target="_blank" rel="noopener">
+                            <img src="{{ a.main_image.url }}" alt="Asset image" style="height: 40px; width: 60px; object-fit: cover;" class="rounded">
+                          </a>
+                        {% else %}
+                          <span class="text-muted">—</span>
+                        {% endif %}
+                      </td>
                       <td class="text-end">
-                        <div class="d-inline-flex gap-2">
-                          <button type="button"
-                                  class="btn btn-sm btn-outline-secondary js-asset-view"
-                                  data-bs-toggle="modal"
-                                  data-bs-target="#assetValuesModal{{ a.pk }}"
-                                  data-attrs='{{ a.attributes|default:"{}"|escapejs }}'>
-                            View
+                        <div class="dropdown">
+                          <button class="btn btn-sm btn-outline-secondary dropdown-toggle"
+                                  type="button"
+                                  data-bs-toggle="dropdown"
+                                  aria-expanded="false">
+                            Actions
                           </button>
-
-                          <form method="post"
-                                action="{% url 'properties:delete_property_asset' pk=object.pk asset_id=a.pk %}">
-                            {% csrf_token %}
-                            <button type="submit"
-                                    class="btn btn-sm btn-outline-danger"
-                                    onclick="return confirm('Remove this asset from the property?');">
-                              Delete
-                            </button>
-                          </form>
+                          <ul class="dropdown-menu dropdown-menu-end">
+                            <li>
+                              <form method="post"
+                                    action="{% url 'properties:toggle_property_asset_active' pk=object.pk asset_id=a.pk %}">
+                                {% csrf_token %}
+                                <input type="hidden" name="is_active" value="{% if a.is_active %}0{% else %}1{% endif %}">
+                                <button type="submit" class="dropdown-item">
+                                  {% if a.is_active %}Deactivate{% else %}Activate{% endif %}
+                                </button>
+                              </form>
+                            </li>
+                            <li>
+                              <button type="button"
+                                      class="dropdown-item js-asset-history"
+                                      data-asset-id="{{ a.pk }}"
+                                      data-asset-label="{{ a.get_asset_display|escapejs }}"
+                                      {% if not a.history_count %}disabled{% endif %}>
+                                History ({{ a.history_count|default:0 }})
+                              </button>
+                            </li>
+                            <li>
+                              <button type="button"
+                                      class="dropdown-item js-asset-view"
+                                      data-bs-toggle="modal"
+                                      data-bs-target="#assetValuesModal{{ a.pk }}"
+                                      data-attrs='{{ a.attributes|default:"{}"|escapejs }}'>
+                                View
+                              </button>
+                            </li>
+                            <li><hr class="dropdown-divider"></li>
+                            <li>
+                              <form method="post"
+                                    action="{% url 'properties:delete_property_asset' pk=object.pk asset_id=a.pk %}">
+                                {% csrf_token %}
+                                <button type="submit"
+                                        class="dropdown-item text-danger"
+                                        onclick="return confirm('Remove this asset from the property?');">
+                                  Delete
+                                </button>
+                              </form>
+                            </li>
+                          </ul>
                         </div>
                       </td>
                     </tr>
@@ -408,7 +536,6 @@
   </div>
 </div>
 
-{# ✅ Move modals OUTSIDE the table for valid HTML #}
 {% if assets %}
   {% for a in assets %}
     <div class="modal fade" id="assetValuesModal{{ a.pk }}" tabindex="-1" aria-hidden="true">
@@ -440,6 +567,17 @@
               </div>
             </div>
 
+            <div class="mb-3">
+              <div class="text-muted small">Main Image</div>
+              {% if a.main_image %}
+                <a href="{{ a.main_image.url }}" target="_blank" rel="noopener">
+                  <img src="{{ a.main_image.url }}" alt="Asset image" style="height: 70px; width: 110px; object-fit: cover;" class="rounded">
+                </a>
+              {% else %}
+                <div class="text-muted">—</div>
+              {% endif %}
+            </div>
+
             <hr>
             <h6 class="mb-3">Additional Fields</h6>
 
@@ -458,109 +596,190 @@
   {% endfor %}
 {% endif %}
 
-{# ✅ Put field payload into json_script so JS has NO {{ }} inside it #}
 {{ asset_field_payload|json_script:"assetFieldPayload" }}
+{{ asset_attrs_map|json_script:"assetAttrsMap" }}
+{{ asset_history_map|json_script:"assetHistoryMap" }}
+
+<div class="modal fade" id="assetHistoryModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-lg modal-dialog-scrollable">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Asset history</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <div class="d-flex flex-column gap-2" data-history-list></div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Close</button>
+      </div>
+    </div>
+  </div>
+</div>
 
 <script>
   (function () {
+    const payloadEl = document.getElementById("assetFieldPayload");
+    let fieldPayload = [];
+    try { fieldPayload = JSON.parse(payloadEl?.textContent || "[]"); } catch (e) {}
+
     const labelBySlug = {};
+    fieldPayload.forEach(f => { if (f?.slug) labelBySlug[f.slug] = f.label || f.slug; });
 
-    // Read the payload from json_script instead of inline {{ }}
-    try {
-      const el = document.getElementById("assetFieldPayload");
-      const fieldPayload = el ? JSON.parse(el.textContent || "[]") : [];
-      (fieldPayload || []).forEach(f => {
-        if (f && f.slug) labelBySlug[String(f.slug)] = String(f.label || f.slug);
-      });
-    } catch (e) {
-      // ignore
-    }
+    const attrsMapEl = document.getElementById("assetAttrsMap");
+    let attrsMap = {};
+    try { attrsMap = JSON.parse(attrsMapEl?.textContent || "{}"); } catch (e) {}
 
-    function escapeHtml(str) {
-      return String(str)
-        .replaceAll("&", "&amp;")
-        .replaceAll("<", "&lt;")
-        .replaceAll(">", "&gt;")
-        .replaceAll('"', "&quot;")
-        .replaceAll("'", "&#039;");
-    }
+    const historyMapEl = document.getElementById("assetHistoryMap");
+    let historyMap = {};
+    try { historyMap = JSON.parse(historyMapEl?.textContent || "{}"); } catch (e) {}
 
-    function prettySlug(slug) {
-      return String(slug || "")
-        .replaceAll("_", " ")
-        .replaceAll("-", " ")
-        .replace(/\s+/g, " ")
-        .trim();
-    }
+    const historyModalEl = document.getElementById("assetHistoryModal");
+    const historyListEl = historyModalEl ? historyModalEl.querySelector("[data-history-list]") : null;
+    let historyModal = null;
 
-    function renderAttrs(mount, attrsObj) {
-      if (!mount) return;
+    function renderHistoryList(assetId, assetLabel) {
+      if (!historyListEl || !historyModalEl) return;
+      historyListEl.innerHTML = "";
 
-      const attrs = (attrsObj && typeof attrsObj === "object") ? attrsObj : {};
-      const keys = Object.keys(attrs);
+      const title = historyModalEl.querySelector(".modal-title");
+      if (title) title.textContent = (assetLabel || "Asset") + " history";
 
-      if (!keys.length) {
-        mount.innerHTML = '<div class="text-muted">No additional values saved for this asset.</div>';
+      const rows = historyMap[String(assetId)] || [];
+      if (!rows.length) {
+        const empty = document.createElement("div");
+        empty.className = "text-muted";
+        empty.textContent = "No job task history found.";
+        historyListEl.appendChild(empty);
         return;
       }
 
-      keys.sort((a, b) => {
-        const la = (labelBySlug[a] || prettySlug(a)).toLowerCase();
-        const lb = (labelBySlug[b] || prettySlug(b)).toLowerCase();
-        return la.localeCompare(lb);
-      });
+      function formatResult(value) {
+        if (!value) return "";
+        return String(value).replace(/_/g, " ").replace(/\b\w/g, function (c) { return c.toUpperCase(); });
+      }
 
-      let html = '<div class="list-group">';
-      keys.forEach(k => {
-        const label = labelBySlug[k] || prettySlug(k) || k;
-        const val = attrs[k];
+      function formatDate(value) {
+        if (!value) return "—";
+        const parts = String(value).split("-");
+        if (parts.length !== 3) return value;
+        return parts[2] + "-" + parts[1] + "-" + parts[0];
+      }
 
-        let display = "";
-        if (val === null || val === undefined || val === "") {
-          display = "—";
-        } else if (Array.isArray(val)) {
-          display = val.map(v => escapeHtml(v)).join(", ");
-        } else if (typeof val === "object") {
-          display = escapeHtml(JSON.stringify(val));
-        } else {
-          display = escapeHtml(val);
+      rows.forEach(function (row) {
+        const item = document.createElement("div");
+        item.className = "d-flex justify-content-between border rounded p-2";
+
+        const left = document.createElement("div");
+        const serviceType = row.service_type || "—";
+        const resultText = formatResult(row.result);
+        const resultBadge = resultText ? " <span class='badge text-bg-light ms-2'>" + resultText + "</span>" : "";
+        left.innerHTML = "<a href='/job-tasks/" + row.job_task_id + "/' class='text-decoration-none'><strong>Job #" + row.job_task_id + "</strong></a> — Service Type: " + serviceType + resultBadge;
+
+        if (!row.child_is_parent) {
+          const meta = document.createElement("div");
+          meta.className = "text-muted small";
+          const childJob = row.child_job_id ? "Child Job #" + row.child_job_id : "Child Job —";
+          const tech = row.child_technician ? row.child_technician : "—";
+          const dateText = formatDate(row.child_service_date);
+          meta.textContent = childJob + " • " + dateText + " • Technician: " + tech;
+          left.appendChild(meta);
         }
 
-        html += `
-          <div class="list-group-item">
-            <div class="fw-semibold">${escapeHtml(label)}</div>
-            <div class="text-muted small">${display}</div>
-          </div>
-        `;
+        item.appendChild(left);
+        historyListEl.appendChild(item);
       });
-      html += "</div>";
-
-      mount.innerHTML = html;
     }
 
-    document.addEventListener("shown.bs.modal", function (e) {
-      const modal = e.target;
-      if (!modal || !modal.id) return;
-
-      const pk = modal.id.replace("assetValuesModal", "");
-      const mount = document.getElementById("assetAttrsRender" + pk);
-
-      const btn = document.querySelector('.js-asset-view[data-bs-target="#' + modal.id + '"]');
-      if (!btn) {
-        renderAttrs(mount, {});
+    function renderAttrs(targetEl, attrs) {
+      if (!targetEl) return;
+      const keys = Object.keys(attrs || {});
+      if (!keys.length) {
+        targetEl.innerHTML = "<div class='text-muted'>No additional fields.</div>";
         return;
       }
+      const rows = keys.map(k => {
+        const label = labelBySlug[k] || k;
+        const val = Array.isArray(attrs[k]) ? attrs[k].join(", ") : String(attrs[k]);
+        return `
+          <div class="row mb-2">
+            <div class="col-4 text-muted">${label}</div>
+            <div class="col-8"><strong>${val}</strong></div>
+          </div>`;
+      });
+      targetEl.innerHTML = rows.join("");
+    }
 
-      let attrs = {};
-      try {
-        attrs = JSON.parse(btn.dataset.attrs || "{}");
-      } catch (err) {
-        attrs = {};
-      }
+    document.querySelectorAll(".js-asset-view").forEach(btn => {
+      btn.addEventListener("click", function () {
+        const targetId = btn.getAttribute("data-bs-target");
+        if (!targetId) return;
 
-      renderAttrs(mount, attrs);
+        const modal = document.querySelector(targetId);
+        const targetEl = modal?.querySelector("[id^='assetAttrsRender']");
+
+        const row = btn.closest("tr");
+        const assetId = row?.getAttribute("data-asset-id");
+        const attrs = (assetId && attrsMap[String(assetId)]) || {};
+
+        renderAttrs(targetEl, attrs);
+      });
     });
+
+    document.querySelectorAll(".js-asset-history").forEach(btn => {
+      btn.addEventListener("click", function () {
+        const assetId = btn.getAttribute("data-asset-id");
+        if (!assetId) return;
+
+        renderHistoryList(assetId, btn.getAttribute("data-asset-label") || "");
+
+        if (!historyModal && historyModalEl && window.bootstrap && window.bootstrap.Modal) {
+          historyModal = new window.bootstrap.Modal(historyModalEl);
+        }
+        if (historyModal) historyModal.show();
+      });
+    });
+
+    document.querySelectorAll(".js-asset-history").forEach(btn => {
+      const assetId = btn.getAttribute("data-asset-id");
+      if (!assetId) return;
+      const count = (historyMap[String(assetId)] || []).length;
+      btn.textContent = "History (" + count + ")";
+      btn.disabled = count === 0;
+    });
+
+    const totalEl = document.getElementById("assetHistoryTotal");
+    if (totalEl) {
+      const total = Object.values(historyMap).reduce((sum, rows) => sum + (rows ? rows.length : 0), 0);
+      totalEl.textContent = "History links: " + total;
+    }
   })();
 </script>
 
 {% endblock %}
+
+<script>
+  (function () {
+    const collapseEl = document.getElementById("addAssetCollapse");
+    const addCol = document.getElementById("addAssetCol");
+    const assetsCol = document.getElementById("siteAssetsCol");
+    if (!collapseEl || !addCol || !assetsCol) return;
+
+    function setLayout(isOpen) {
+      if (isOpen) {
+        addCol.classList.remove("d-none");
+        assetsCol.classList.remove("col-lg-12");
+        assetsCol.classList.add("col-lg-7");
+      } else {
+        addCol.classList.add("d-none");
+        assetsCol.classList.remove("col-lg-7");
+        assetsCol.classList.add("col-lg-12");
+      }
+    }
+
+    setLayout(collapseEl.classList.contains("show"));
+
+    collapseEl.addEventListener("shown.bs.collapse", () => setLayout(true));
+    collapseEl.addEventListener("hidden.bs.collapse", () => setLayout(false));
+  });
+</script>

@@ -176,7 +176,9 @@ class AssetCode(models.Model):
 
     category = models.ForeignKey(
         DropdownOption,
-        on_delete=models.PROTECT,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
         related_name="asset_categories",
     )
     equipment = models.ForeignKey(

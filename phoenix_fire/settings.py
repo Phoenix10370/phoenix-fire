@@ -57,8 +57,10 @@ INSTALLED_APPS = [
     "routines",
     "qbo",
     "job_tasks.apps.JobTasksConfig",
-
+    "core",
+    "scheduling",
 ]
+
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
     "whitenoise.middleware.WhiteNoiseMiddleware",
@@ -74,7 +76,6 @@ MIDDLEWARE = [
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
 ]
 
-
 ROOT_URLCONF = "phoenix_fire.urls"
 
 TEMPLATES = [
@@ -89,6 +90,9 @@ TEMPLATES = [
                 "django.contrib.auth.context_processors.auth",
                 "django.contrib.messages.context_processors.messages",
                 "company.context_processors.client_profile",
+
+                # ✅ Google Maps API key (for address autocomplete)
+                "core.context_processors.google_maps",
             ],
         },
     },
@@ -142,6 +146,12 @@ if IS_RENDER and not DEBUG:
     SECURE_SSL_REDIRECT = True
     SESSION_COOKIE_SECURE = True
     CSRF_COOKIE_SECURE = True
+
+# =============================================================================
+# Google Maps / Places API
+# =============================================================================
+# Used for address autocomplete on Property forms
+GOOGLE_MAPS_API_KEY = os.environ.get("GOOGLE_MAPS_API_KEY", "").strip()
 
 # =============================================================================
 # QuickBooks Online (QBO)

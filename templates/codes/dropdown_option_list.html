@@ -21,6 +21,11 @@
   </div>
 </div>
 
+<!-- ✅ Search / filter -->
+<div class="mb-3">
+  <input id="optionSearch" class="form-control" placeholder="Search label or parent..." />
+</div>
+
 <div class="card shadow-sm">
   <div class="table-responsive">
     <table class="table table-hover align-middle mb-0">
@@ -74,4 +79,21 @@
     </table>
   </div>
 </div>
+
+<script>
+  (function () {
+    const searchInput = document.getElementById("optionSearch");
+    const tableBody = document.querySelector("table tbody");
+    if (!searchInput || !tableBody) return;
+
+    searchInput.addEventListener("input", () => {
+      const q = (searchInput.value || "").trim().toLowerCase();
+      const rows = Array.from(tableBody.querySelectorAll("tr"));
+      rows.forEach(row => {
+        const text = row.textContent.toLowerCase();
+        row.style.display = text.includes(q) ? "" : "none";
+      });
+    });
+  })();
+</script>
 {% endblock %}

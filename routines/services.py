@@ -84,14 +84,9 @@ def _get_code_obj(code_str: Optional[str]) -> Optional[Code]:
 
 
 def _quarterly_marker_code_for_month(month_due: int) -> str:
-    """
-    Marker mapping:
-      Jan -> EFSM-100, Feb -> EFSM-101, ... Dec -> EFSM-111
-    """
     return f"EFSM-{100 + (int(month_due) - 1)}"
 
 
-# Quarterly invoice EFSM mapping (SOURCE OF TRUTH) - kept for reference/notes
 QUARTERLY_EFSM_CODES = {
     1:  ["EFSM-100", "EFSM-103", "EFSM-106", "EFSM-109"],
     2:  ["EFSM-101", "EFSM-104", "EFSM-107", "EFSM-110"],
@@ -108,18 +103,7 @@ QUARTERLY_EFSM_CODES = {
 }
 
 
-def _upsert_measure_line(
-    *,
-    routine: ServiceRoutine,
-    qi,
-    unit_price: Decimal,
-) -> None:
-    """
-    IMPORTANT: use source_quotation_item as the identity, so we preserve:
-      - 1 quotation row => 1 routine row
-      - exact ordering by quotation position
-      - no accidental EFSM-code collisions
-    """
+def _upsert_measure_line(*, routine: ServiceRoutine, qi, unit_price: Decimal) -> None:
     ServiceRoutineItem.objects.update_or_create(
         routine=routine,
         source_quotation_item=qi,
@@ -133,10 +117,6 @@ def _upsert_measure_line(
 
 
 def _prune_stale_measure_lines(*, quotation: Quotation, q_items) -> None:
-    """
-    Remove ServiceRoutineItem rows created from quotation items that no longer exist on the quotation.
-    Prevents orphaned routine lines after quotation edits.
-    """
     current_qi_ids = {qi.id for qi in q_items}
     ServiceRoutineItem.objects.filter(
         routine__quotation=quotation,
@@ -154,14 +134,6 @@ def _add_measures_to_routines(
     biannual_r: Optional[ServiceRoutine],
     monthly_rs: List[ServiceRoutine],
 ) -> None:
-    """
-    Push quotation lines to routines.
-    Uses source_quotation_item linkage to keep each quotation line stable + ordered.
-
-    IMPORTANT FIX:
-    - When force_all_items=False we still honour target_routines by intersecting
-      the schedule-selected routines with the passed target_routines.
-    """
     target_ids = {r.id for r in target_routines if r}
 
     for qi in q_items:
@@ -184,7 +156,6 @@ def _add_measures_to_routines(
             else:
                 routine_targets = [r for r in ([annual_r, biannual_r] + monthly_rs) if r]
 
-            # ✅ intersect with passed target_routines so we don't write into others by accident
             routine_targets = [r for r in routine_targets if r and r.id in target_ids]
 
         base_price = _money(qi.unit_price or 0)
@@ -198,15 +169,7 @@ def _add_measures_to_routines(
             _upsert_measure_line(routine=r, qi=qi, unit_price=unit_price)
 
 
-def _ensure_quarterly_marker_with_value(
-    *,
-    routine: ServiceRoutine,
-    amount: Decimal,
-) -> None:
-    """
-    Quarterly 'marker line' carries the quarterly value.
-    All other routine lines remain $0.00.
-    """
+def _ensure_quarterly_marker_with_value(*, routine: ServiceRoutine, amount: Decimal) -> None:
     code_str = _quarterly_marker_code_for_month(routine.month_due)
     code_obj = _get_code_obj(code_str)
     if not code_obj:
@@ -259,7 +222,7 @@ def _to_int_or_none(v):
         return None
 
 
-def _routine_defaults_from_quotation(*, quotation: Quotation, created_by, notes_for_quarterly: bool) -> dict:
+def _routine_defaults_from_quotation(*, quotation: Quotation, created_by, notes_for_quarterly: bool, service_type=None) -> dict:
     site = quotation.site
 
     quotation_notes = _safe_text(quotation, "notes", "quotation_notes", "routine_notes", "service_notes")
@@ -270,6 +233,9 @@ def _routine_defaults_from_quotation(*, quotation: Quotation, created_by, notes_
         "site": site,
         "created_by": created_by,
         "work_order_number": quotation.work_order_number or "",
+
+        # ✅ persist the chosen service type onto each routine
+        "service_type": service_type,
 
         "quotation_notes": quotation_notes,
         "site_notes": site_notes,
@@ -291,82 +257,43 @@ def _routine_defaults_from_quotation(*, quotation: Quotation, created_by, notes_
     return defaults
 
 
-# --------------------
-# Preview (no DB writes)
-# --------------------
-
-def preview_service_routines_from_quotation(
-    *,
-    quotation: Quotation,
-    annual_due_month: int,
-    invoice_frequency: str,
-) -> list[dict]:
-    """
-    Returns a preview of routines that WOULD be created.
-    No database writes.
-    """
+def preview_service_routines_from_quotation(*, quotation: Quotation, annual_due_month: int, invoice_frequency: str) -> list[dict]:
     annual_month = int(annual_due_month)
     biannual_month = _add_months(annual_month, 6)
 
     q_items = list(
-        quotation.items
-        .select_related("efsm_code")
-        .order_by("position", "id")
-        .all()
+        quotation.items.select_related("efsm_code").order_by("position", "id").all()
     )
-
     if not q_items:
         return []
 
-    # Determine max visits/year to know what schedule types will exist
     max_visits = 1
     for qi in q_items:
         code = getattr(qi, "efsm_code", None)
         v = getattr(code, "visits_per_year", 1) if code else 1
         v = v or 1
-
         try:
             max_visits = max(max_visits, int(v))
         except Exception:
             pass
 
     preview: list[dict] = []
-
-    # Base schedule routines (depend on max_visits)
-    preview.append({
-        "type": "Annual",
-        "month": annual_month,
-        "rule": "Always created",
-    })
+    preview.append({"type": "Annual", "month": annual_month, "rule": "Always created"})
 
     if max_visits >= 2:
-        preview.append({
-            "type": "Bi-Annual",
-            "month": biannual_month,
-            "rule": "Created when any item has 2+ visits/year",
-        })
+        preview.append({"type": "Bi-Annual", "month": biannual_month, "rule": "Created when any item has 2+ visits/year"})
 
     if max_visits >= 3:
         excluded = {annual_month, biannual_month}
         months = _month_cycle_excluding(annual_month, excluded)
         for m in months:
-            preview.append({
-                "type": "Monthly",
-                "month": m,
-                "rule": "Created when any item has 3+ visits/year",
-            })
+            preview.append({"type": "Monthly", "month": m, "rule": "Created when any item has 3+ visits/year"})
 
-    # Quarterly invoicing routines (only appear for quarterly invoicing)
     if invoice_frequency == "quarterly":
         for i in range(4):
             m = _add_months(annual_month, i * 3)
-            preview.append({
-                "type": "Quarterly",
-                "month": m,
-                "rule": "Quarterly invoicing periods (4)",
-            })
+            preview.append({"type": "Quarterly", "month": m, "rule": "Quarterly invoicing periods (4)"})
 
-    # Attach invoice behaviour summary (shown in UI)
     invoice_frequency = (invoice_frequency or "").strip()
     if invoice_frequency == "annual":
         behaviour = "Invoice value goes to Annual routine only."
@@ -388,12 +315,6 @@ def preview_service_routines_from_quotation(
     return preview
 
 
-
-
-# --------------------
-# Main routine creator
-# --------------------
-
 @transaction.atomic
 def create_service_routines_from_quotation(
     *,
@@ -401,20 +322,16 @@ def create_service_routines_from_quotation(
     annual_due_month: int,
     invoice_frequency: str,
     user=None,
+    service_type=None,   # ✅ NEW
 ) -> List[ServiceRoutine]:
     quotation = Quotation.objects.select_for_update().get(pk=quotation.pk)
 
-    # IMPORTANT: q_items MUST come out in the saved UI order
     q_items = list(
-        quotation.items
-        .select_related("efsm_code")
-        .order_by("position", "id")
-        .all()
+        quotation.items.select_related("efsm_code").order_by("position", "id").all()
     )
     if not q_items:
         return list(quotation.service_routines.all())
 
-    # Remove routine lines for quotation items that no longer exist
     _prune_stale_measure_lines(quotation=quotation, q_items=q_items)
 
     annual_month = int(annual_due_month)
@@ -422,7 +339,6 @@ def create_service_routines_from_quotation(
 
     created_by = user if getattr(user, "is_authenticated", False) else None
 
-    # Determine max visits_per_year (schedule rules)
     max_visits = 1
     for qi in q_items:
         v = getattr(qi.efsm_code, "visits_per_year", 1) or 1
@@ -437,9 +353,9 @@ def create_service_routines_from_quotation(
         quotation=quotation,
         created_by=created_by,
         notes_for_quarterly=False,
+        service_type=service_type,  # ✅ set on base routines
     )
 
-    # Ensure base routines exist (idempotent)
     annual_r, _ = ServiceRoutine.objects.update_or_create(
         quotation=quotation,
         routine_type="annual",
@@ -471,7 +387,7 @@ def create_service_routines_from_quotation(
 
     routines = list(quotation.service_routines.all())
 
-    # ---- CALCULATOR MODE (unchanged)
+    # ---- CALCULATOR MODE (unchanged except quarterly defaults also get service_type)
     if invoice_frequency == "calculator":
         annual_total = _calc_section_total(
             quotation.calc_men_annual,
@@ -515,6 +431,7 @@ def create_service_routines_from_quotation(
                 quotation=quotation,
                 created_by=created_by,
                 notes_for_quarterly=True,
+                service_type=service_type,  # ✅
             )
 
             quarterly_routines: List[ServiceRoutine] = []
@@ -546,7 +463,7 @@ def create_service_routines_from_quotation(
 
         return list(quotation.service_routines.all())
 
-    # ---- NON-CALCULATOR MODES
+    # ---- NON-CALCULATOR MODES (unchanged)
     total_value = _quotation_items_subtotal(q_items)
 
     if invoice_frequency == "annual":
@@ -632,6 +549,7 @@ def create_service_routines_from_quotation(
             quotation=quotation,
             created_by=created_by,
             notes_for_quarterly=True,
+            service_type=service_type,  # ✅
         )
 
         quarterly_routines: List[ServiceRoutine] = []
@@ -661,7 +579,6 @@ def create_service_routines_from_quotation(
 
         return list(quotation.service_routines.all())
 
-    # Default behaviour
     _add_measures_to_routines(
         q_items=q_items,
         target_routines=routines,
@@ -673,10 +590,6 @@ def create_service_routines_from_quotation(
     )
     return list(quotation.service_routines.all())
 
-
-# --------------------
-# Cascade month update
-# --------------------
 
 @transaction.atomic
 def cascade_update_routine_months_for_quotation(*, quotation: Quotation, new_annual_month: int, user=None) -> None:

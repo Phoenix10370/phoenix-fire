@@ -45,6 +45,15 @@ class ServiceRoutine(models.Model):
         related_name="service_routines",
     )
 
+    # ✅ NEW: Persisted service type for routines (nullable = safe for existing rows)
+    service_type = models.ForeignKey(
+        "job_tasks.JobServiceType",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="service_routines",
+    )
+
     routine_type = models.CharField(
         max_length=20,
         choices=ROUTINE_TYPE_CHOICES,

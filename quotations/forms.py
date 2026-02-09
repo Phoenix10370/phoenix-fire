@@ -137,12 +137,11 @@ class BaseQuotationItemFormSet(BaseInlineFormSet):
                     if inst and getattr(inst, "pk", None):
                         inst.delete()
 
-        # 2) save remaining rows in UI order
-        pos = 1
-        for form in self.forms:
+        # 2) save remaining rows in UI order (by posted position)
+        sortable = []
+        for idx, form in enumerate(self.forms):
             if not hasattr(form, "cleaned_data"):
                 continue
-
             if self.can_delete and form.cleaned_data.get("DELETE"):
                 continue
 
@@ -150,6 +149,14 @@ class BaseQuotationItemFormSet(BaseInlineFormSet):
             if efsm is None:
                 continue  # skip empty row(s)
 
+            raw_pos = form.cleaned_data.get("position")
+            pos_val = _to_int(raw_pos, 10**9)  # push missing/blank to the end
+            sortable.append((pos_val, idx, form))
+
+        sortable.sort(key=lambda t: (t[0], t[1]))
+
+        pos = 1
+        for _, __, form in sortable:
             inst: QuotationItem = form.save(commit=False)
             inst.quotation = self.instance
             inst.position = pos

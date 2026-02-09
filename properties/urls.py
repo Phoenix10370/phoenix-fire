@@ -11,6 +11,9 @@ from .views import (
     bulk_delete_routines,
     add_property_asset,
     delete_property_asset,
+    edit_property_asset,
+    toggle_property_asset_active,
+    validate_property_coordinates,  # ✅ NEW
 )
 
 from .views_tabs import (
@@ -39,7 +42,16 @@ urlpatterns = [
 
     # ✅ Property Assets actions
     path("<int:pk>/assets/add/", add_property_asset, name="add_property_asset"),
+    path("<int:pk>/assets/<int:asset_id>/edit/", edit_property_asset, name="edit_property_asset"),
     path("<int:pk>/assets/<int:asset_id>/delete/", delete_property_asset, name="delete_property_asset"),
+    path("<int:pk>/assets/<int:asset_id>/toggle-active/", toggle_property_asset_active, name="toggle_property_asset_active"),
+
+    # ✅ Coordinate validation (NEW)
+    path(
+        "<int:pk>/validate-coordinates/",
+        validate_property_coordinates,
+        name="validate_coordinates",
+    ),
 
     path("<int:pk>/edit/", PropertyUpdateView.as_view(), name="update"),
     path("<int:pk>/delete/", PropertyDeleteView.as_view(), name="delete"),

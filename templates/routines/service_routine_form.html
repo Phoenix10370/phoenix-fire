@@ -9,6 +9,21 @@
   </a>
 </div>
 
+<style>
+  .field-block .form-label { margin-bottom: .25rem; }
+  .field-block .form-control,
+  .field-block .form-select,
+  .field-block textarea {
+    width: 100%;
+  }
+  .section-card {
+    border: 1px solid rgba(0,0,0,.08);
+    border-radius: 12px;
+    padding: 14px;
+    background: #fff;
+  }
+</style>
+
 <div class="card shadow-sm">
   <div class="card-body">
     <form method="post" id="routineEditForm">
@@ -16,14 +31,14 @@
 
       <input type="hidden" name="apply_to_all" id="applyToAll" value="0">
 
-      <div class="row g-3">
-        <div class="col-md-4">
-          <label class="form-label small text-muted mb-1">Service Month</label>
+      <div class="row g-3 align-items-end">
+        <div class="col-12 col-md-6 col-lg-4 field-block">
+          <label class="form-label small text-muted">Service Month</label>
           {{ form.month_due }}
         </div>
 
-        <div class="col-md-4">
-          <label class="form-label small text-muted mb-1">Work Order Number</label>
+        <div class="col-12 col-md-6 col-lg-4 field-block">
+          <label class="form-label small text-muted">Work Order Number</label>
           {{ form.work_order_number }}
         </div>
       </div>
@@ -31,12 +46,12 @@
       <hr class="my-3">
 
       <div class="row g-3">
-        <div class="col-md-6">
-          <label class="form-label small text-muted mb-1">Monthly Run</label>
+        <div class="col-12 col-md-6 field-block">
+          <label class="form-label small text-muted">Monthly Run</label>
           {{ form.monthly_run_notes }}
         </div>
-        <div class="col-md-6">
-          <label class="form-label small text-muted mb-1">Monthly Week</label>
+        <div class="col-12 col-md-6 field-block">
+          <label class="form-label small text-muted">Monthly Week</label>
           {{ form.monthly_week_notes }}
         </div>
       </div>
@@ -44,44 +59,70 @@
       <div class="accordion mt-4" id="routineEditAccordion">
         <div class="accordion-item">
           <h2 class="accordion-header" id="headingEditValues">
-            <button class="accordion-button collapsed fw-semibold" type="button"
+            <button class="accordion-button fw-semibold" type="button"
                     data-bs-toggle="collapse" data-bs-target="#collapseEditValues"
-                    aria-expanded="false" aria-controls="collapseEditValues">
+                    aria-expanded="true" aria-controls="collapseEditValues">
               Routine Detail Values
             </button>
           </h2>
-          <div id="collapseEditValues" class="accordion-collapse collapse" aria-labelledby="headingEditValues"
+
+          <div id="collapseEditValues" class="accordion-collapse collapse show"
+               aria-labelledby="headingEditValues"
                data-bs-parent="#routineEditAccordion">
             <div class="accordion-body">
               <div class="row g-3">
-                <div class="col-md-6">
-                  <div class="fw-semibold mb-2">Annual</div>
-                  <label class="form-label small text-muted mb-1">Annual Men Req.</label>
-                  {{ form.annual_men_req }}
-                  <label class="form-label small text-muted mb-1 mt-2">Annual Man Hours</label>
-                  {{ form.annual_man_hours }}
+
+                <!-- Annual -->
+                <div class="col-12 col-md-6 col-lg-4">
+                  <div class="section-card h-100">
+                    <div class="fw-semibold mb-3">Annual</div>
+                    <div class="field-block">
+                      <label class="form-label small text-muted">Annual Men Req.</label>
+                      {{ form.annual_men_req }}
+                    </div>
+                    <div class="field-block mt-3">
+                      <label class="form-label small text-muted">Annual Man Hours</label>
+                      {{ form.annual_man_hours }}
+                    </div>
+                  </div>
                 </div>
 
-                <div class="col-md-6">
-                  <div class="fw-semibold mb-2">Half Yearly</div>
-                  <label class="form-label small text-muted mb-1">Half Yearly Men Req.</label>
-                  {{ form.half_yearly_men_req }}
-                  <label class="form-label small text-muted mb-1 mt-2">Half Yearly Man Hours</label>
-                  {{ form.half_yearly_man_hours }}
+                <!-- Half Yearly -->
+                <div class="col-12 col-md-6 col-lg-4">
+                  <div class="section-card h-100">
+                    <div class="fw-semibold mb-3">Half Yearly</div>
+                    <div class="field-block">
+                      <label class="form-label small text-muted">Half Yearly Men Req.</label>
+                      {{ form.half_yearly_men_req }}
+                    </div>
+                    <div class="field-block mt-3">
+                      <label class="form-label small text-muted">Half Yearly Man Hours</label>
+                      {{ form.half_yearly_man_hours }}
+                    </div>
+                  </div>
                 </div>
 
-                <div class="col-md-6">
-                  <div class="fw-semibold mb-2">Monthly</div>
-                  <label class="form-label small text-muted mb-1">Monthly Men Req.</label>
-                  {{ form.monthly_men_req }}
-                  <label class="form-label small text-muted mb-1 mt-2">Monthly Man Hours</label>
-                  {{ form.monthly_man_hours }}
+                <!-- Monthly -->
+                <div class="col-12 col-md-6 col-lg-4">
+                  <div class="section-card h-100">
+                    <div class="fw-semibold mb-3">Monthly</div>
+                    <div class="field-block">
+                      <label class="form-label small text-muted">Monthly Men Req.</label>
+                      {{ form.monthly_men_req }}
+                    </div>
+                    <div class="field-block mt-3">
+                      <label class="form-label small text-muted">Monthly Man Hours</label>
+                      {{ form.monthly_man_hours }}
+                    </div>
+                  </div>
                 </div>
+
               </div>
             </div>
           </div>
         </div>
 
+        <!-- Notes (HALF WIDTH) -->
         <div class="accordion-item">
           <h2 class="accordion-header" id="headingEditNotes">
             <button class="accordion-button collapsed fw-semibold" type="button"
@@ -90,26 +131,41 @@
               Notes
             </button>
           </h2>
-          <div id="collapseEditNotes" class="accordion-collapse collapse" aria-labelledby="headingEditNotes"
+
+          <div id="collapseEditNotes" class="accordion-collapse collapse"
+               aria-labelledby="headingEditNotes"
                data-bs-parent="#routineEditAccordion">
             <div class="accordion-body">
-              <label class="form-label small text-muted mb-1">Quotation Notes</label>
-              {{ form.quotation_notes }}
+              <div class="row g-3">
 
-              <label class="form-label small text-muted mb-1 mt-3">Site Notes</label>
-              {{ form.site_notes }}
+                <div class="col-12 col-md-6 field-block">
+                  <label class="form-label small text-muted">Quotation Notes</label>
+                  {{ form.quotation_notes }}
+                </div>
 
-              <label class="form-label small text-muted mb-1 mt-3">Technician Notes</label>
-              {{ form.technician_notes }}
+                <div class="col-12 col-md-6 field-block">
+                  <label class="form-label small text-muted">Site Notes</label>
+                  {{ form.site_notes }}
+                </div>
+
+                <div class="col-12 col-md-6 field-block">
+                  <label class="form-label small text-muted">Technician Notes</label>
+                  {{ form.technician_notes }}
+                </div>
+
+              </div>
             </div>
           </div>
         </div>
       </div>
 
-      <div class="mt-4">
+      <div class="mt-4 d-flex gap-2">
         <button type="submit" class="btn btn-primary">
           Save Changes
         </button>
+        <a href="{% url 'routines:detail' object.pk %}" class="btn btn-outline-secondary">
+          Cancel
+        </a>
       </div>
     </form>
   </div>

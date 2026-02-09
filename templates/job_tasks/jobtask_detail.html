@@ -1,9 +1,19 @@
+{# templates/job_tasks/jobtask_detail.html #}
 {% extends "base.html" %}
 {% block content %}
 
 <div class="d-flex align-items-center justify-content-between mb-3">
   <div>
-    <h1 class="h3 mb-1">{{ job_task.title }}</h1>
+    <h1 class="h3 mb-1">Job Task #{{ job_task.pk }} - {{ job_task.service_type }}</h1>
+    <div class="text-muted small">
+      {% if job_task.parent_job_id %}
+        <a class="text-decoration-none" href="{% url 'job_tasks:detail' job_task.root_job.pk %}">
+          View Parent Job
+        </a>
+      {% else %}
+        Job Task
+      {% endif %}
+    </div>
   </div>
 
   <div class="d-flex gap-2 align-items-center">
@@ -20,10 +30,55 @@
   </div>
 </div>
 
-<div class="row g-3">
-  <div class="col-lg-8">
+{% if total_sibling_jobs|default:0|add:0 > 1 %}
+  <div class="alert alert-info mb-3 py-1 px-2">
+    <div class="d-flex align-items-center justify-content-between gap-2 small">
+      <div class="d-flex align-items-center gap-1">
+        <strong>Grouped Job Navigation</strong>
+        <span class="text-muted">{{ current_job_position }} of {{ total_sibling_jobs }}</span>
+      </div>
+      <nav aria-label="Job pagination">
+        <ul class="pagination pagination-sm mb-0">
+          <li class="page-item {% if not prev_job %}disabled{% endif %}">
+            {% if prev_job %}
+              <a class="page-link" href="{% url 'job_tasks:detail' first_job.pk %}">First</a>
+            {% else %}
+              <span class="page-link">First</span>
+            {% endif %}
+          </li>
 
-    <!-- Tabs -->
+          <li class="page-item {% if not prev_job %}disabled{% endif %}">
+            {% if prev_job %}
+              <a class="page-link" href="{% url 'job_tasks:detail' prev_job.pk %}">&larr; Previous</a>
+            {% else %}
+              <span class="page-link">&larr; Previous</span>
+            {% endif %}
+          </li>
+
+          <li class="page-item {% if not next_job %}disabled{% endif %}">
+            {% if next_job %}
+              <a class="page-link" href="{% url 'job_tasks:detail' next_job.pk %}">Next &rarr;</a>
+            {% else %}
+              <span class="page-link">Next &rarr;</span>
+            {% endif %}
+          </li>
+
+          <li class="page-item {% if not next_job %}disabled{% endif %}">
+            {% if next_job %}
+              <a class="page-link" href="{% url 'job_tasks:detail' last_job.pk %}">Last</a>
+            {% else %}
+              <span class="page-link">Last</span>
+            {% endif %}
+          </li>
+        </ul>
+      </nav>
+    </div>
+  </div>
+{% endif %}
+
+<div class="row g-3">
+  <div class="col-lg-8" id="jtMain">
+
     <ul class="nav nav-tabs mb-3">
       <li class="nav-item">
         <button class="nav-link active"
@@ -42,24 +97,36 @@
     </ul>
 
     <div class="tab-content">
-
-      <!-- DETAILS TAB -->
       <div class="tab-pane fade show active" id="tab-details">
         {% include "job_tasks/_jobtask_details_core.html" %}
       </div>
 
-      <!-- PROPERTY ASSETS TAB -->
       <div class="tab-pane fade" id="tab-assets">
+
+        <div class="d-flex justify-content-end mb-2">
+          <button class="btn btn-success"
+                  type="button"
+                  data-bs-toggle="collapse"
+                  data-bs-target="#jtAddAssetCollapse"
+                  aria-expanded="false"
+                  aria-controls="jtAddAssetCollapse">
+            Add Asset
+          </button>
+        </div>
 
         <div class="row g-3">
 
-          <!-- ADD ASSET (FROM JOB TASK) -->
-          <div class="col-12 col-lg-5">
-            <div class="card shadow-sm">
-              <div class="card-header">
-                <strong>Add Asset</strong>
-              </div>
-              <div class="card-body">
+          <!-- ADD ASSET (collapsed by default) -->
+          <div id="jtAddAssetCol" class="col-12 col-lg-5">
+            <div class="collapse" id="jtAddAssetCollapse">
+              <div class="card shadow-sm">
+                <div class="card-header">
+                  <strong>Add Asset</strong>
+                  {% if job_task.parent_job_id %}
+                    <div class="text-muted small">Will be linked to the shared (parent) job.</div>
+                  {% endif %}
+                </div>
+                <div class="card-body">
 
                 {% if not job_task.site_id %}
                   <div class="alert alert-warning mb-0">
@@ -67,19 +134,28 @@
                   </div>
                 {% else %}
 
-                  <form method="post" action="{% url 'job_tasks:add_property_asset' job_task.pk %}">
+                  <form method="post" action="{% url 'job_tasks:add_property_asset' job_task.pk %}" enctype="multipart/form-data">
                     {% csrf_token %}
-
                     <input type="hidden" name="asset_code_ct_id" value="{{ assetcode_ct_id }}">
 
                     <div class="mb-3">
                       <label class="form-label"><strong>Category</strong></label>
-                      <select id="jt_asset_category" class="form-select">
+
+                      <input id="jt_asset_category_ac" class="form-control" list="jt_asset_category_list" placeholder="Type to search..." />
+                      <datalist id="jt_asset_category_list">
+                        <option value="">-- Select --</option>
+                        {% for c in asset_categories %}
+                          <option value="{{ c.label }}"></option>
+                        {% endfor %}
+                      </datalist>
+
+                      <select id="jt_asset_category" class="form-select mt-2" style="display:none;">
                         <option value="">-- Select --</option>
                         {% for c in asset_categories %}
                           <option value="{{ c.id }}">{{ c.label }}</option>
                         {% endfor %}
                       </select>
+
                       {% if not categories_list %}
                         <div class="form-text text-warning">
                           Could not find DropdownList “Asset Categories”. Check Settings → Dropdown Lists.
@@ -104,7 +180,10 @@
 
                     <div class="mb-3">
                       <label class="form-label"><strong>Asset Code</strong></label>
-                      <select id="jt_asset_code_select" name="asset_code_id" class="form-select" required disabled>
+                      <input id="jt_asset_code_display" class="form-control" placeholder="Select Category and Equipment" readonly />
+                      <input id="jt_asset_code_id" name="asset_code_id" type="hidden" required />
+
+                      <select id="jt_asset_code_select" class="form-select" style="display:none;">
                         <option value="">-- Select --</option>
                         {% for ac in asset_codes %}
                           <option value="{{ ac.id }}"
@@ -114,86 +193,264 @@
                           </option>
                         {% endfor %}
                       </select>
+
                       <div class="form-text">
-                        Select Category → Equipment → Asset Code.
+                        Asset Code auto-populates from Category + Equipment.
                       </div>
                     </div>
 
                     <hr class="my-3">
 
                     <div class="mb-3">
+                      <label class="form-label"><strong>Barcode</strong></label>
+                      <input type="text" name="barcode" class="form-control" placeholder="Scan or type barcode">
+                      <div class="form-text">Optional. If provided, must be unique.</div>
+                    </div>
+
+                    <div class="mb-3">
                       <label class="form-label"><strong>Block</strong></label>
-                      <input type="text" name="block" class="form-control">
+                      <input type="text" name="block" class="form-control" maxlength="3">
                     </div>
 
                     <div class="mb-3">
                       <label class="form-label"><strong>Level</strong></label>
-                      <input type="text" name="level" class="form-control">
+                      <input type="text" name="level" class="form-control" maxlength="20">
                     </div>
 
                     <div class="mb-3">
                       <label class="form-label"><strong>Location</strong></label>
-                      <input type="text" name="location" class="form-control">
+                      <input type="text" name="location" class="form-control" maxlength="200">
                     </div>
 
                     <div class="mb-3">
-                      <label class="form-label"><strong>Optional Fields (JSON)</strong></label>
-                      <textarea
-                        name="attributes_json"
-                        class="form-control"
-                        rows="3"
-                        placeholder='{"manufacturer":"Tyco","size":"100mm"}'
-                      ></textarea>
-                      <div class="form-text">
-                        Temporary input. Next step: render dropdowns per AssetCode.
+                      <label class="form-label"><strong>Main Image</strong></label>
+                      <input type="file" name="main_image" class="form-control" accept="image/*">
+                      <div class="form-text">Shared image saved on the property asset.</div>
+                    </div>
+
+                    <div class="card mt-3">
+                      <div class="card-header">
+                        <strong>Additional Fields</strong>
+                      </div>
+                      <div class="card-body">
+                        <div id="jt_optional_fields_empty" class="text-muted">
+                          Select Equipment to show additional fields.
+                        </div>
+
+                        <div id="jt_optional_fields_wrap" class="row g-3" style="display:none;">
+                          {% for f in asset_field_payload %}
+                            <div class="col-12"
+                                 data-opt-field="1"
+                                 data-opt-slug="{{ f.slug }}"
+                                 style="display:none;">
+                              <label class="form-label"><strong>{{ f.label }}</strong></label>
+                              <select class="form-select" data-opt-select="1" style="display:none;"></select>
+                              <input type="text" class="form-control" data-opt-input="1" style="display:none;">
+                            </div>
+                          {% endfor %}
+                        </div>
+
+                        <div class="form-text mt-2">
+                          These fields are driven by your Equipment schema. Values are saved to the property asset.
+                        </div>
                       </div>
                     </div>
 
-                    <button type="submit" class="btn btn-primary">
+                    <button type="submit" class="btn btn-primary mt-3">
                       Add Asset
                     </button>
-
                   </form>
+
+                  {{ equipment_optional_map|json_script:"jtEquipmentOptionalMap" }}
+                  {{ asset_code_optional_map|json_script:"jtAssetCodeOptionalMap" }}
 
                   <script>
                     (function () {
+                      if (window.__jtAssetAddInit) return;
+                      window.__jtAssetAddInit = true;
+
                       const categoryEl = document.getElementById("jt_asset_category");
+                      const categoryInputEl = document.getElementById("jt_asset_category_ac");
+                      const categoryListEl = document.getElementById("jt_asset_category_list");
                       const equipmentEl = document.getElementById("jt_asset_equipment");
                       const assetCodeEl = document.getElementById("jt_asset_code_select");
+                      const assetCodeDisplayEl = document.getElementById("jt_asset_code_display");
+                      const assetCodeIdEl = document.getElementById("jt_asset_code_id");
 
-                      if (!categoryEl || !equipmentEl || !assetCodeEl) return;
+                      const optionalEmptyEl = document.getElementById("jt_optional_fields_empty");
+                      const optionalWrapEl = document.getElementById("jt_optional_fields_wrap");
+                      const optFields = Array.from(document.querySelectorAll("[data-opt-field='1']"));
 
-                      const allEquipmentOptions = Array.from(equipmentEl.querySelectorAll("option"))
-                        .filter(o => o.value !== "");
+                      if (!categoryEl || !equipmentEl || !assetCodeEl || !assetCodeDisplayEl || !assetCodeIdEl) return;
 
-                      const allAssetCodeOptions = Array.from(assetCodeEl.querySelectorAll("option"))
-                        .filter(o => o.value !== "");
+                      const allEquipmentOptions = Array.from(equipmentEl.querySelectorAll("option")).filter(o => o.value !== "");
+                      const allAssetCodeOptions = Array.from(assetCodeEl.querySelectorAll("option")).filter(o => o.value !== "");
+                      const allCategoryOptions = Array.from(categoryEl.querySelectorAll("option")).filter(o => o.value);
 
-                      function resetSelect(selectEl, placeholderText) {
-                        selectEl.value = "";
-                        Array.from(selectEl.querySelectorAll("option")).forEach((opt, idx) => {
-                          if (idx === 0) {
-                            opt.hidden = false;
-                          } else {
-                            opt.hidden = true;
-                          }
+                      const assetCodeOptionalMap = (function () {
+                        try {
+                          const el = document.getElementById("jtAssetCodeOptionalMap");
+                          return JSON.parse(el?.textContent || "{}");
+                        } catch (e) {
+                          return {};
+                        }
+                      })();
+
+                      function enableSelect(el, enabled) {
+                        el.disabled = !enabled;
+                        if (!enabled) el.value = "";
+                      }
+
+                      function resetSelect(el, placeholderText) {
+                        const opts = Array.from(el.querySelectorAll("option"));
+                        opts.forEach(o => { if (o.value) o.hidden = true; });
+                        if (placeholderText && el.options.length) el.options[0].textContent = placeholderText;
+                        el.value = "";
+                      }
+
+                      function clearFieldNamesAndValues(wrapper) {
+                        const sel = wrapper.querySelector("[data-opt-select='1']");
+                        const inp = wrapper.querySelector("[data-opt-input='1']");
+                        if (sel) { sel.name = ""; sel.innerHTML = ""; sel.value = ""; }
+                        if (inp) { inp.name = ""; inp.value = ""; }
+                      }
+
+                      function hideAllOptionalFields(msg) {
+                        optFields.forEach(el => {
+                          el.style.display = "none";
+                          clearFieldNamesAndValues(el);
                         });
-                        if (placeholderText) {
-                          selectEl.querySelector("option").textContent = placeholderText;
+                        if (optionalWrapEl) optionalWrapEl.style.display = "none";
+                        if (optionalEmptyEl) {
+                          optionalEmptyEl.textContent = msg || "Select Equipment to show additional fields.";
+                          optionalEmptyEl.style.display = "block";
                         }
                       }
 
-                      function enableSelect(selectEl, enabled) {
-                        selectEl.disabled = !enabled;
+                      function showOptionalFieldsForAssetCode(assetCodeId) {
+                        const opts = assetCodeOptionalMap[String(assetCodeId)] || {};
+                        const keys = Object.keys(opts || {});
+
+                        if (!keys.length) {
+                          hideAllOptionalFields("No additional fields for this asset code.");
+                          return;
+                        }
+
+                        if (optionalEmptyEl) optionalEmptyEl.style.display = "none";
+                        if (optionalWrapEl) optionalWrapEl.style.display = "flex";
+
+                        optFields.forEach(el => {
+                          const slug = el.getAttribute("data-opt-slug");
+                          const options = opts[slug] || null;
+
+                          clearFieldNamesAndValues(el);
+
+                          if (!options) {
+                            el.style.display = "none";
+                            return;
+                          }
+
+                          const sel = el.querySelector("[data-opt-select='1']");
+                          const inp = el.querySelector("[data-opt-input='1']");
+
+                          el.style.display = "block";
+
+                          if (Array.isArray(options) && options.length) {
+                            if (sel) {
+                              sel.style.display = "block";
+                              sel.name = "attr__" + slug;
+                              sel.innerHTML = "<option value=''>-- Select --</option>";
+                              options.forEach(v => {
+                                const o = document.createElement("option");
+                                o.value = v;
+                                o.textContent = v;
+                                sel.appendChild(o);
+                              });
+                            }
+                            if (inp) inp.style.display = "none";
+                          } else {
+                            if (inp) {
+                              inp.style.display = "block";
+                              inp.name = "attr__" + slug;
+                              inp.placeholder = "Enter " + slug.replace(/_/g, " ");
+                            }
+                            if (sel) sel.style.display = "none";
+                          }
+                        });
+                      }
+
+                      function syncCategoryFromInput() {
+                        const raw = (categoryInputEl?.value || "").trim().toLowerCase();
+                        let match = null;
+
+                        allCategoryOptions.forEach(opt => {
+                          if ((opt.textContent || "").trim().toLowerCase() === raw) {
+                            match = opt;
+                          }
+                        });
+
+                        if (match) {
+                          categoryEl.value = match.value;
+                          filterEquipmentByCategory(match.value);
+                          autoSelectAssetCode(match.value, equipmentEl.value || "");
+                        } else {
+                          categoryEl.value = "";
+                          filterEquipmentByCategory("");
+                          autoSelectAssetCode("", "");
+                        }
+                      }
+
+                      function renderCategoryDatalist(query) {
+                        if (!categoryListEl) return;
+                        const q = (query || "").toLowerCase();
+                        const opts = allCategoryOptions.filter(opt => (opt.textContent || "").toLowerCase().includes(q));
+                        categoryListEl.innerHTML = "<option value=''></option>";
+                        opts.forEach(opt => {
+                          const o = document.createElement("option");
+                          o.value = opt.textContent || "";
+                          categoryListEl.appendChild(o);
+                        });
+                      }
+
+                      function setAssetCodeDisplay(codeText, codeId) {
+                        assetCodeDisplayEl.value = codeText || "";
+                        assetCodeIdEl.value = codeId || "";
+                      }
+
+                      function autoSelectAssetCode(categoryId, equipmentId) {
+                        setAssetCodeDisplay("", "");
+                        if (!categoryId || !equipmentId) {
+                          hideAllOptionalFields();
+                          return;
+                        }
+
+                        const cId = String(categoryId);
+                        const eId = String(equipmentId);
+
+                        const matches = allAssetCodeOptions.filter(opt => {
+                          const oc = String(opt.getAttribute("data-category") || "");
+                          const oe = String(opt.getAttribute("data-equipment") || "");
+                          return oc === cId && oe === eId;
+                        });
+
+                        if (matches.length === 1) {
+                          const opt = matches[0];
+                          setAssetCodeDisplay(opt.textContent.trim(), opt.value);
+                          showOptionalFieldsForAssetCode(opt.value);
+                        } else if (matches.length > 1) {
+                          setAssetCodeDisplay("Multiple Asset Codes found", "");
+                          hideAllOptionalFields("Multiple asset codes found.");
+                        } else {
+                          setAssetCodeDisplay("No Asset Code for this selection", "");
+                          hideAllOptionalFields("No additional fields for this asset code.");
+                        }
                       }
 
                       function filterEquipmentByCategory(categoryId) {
                         resetSelect(equipmentEl, "-- Select --");
-                        resetSelect(assetCodeEl, "-- Select --");
-                        enableSelect(assetCodeEl, false);
+                        enableSelect(equipmentEl, false);
 
                         if (!categoryId) {
-                          enableSelect(equipmentEl, false);
                           return;
                         }
 
@@ -212,134 +469,321 @@
                         }
                       }
 
-                      function filterAssetCodes(categoryId, equipmentId) {
-                        resetSelect(assetCodeEl, "-- Select --");
-
-                        if (!categoryId || !equipmentId) {
-                          enableSelect(assetCodeEl, false);
-                          return;
-                        }
-
-                        let shown = 0;
-                        allAssetCodeOptions.forEach(opt => {
-                          const oc = opt.getAttribute("data-category");
-                          const oe = opt.getAttribute("data-equipment");
-                          const match = (oc === categoryId && oe === equipmentId);
-                          opt.hidden = !match;
-                          if (match) shown += 1;
-                        });
-
-                        enableSelect(assetCodeEl, true);
-
-                        if (shown === 0) {
-                          enableSelect(assetCodeEl, false);
-                          assetCodeEl.querySelector("option").textContent = "No Asset Codes for this selection";
-                        }
-                      }
-
-                      resetSelect(equipmentEl, "-- Select --");
-                      resetSelect(assetCodeEl, "-- Select --");
+                      renderCategoryDatalist("");
                       enableSelect(equipmentEl, false);
-                      enableSelect(assetCodeEl, false);
+                      hideAllOptionalFields();
+
+                      if (categoryInputEl) {
+                        categoryInputEl.addEventListener("input", function () {
+                          renderCategoryDatalist(categoryInputEl.value || "");
+                          syncCategoryFromInput();
+                        });
+                        categoryInputEl.addEventListener("change", syncCategoryFromInput);
+                      }
 
                       categoryEl.addEventListener("change", function () {
                         filterEquipmentByCategory(categoryEl.value || "");
+                        autoSelectAssetCode(categoryEl.value || "", equipmentEl.value || "");
                       });
 
                       equipmentEl.addEventListener("change", function () {
-                        filterAssetCodes(categoryEl.value || "", equipmentEl.value || "");
+                        autoSelectAssetCode(categoryEl.value || "", equipmentEl.value || "");
                       });
                     })();
                   </script>
 
                 {% endif %}
 
+                </div>
               </div>
             </div>
           </div>
 
-          <!-- LIST + LINK EXISTING -->
-          <div class="col-12 col-lg-7">
+          <!-- PROPERTY ASSETS -->
+          <div id="jtAssetsCol" class="col-12 col-lg-12">
+            {% if job_task.site_id %}
+              <div class="mb-2">
+                <a href="{% url 'properties:detail' job_task.site_id %}" class="text-decoration-none">
+                  {{ job_task.site.full_address }}
+                </a>
+              </div>
+            {% endif %}
+            <div class="d-flex flex-wrap gap-2 align-items-center mb-2">
+              <div class="flex-grow-1">
+                <input
+                  id="jt-asset-search"
+                  type="text"
+                  class="form-control form-control-sm"
+                  placeholder="Search assets (barcode, location, equipment, etc.)">
+              </div>
+              <div style="min-width: 200px;">
+                <select id="jt-asset-result-filter" class="form-select form-select-sm">
+                  <option value="">All results</option>
+                  <option value="pass">Pass</option>
+                  <option value="fail">Fail</option>
+                  <option value="access">Access</option>
+                  <option value="no_access">No Access</option>
+                  <option value="none">No result</option>
+                </select>
+              </div>
+            </div>
             <div class="card mb-3">
-              <div class="card-header d-flex justify-content-between">
+              <div class="card-header d-flex align-items-center">
                 <strong>Property Assets</strong>
-                <span class="text-muted small">
-                  {{ job_task.property_assets.count }} linked
-                </span>
+                <div class="flex-grow-1 text-center text-muted small">
+                  <strong>Total Assets Inspected</strong>
+                  - <strong id="jt-asset-count">{{ asset_inspected_count|default:0 }} of {{ asset_total_count|default:0 }}</strong>
+                </div>
               </div>
 
               <div class="card-body">
 
-                {% if job_task.property_assets.exists %}
+                {% if linked_assets %}
+                  <form id="bulkAssetForm"
+                        method="post"
+                        enctype="multipart/form-data"
+                        action="{% url 'job_tasks:bulk_update_asset_links' job_task.pk %}">
+                    {% csrf_token %}
+                  </form>
+
                   <div class="table-responsive mb-3">
                     <table class="table table-sm align-middle mb-0">
                       <thead class="table-light">
                         <tr>
                           <th>Asset</th>
-                          <th>Block</th>
-                          <th>Level</th>
-                          <th>Location</th>
-                          <th class="text-end"></th>
+                          <th style="min-width: 240px;">Location</th>
+                          <th>Result</th>
+                          <th style="width: 220px;">Images</th>
+                          <th class="text-end">Actions</th>
                         </tr>
                       </thead>
                       <tbody>
-                        {% for a in job_task.property_assets.all %}
-                          <tr>
+                        {% for row in linked_assets %}
+                          {% with a=row.asset link=row.link %}
+                            <tr data-asset-row="1"
+                              data-result="{{ row.result_for_job|default:'' }}"
+                              data-search="{{ a.get_asset_display|default:'' }} {{ a.barcode|default:'' }} {{ a.block|default:'' }} {{ a.level|default:'' }} {{ a.location|default:'' }} {{ a.attributes|default:'' }}">
                             <td>
                               <strong>{{ a.get_asset_display }}</strong>
+                              {% if a.barcode %}
+                                <div class="text-muted small">Barcode: {{ a.barcode }}</div>
+                              {% endif %}
                               {% if a.attributes %}
-                                <div class="text-muted small">{{ a.attributes }}</div>
+                                <div class="mt-1">
+                                  <button class="btn btn-link btn-sm p-0"
+                                          type="button"
+                                          data-bs-toggle="collapse"
+                                          data-bs-target="#assetAttrs{{ a.id }}"
+                                          aria-expanded="false"
+                                          aria-controls="assetAttrs{{ a.id }}">
+                                    Show attributes
+                                  </button>
+                                  <div class="collapse mt-1" id="assetAttrs{{ a.id }}">
+                                    {% if a.attributes.items %}
+                                      <div class="d-flex flex-wrap gap-1">
+                                        {% for key, value in a.attributes.items %}
+                                          <span class="badge text-bg-light">
+                                            {{ key|capfirst }}: {{ value }}
+                                          </span>
+                                        {% endfor %}
+                                      </div>
+                                    {% else %}
+                                      <div class="text-muted small">{{ a.attributes }}</div>
+                                    {% endif %}
+                                  </div>
+                                </div>
                               {% endif %}
                             </td>
-                            <td>{{ a.block }}</td>
-                            <td>{{ a.level }}</td>
-                            <td>{{ a.location }}</td>
-                            <td class="text-end">
-                              <form method="post"
-                                    action="{% url 'job_tasks:unlink_property_asset' job_task.pk a.pk %}"
-                                    onsubmit="return confirm('Unlink this asset from the job task?');">
-                                {% csrf_token %}
-                                <button class="btn btn-sm btn-outline-danger">
-                                  Unlink
+                            <td>
+                              <div>
+                                {% if a.block %}<strong>Block</strong> - {{ a.block }}{% endif %}{% if a.level %}{% if a.block %}, {% endif %}<strong>Level</strong> - {{ a.level }}{% endif %}
+                              </div>
+                              <div>
+                                <strong>Location</strong> - {{ a.location|default:"—" }}
+                              </div>
+                            </td>
+
+                            <td style="width: 180px;">
+                              <input type="hidden"
+                                     name="result_{{ a.id }}"
+                                     class="js-result-value"
+                                     form="bulkAssetForm"
+                                  value="{{ row.result_for_job|default:'' }}">
+                                <input type="hidden"
+                                  name="result_dirty_{{ a.id }}"
+                                  class="js-result-dirty"
+                                  form="bulkAssetForm"
+                                  value="0">
+
+                              {% if row.is_access %}
+                                <div class="form-check">
+                                  <input class="form-check-input js-result"
+                                         type="checkbox"
+                                         data-value="access"
+                                          form="bulkAssetForm"
+                                          {% if row.result_for_job == 'access' %}checked{% endif %}>
+                                  <label class="form-check-label">Access</label>
+                                </div>
+                                <div class="form-check">
+                                  <input class="form-check-input js-result"
+                                         type="checkbox"
+                                         data-value="no_access"
+                                          form="bulkAssetForm"
+                                          {% if row.result_for_job == 'no_access' %}checked{% endif %}>
+                                  <label class="form-check-label">No Access</label>
+                                </div>
+                              {% else %}
+                                <div class="form-check">
+                                  <input class="form-check-input js-result"
+                                         type="checkbox"
+                                         data-value="pass"
+                                          form="bulkAssetForm"
+                                          {% if row.result_for_job == 'pass' %}checked{% endif %}>
+                                  <label class="form-check-label">Pass</label>
+                                </div>
+                                <div class="form-check">
+                                  <input class="form-check-input js-result"
+                                         type="checkbox"
+                                         data-value="fail"
+                                          form="bulkAssetForm"
+                                          {% if row.result_for_job == 'fail' %}checked{% endif %}>
+                                  <label class="form-check-label">Fail</label>
+                                </div>
+                              {% endif %}
+                            </td>
+
+                            <td style="width: 220px;">
+                              {% if a.main_image %}
+                                <script type="application/json" id="assetImages{{ a.id }}">[]</script>
+                                <button type="button"
+                                        class="btn btn-sm btn-outline-secondary mb-2 js-view-images"
+                                        data-asset-id="{{ a.id }}"
+                                        data-image-count="{% if a.main_image %}{% if link %}{{ link.images.count|add:"1" }}{% else %}1{% endif %}{% else %}{% if link %}{{ link.images.count }}{% else %}0{% endif %}{% endif %}"
+                                        data-main-image-url="{{ a.main_image.url }}">
+                                  View images ({% if a.main_image %}{% if link %}{{ link.images.count|add:"1" }}{% else %}1{% endif %}{% else %}{% if link %}{{ link.images.count }}{% else %}0{% endif %}{% endif %})
                                 </button>
-                              </form>
+                              {% elif link and link.images.exists %}
+                                <script type="application/json" id="assetImages{{ a.id }}">
+                                  [
+                                  {% for img in link.images.all %}
+                                    {"id": {{ img.id }}, "url": "{{ img.image.url|escapejs }}"}{% if not forloop.last %},{% endif %}
+                                  {% endfor %}
+                                  ]
+                                </script>
+                                <button type="button"
+                                        class="btn btn-sm btn-outline-secondary mb-2 js-view-images"
+                                        data-asset-id="{{ a.id }}"
+                                        data-image-count="{{ link.images.count }}"
+                                        data-main-image-url="">
+                                  View images ({{ link.images.count }})
+                                </button>
+                              {% else %}
+                                <div class="text-muted small mb-2">No images</div>
+                              {% endif %}
+
+                              <input type="file"
+                                     name="images_{{ a.id }}"
+                                     accept="image/*"
+                                     multiple
+                                     class="form-control form-control-sm"
+                                     form="bulkAssetForm">
+                            </td>
+
+                            <td class="text-end">
+                              <div class="dropdown">
+                                <button class="btn btn-sm btn-outline-secondary dropdown-toggle"
+                                        type="button"
+                                        data-bs-toggle="dropdown"
+                                        aria-expanded="false">
+                                  Actions
+                                </button>
+                                <ul class="dropdown-menu dropdown-menu-end">
+                                  <li>
+                                    <a class="dropdown-item"
+                                       href="{% url 'properties:edit_property_asset' job_task.site_id a.pk %}?next={{ request.get_full_path|urlencode }}">
+                                      Modify Asset
+                                    </a>
+                                  </li>
+                                  <li><hr class="dropdown-divider"></li>
+                                  <li>
+                                    <form method="post"
+                                          action="{% url 'job_tasks:deactivate_property_asset' job_task.pk a.pk %}"
+                                          onsubmit="return confirm('Mark this asset inactive? It will be removed from this job task and future jobs.');">
+                                      {% csrf_token %}
+                                      <button class="dropdown-item">
+                                        Mark inactive
+                                      </button>
+                                    </form>
+                                  </li>
+                                  <li>
+                                    <form method="post"
+                                          action="{% url 'job_tasks:unlink_property_asset' job_task.pk a.pk %}"
+                                          onsubmit="return confirm('Unlink this asset from the job task?');">
+                                      {% csrf_token %}
+                                      <button class="dropdown-item text-danger">
+                                        Unlink
+                                      </button>
+                                    </form>
+                                  </li>
+                                </ul>
+                              </div>
                             </td>
                           </tr>
+                          {% endwith %}
                         {% endfor %}
                       </tbody>
                     </table>
                   </div>
+                  <button class="btn btn-primary position-fixed"
+                          style="right: 24px; bottom: 24px; z-index: 1030;"
+                          form="bulkAssetForm">
+                    Save all changes
+                  </button>
                 {% else %}
                   <div class="text-muted mb-3">
                     No assets linked yet.
                   </div>
                 {% endif %}
 
-                {% if available_property_assets %}
-                  <form method="post"
-                        action="{% url 'job_tasks:link_property_assets' job_task.pk %}">
-                    {% csrf_token %}
+                <div class="mt-2">
+                  <div class="mb-2"><strong>Link existing property assets</strong></div>
 
-                    <label class="form-label"><strong>Link existing property assets</strong></label>
+                  {% if available_property_assets %}
+                    <form method="post"
+                          action="{% url 'job_tasks:link_property_assets' job_task.pk %}">
+                      {% csrf_token %}
 
-                    {% for a in available_property_assets %}
-                      <div class="form-check">
+                      <div class="form-check mb-2">
                         <input class="form-check-input"
                                type="checkbox"
-                               name="asset_ids"
-                               value="{{ a.id }}"
-                               id="asset{{ a.id }}">
-                        <label class="form-check-label" for="asset{{ a.id }}">
-                          {{ a.get_asset_display }} — {{ a.location|default:"—" }}
+                               id="jt-link-select-all">
+                        <label class="form-check-label" for="jt-link-select-all">
+                          Select all
                         </label>
                       </div>
-                    {% endfor %}
 
-                    <button class="btn btn-sm btn-outline-primary mt-2">
-                      Link selected assets
-                    </button>
-                  </form>
-                {% endif %}
+                      {% for a in available_property_assets %}
+                        <div class="form-check">
+                          <input class="form-check-input"
+                                 type="checkbox"
+                                 name="asset_ids"
+                                 value="{{ a.id }}"
+                                 id="asset{{ a.id }}"
+                                 data-link-asset="1">
+                          <label class="form-check-label" for="asset{{ a.id }}">
+                            {{ a.get_asset_display }} — {{ a.location|default:"—" }}
+                          </label>
+                        </div>
+                      {% endfor %}
+
+                      <button class="btn btn-sm btn-outline-primary mt-2">
+                        Link selected assets
+                      </button>
+                    </form>
+                  {% else %}
+                    <div class="text-muted mb-2">No unlinked property assets available.</div>
+                  {% endif %}
+                </div>
 
                 <hr class="my-3">
 
@@ -360,9 +804,315 @@
     </div>
   </div>
 
-  <div class="col-lg-4">
+  <div class="col-lg-4" id="jtSidebar">
     {% include "job_tasks/_jobtask_sidebar.html" %}
   </div>
 </div>
+
+<div class="modal fade" id="jtImageModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-lg modal-dialog-scrollable">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Asset images</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <div class="d-flex flex-column gap-2" data-image-list></div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Close</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  (function () {
+    function updateAssetCountsAndFilter() {
+      const rows = Array.from(document.querySelectorAll("[data-asset-row='1']"));
+      const searchEl = document.getElementById("jt-asset-search");
+      const filterEl = document.getElementById("jt-asset-result-filter");
+      const query = (searchEl ? searchEl.value : "").trim().toLowerCase();
+      const filterVal = filterEl ? filterEl.value : "";
+
+      let totalVisible = 0;
+      let inspectedVisible = 0;
+
+      rows.forEach(function (row) {
+        const searchText = String(row.getAttribute("data-search") || "").toLowerCase();
+        const resultVal = String(row.getAttribute("data-result") || "");
+
+        const matchesQuery = !query || searchText.includes(query);
+        const matchesFilter = !filterVal
+          || (filterVal === "none" && !resultVal)
+          || (filterVal !== "none" && resultVal === filterVal);
+
+        const visible = matchesQuery && matchesFilter;
+        row.style.display = visible ? "" : "none";
+
+        if (visible) {
+          totalVisible += 1;
+          if (resultVal) inspectedVisible += 1;
+        }
+      });
+
+      const countEl = document.getElementById("jt-asset-count");
+      if (countEl) {
+        countEl.textContent = inspectedVisible + " of " + totalVisible;
+      }
+    }
+
+    document.querySelectorAll(".js-result").forEach(function (checkbox) {
+      checkbox.addEventListener("change", function () {
+        const row = checkbox.closest("tr");
+        if (!row) return;
+        const hidden = row.querySelector(".js-result-value");
+        const dirty = row.querySelector(".js-result-dirty");
+        const group = row.querySelectorAll(".js-result");
+
+        if (checkbox.checked) {
+          group.forEach(function (other) {
+            if (other !== checkbox) other.checked = false;
+          });
+          if (hidden) hidden.value = checkbox.getAttribute("data-value") || "";
+        } else if (hidden) {
+          hidden.value = "";
+        }
+
+        if (hidden) {
+          row.setAttribute("data-result", hidden.value || "");
+        }
+
+        updateAssetCountsAndFilter();
+
+        if (dirty) dirty.value = "1";
+      });
+    });
+
+    const searchEl = document.getElementById("jt-asset-search");
+    if (searchEl) {
+      searchEl.addEventListener("input", updateAssetCountsAndFilter);
+    }
+
+    const filterEl = document.getElementById("jt-asset-result-filter");
+    if (filterEl) {
+      filterEl.addEventListener("change", updateAssetCountsAndFilter);
+    }
+
+    updateAssetCountsAndFilter();
+
+    const linkSelectAll = document.getElementById("jt-link-select-all");
+    if (linkSelectAll) {
+      linkSelectAll.addEventListener("change", function () {
+        document.querySelectorAll("[data-link-asset='1']").forEach(function (box) {
+          if (box instanceof HTMLInputElement) {
+            box.checked = linkSelectAll.checked;
+          }
+        });
+      });
+    }
+
+    const sidebar = document.getElementById("jtSidebar");
+    const mainCol = document.getElementById("jtMain");
+    function toggleSidebarForTab(tabId) {
+      if (!sidebar) return;
+      const isAssets = (tabId === "tab-assets");
+      sidebar.style.display = isAssets ? "none" : "";
+      if (mainCol) {
+        mainCol.classList.toggle("col-lg-8", !isAssets);
+        mainCol.classList.toggle("col-lg-12", isAssets);
+      }
+    }
+
+    function activateTabFromHash() {
+      const hash = window.location.hash || "";
+      if (!hash) return;
+      const hashTab = document.querySelector("[data-bs-target='" + hash + "']");
+      if (!hashTab) return;
+      if (window.bootstrap && window.bootstrap.Tab) {
+        const tab = new window.bootstrap.Tab(hashTab);
+        tab.show();
+      } else {
+        hashTab.click();
+      }
+    }
+
+    function syncSidebarToActiveTab() {
+      const activeTab = document.querySelector(".nav-link.active");
+      if (!activeTab) return;
+      const target = activeTab.getAttribute("data-bs-target");
+      if (target && target.startsWith("#")) {
+        toggleSidebarForTab(target.slice(1));
+      }
+    }
+
+    document.addEventListener("DOMContentLoaded", function () {
+      activateTabFromHash();
+      setTimeout(syncSidebarToActiveTab, 0);
+    });
+
+    document.querySelectorAll("[data-bs-toggle='tab']").forEach(function (tab) {
+      tab.addEventListener("shown.bs.tab", function (event) {
+        const target = event.target.getAttribute("data-bs-target");
+        if (target && target.startsWith("#")) {
+          toggleSidebarForTab(target.slice(1));
+        }
+      });
+    });
+
+    const imageModalEl = document.getElementById("jtImageModal");
+    const imageListEl = imageModalEl ? imageModalEl.querySelector("[data-image-list]") : null;
+    let imageModal = null;
+
+    function renderImageList(assetId, countText, mainImageUrl) {
+      if (!imageListEl || !imageModalEl) return;
+      imageListEl.innerHTML = "";
+      const dataScript = document.getElementById("assetImages" + assetId);
+      let images = [];
+      if (dataScript) {
+        try {
+          images = JSON.parse(dataScript.textContent || "[]");
+        } catch (err) {
+          images = [];
+        }
+      }
+
+      const title = imageModalEl.querySelector(".modal-title");
+      if (title) title.textContent = "Asset images" + (countText ? " (" + countText + ")" : "");
+
+      const mainWrap = document.createElement("div");
+      mainWrap.className = "border rounded p-2";
+
+      const label = document.createElement("div");
+      label.className = "text-muted small mb-2";
+      label.textContent = "Main image";
+
+      if (mainImageUrl) {
+        const imgLink = document.createElement("a");
+        imgLink.href = mainImageUrl;
+        imgLink.target = "_blank";
+        imgLink.rel = "noopener";
+
+        const img = document.createElement("img");
+        img.src = mainImageUrl;
+        img.alt = "Main asset image";
+        img.className = "rounded";
+        img.style.height = "90px";
+        img.style.width = "140px";
+        img.style.objectFit = "cover";
+        imgLink.appendChild(img);
+        mainWrap.appendChild(imgLink);
+      } else {
+        const emptyMain = document.createElement("div");
+        emptyMain.className = "text-muted";
+        emptyMain.textContent = "No main image set.";
+        mainWrap.appendChild(emptyMain);
+      }
+
+      const replaceWrap = document.createElement("div");
+      replaceWrap.className = "mt-2";
+
+      const file = document.createElement("input");
+      file.type = "file";
+      file.name = "main_image_" + assetId;
+      file.accept = "image/*";
+      file.className = "form-control form-control-sm";
+      file.setAttribute("form", "bulkAssetForm");
+
+      const check = document.createElement("div");
+      check.className = "form-check mt-2";
+
+      const checkInput = document.createElement("input");
+      checkInput.type = "checkbox";
+      checkInput.className = "form-check-input";
+      checkInput.name = "replace_main_image_" + assetId;
+      checkInput.value = "1";
+      checkInput.id = "replaceMain" + assetId;
+      checkInput.setAttribute("form", "bulkAssetForm");
+
+      const checkLabel = document.createElement("label");
+      checkLabel.className = "form-check-label";
+      checkLabel.setAttribute("for", checkInput.id);
+      checkLabel.textContent = "Replace main image for this asset";
+
+      check.appendChild(checkInput);
+      check.appendChild(checkLabel);
+
+      replaceWrap.appendChild(file);
+      replaceWrap.appendChild(check);
+
+      mainWrap.appendChild(label);
+      mainWrap.appendChild(replaceWrap);
+
+      imageListEl.appendChild(mainWrap);
+
+      if (!images.length) {
+        const empty = document.createElement("div");
+        empty.className = "text-muted mt-2";
+        empty.textContent = "No additional images found.";
+        imageListEl.appendChild(empty);
+        return;
+      }
+
+      images.forEach(function (img) {
+        const row = document.createElement("div");
+        row.className = "d-flex align-items-center gap-3";
+
+        const link = document.createElement("a");
+        link.href = img.url;
+        link.target = "_blank";
+        link.rel = "noopener";
+
+        const thumb = document.createElement("img");
+        thumb.src = img.url;
+        thumb.alt = "Asset image";
+        thumb.className = "rounded";
+        thumb.style.height = "70px";
+        thumb.style.width = "110px";
+        thumb.style.objectFit = "cover";
+        link.appendChild(thumb);
+
+        const checkWrap = document.createElement("div");
+        checkWrap.className = "form-check";
+
+        const input = document.createElement("input");
+        input.type = "checkbox";
+        input.className = "form-check-input";
+        input.name = "remove_image_ids_" + assetId;
+        input.value = img.id;
+        input.setAttribute("form", "bulkAssetForm");
+        input.id = "removeImg" + img.id;
+
+        const label = document.createElement("label");
+        label.className = "form-check-label";
+        label.setAttribute("for", input.id);
+        label.textContent = "Remove";
+
+        checkWrap.appendChild(input);
+        checkWrap.appendChild(label);
+
+        row.appendChild(link);
+        row.appendChild(checkWrap);
+        imageListEl.appendChild(row);
+      });
+    }
+
+    document.addEventListener("click", function (event) {
+      const target = event.target;
+      if (!(target instanceof HTMLElement)) return;
+      if (!target.classList.contains("js-view-images")) return;
+
+      const assetId = target.getAttribute("data-asset-id");
+      const countText = target.getAttribute("data-image-count") || "";
+      const mainImageUrl = target.getAttribute("data-main-image-url") || "";
+      if (!assetId) return;
+      renderImageList(assetId, countText, mainImageUrl);
+      if (!imageModal && imageModalEl && window.bootstrap && window.bootstrap.Modal) {
+        imageModal = new window.bootstrap.Modal(imageModalEl);
+      }
+      if (imageModal) imageModal.show();
+    });
+  })();
+</script>
 
 {% endblock %}

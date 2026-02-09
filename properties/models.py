@@ -2,6 +2,7 @@ from django.db import models, transaction
 from django.db.models import Max
 from django.contrib.contenttypes.fields import GenericForeignKey
 from django.contrib.contenttypes.models import ContentType
+from django.conf import settings
 from customers.models import Customer
 import uuid
 
@@ -43,6 +44,26 @@ class Property(models.Model):
     city = models.CharField(max_length=100)
     state = models.CharField(max_length=50, blank=True)
     post_code = models.CharField(max_length=20, blank=True)
+
+    # --- Coordinate lock / validation (NEW, safe + optional) ---
+    # Use DecimalField for stable storage and predictable formatting.
+    latitude = models.DecimalField(
+        max_digits=9, decimal_places=6, null=True, blank=True, db_index=True
+    )
+    longitude = models.DecimalField(
+        max_digits=9, decimal_places=6, null=True, blank=True, db_index=True
+    )
+    coords_validated = models.BooleanField(default=False, db_index=True)
+    coords_validated_at = models.DateTimeField(null=True, blank=True)
+
+    # Optional traceability (no impact unless you use it)
+    coords_validated_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="validated_properties",
+    )
 
     active_status = models.BooleanField(default=True)
 
@@ -136,6 +157,21 @@ class Property(models.Model):
             return f"{self.building_name} ({self.site_id})"
         return self.building_name
 
+    # --- Helpers for templates / UI ---
+    @property
+    def has_locked_coords(self) -> bool:
+        return bool(self.coords_validated and self.latitude is not None and self.longitude is not None)
+
+    @property
+    def coords_pair(self):
+        """
+        Returns (lat, lng) as strings when present, else (None, None).
+        Useful for building URLs safely in templates.
+        """
+        if self.latitude is None or self.longitude is None:
+            return (None, None)
+        return (str(self.latitude), str(self.longitude))
+
     def __str__(self):
         return self.building_name
 
@@ -176,6 +212,12 @@ class PropertyAsset(models.Model):
 
     # Stores optional dropdown selections (varies per asset type)
     attributes = models.JSONField(default=dict, blank=True)
+
+    # Active/inactive flag for reuse in future jobs
+    is_active = models.BooleanField(default=True)
+
+    # Shared primary image for this asset
+    main_image = models.ImageField(upload_to="properties/assets/", blank=True, null=True)
 
     # --- "AssetCode" link (generic, no hard dependency on a specific app label) ---
     asset_code_content_type = models.ForeignKey(
